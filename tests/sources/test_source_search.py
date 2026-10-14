@@ -185,7 +185,8 @@ def test_only_channels_of_the_registry_can_be_configured() -> None:
 def test_a_post_found_outside_is_external_evidence_and_a_lead_only() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            200, content=page(("ovdinfolive", 7, "Сидорову предъявили обвинение по статье 280"))
+            200,
+            content=page(("ovdinfolive", 7, "Сидорову предъявили обвинение по статье 280 УК РФ")),
         )
 
     retriever = SourceSearchRetriever(search_over(httpx.MockTransport(handler)), source="telegram")

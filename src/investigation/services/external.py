@@ -15,6 +15,7 @@ from pymorphy3 import MorphAnalyzer
 
 from ingestion.search import SourceSearch, SourceSearchQuery
 from investigation.models import EvidenceItem, InvestigationQuery, RetrieverCapabilities
+from investigation.services.charges import CHARGE
 from investigation.services.retrieval import TEXT_FACTS
 
 EXTERNAL_RESULTS = 10
@@ -187,6 +188,26 @@ def names(text: str, name: str) -> bool:
 # in the pipeline; a word it does not know is left as written.
 _TERM_PREFIX = 5
 _LETTERS_ONLY = re.compile(r"[^\W\d_]+(?:\s+[^\W\d_]+)*", re.UNICODE)
+# A charge has to be part of a claim about this person, rather than a legal reference
+# which happened to be in the same article.  The words before the article matter: they
+# cover both «Марию обвинили …» and «Задержана Мария. Ей вменяют …», while refusing an
+# article about Ivan followed by an interview with Maria.
+_CHARGE_ASSERTION = re.compile(
+    r"\b(?:"
+    r"обвин\w*|вмен\w*|подозрев\w*|осужд\w*|приговор\w*|фигурант\w*"
+    r"|возбуд\w*(?:\s+[^\W\d_]+){0,3}\s+дел\w*"
+    r")",
+    re.IGNORECASE,
+)
+_CHARGE_CONTEXT = re.compile(
+    r"\b(?:"
+    r"обвин\w*|вмен\w*|подозрев\w*|осужд\w*|приговор\w*|фигурант\w*"
+    r"|возбуд\w*(?:\s+[^\W\d_]+){0,3}\s+дел\w*"
+    r"|дел\w*\s+по|по\s+(?:стать\w*|ч)"
+    r")",
+    re.IGNORECASE,
+)
+_CHARGE_NAME_WORDS = 25
 
 
 @lru_cache(maxsize=1)
@@ -232,6 +253,36 @@ def tells(text: str, terms: tuple[str, ...]) -> bool:
                 return True
             continue
         if all(any(_same_word(_lemma(word), seen) for seen in held) for word in wanted.split()):
+            return True
+    return False
+
+
+def _charge_lead(text: str, name: str) -> bool:
+    """Whether a Criminal Code article is an accusation about ``name``.
+
+    Deliberately do not split sentences here: abbreviations such as ``ч.`` and ``ст.``
+    and initials contain dots.  For every shared, strict Criminal Code spelling, inspect
+    the preceding 25 words.  A subject normally appears before its accusation; requiring
+    that direction prevents a later, unrelated person in the same sentence from borrowing
+    somebody else's article.
+    """
+    words = list(_WORD.finditer(text))
+    if not words:
+        return False
+    for article in CHARGE.finditer(text):
+        article_word = next(
+            (index for index, word in enumerate(words) if word.end() > article.start()),
+            len(words),
+        )
+        start = max(0, article_word - _CHARGE_NAME_WORDS)
+        context = text[words[start].start() : article.start()]
+        # «По статье» alone is a legal reference, not an assertion about a person.
+        # It may support an accusation verb but cannot replace one.
+        if (
+            names(context, name)
+            and _CHARGE_ASSERTION.search(context)
+            and _CHARGE_CONTEXT.search(context)
+        ):
             return True
     return False
 
@@ -294,5 +345,9 @@ class SourceSearchRetriever:
         words is sent: a text that merely names the person would otherwise count as a
         lead, and a scenario stops looking for a fact it has a lead for."""
         if query.fact is None or (query.terms and not tells(text, query.terms)):
+            return ()
+        if query.fact == "charges" and not _charge_lead(text, query.name):
+            # A bare «ст. 360 УК» in a story about somebody else must not close a
+            # follow-up.  Extraction may still refuse the candidate afterwards.
             return ()
         return (query.fact,)

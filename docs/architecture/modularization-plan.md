@@ -306,7 +306,9 @@ class IngestionService:
     async def discover(
         self, source: str, *, limit: int, stop_at_known: bool = False
     ) -> list[SourceReference]: ...
-    def open(self, source: str) -> AsyncContextManager[IngestionPipeline[SqlAlchemyPersistenceResult]]: ...
+    def open(
+        self, source: str
+    ) -> AsyncContextManager[IngestionPipeline[SqlAlchemyPersistenceResult]]: ...
 
 
 class ProcessingService:

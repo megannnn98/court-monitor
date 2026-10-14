@@ -1,32 +1,50 @@
-"""The web as one more configured source of the read-only search: Tavily.
+"""The web as one more configured source of the read-only search: Tavily, over its own
+official remote MCP server.
 
 A commercial search API stands in for what a project's own channels do not cover —
 the open web, read as its results. What keeps it the same kind of object as
-`TelegramChannelSearch`: one address (the API's own endpoint, a constant), the words
-travel only in the body, nothing is stored, extracted or grouped, and the full text
-comes from the answer itself rather than from a fetch this code makes. That last part
-is why there is no page loader here: the backend only ever talks to `api.tavily.com`,
-so there is no URL for a found text to steer it at (ADR 0027). What arrives is Markdown,
-and not every result carries a full text at all; where it does not, the snippet is what
-is kept.
+`TelegramChannelSearch`: one address (the MCP endpoint, a constant), the words travel
+only in the body of a tool call, nothing is stored, extracted or grouped, and the full
+text comes from the answer itself rather than from a fetch this code makes. There is no
+page loader here: the backend only ever talks to `mcp.tavily.com`, so there is no URL for
+a found text to steer it at (ADR 0027).
 
-The key (`TAVILY_API_KEY`) lives in the object and nowhere else: not in `repr`, not in
-an exception, not in a log line, not in a stored run. The words asked are never logged
-either — only the source and how many results came back.
+**Why MCP and not REST.** Court Monitor is an MCP *client* here: the official Python SDK
+(`mcp`) speaks Streamable HTTP to `https://mcp.tavily.com/mcp`, authenticating with
+`Authorization: Bearer <TAVILY_API_KEY>`. The key is a header, never a query parameter and
+never part of an address, and the key is kept out of `repr`, out of an exception, out of a
+log line and out of a stored run.
+
+**What the server really publishes** (measured with a live handshake on 2026-10-14,
+`tavily-mcp` 4.0.4, protocol `2025-11-25`): the tools `tavily_search`,
+`tavily_extract`, `tavily_crawl`, `tavily_map`, `tavily_research`. `tavily_search`
+publishes `query`, `max_results`, `search_depth`, `topic`, `time_range`, `include_images`,
+`include_image_descriptions`, `include_raw_content`, `include_domains`,
+`exclude_domains`, `country`, `include_favicon`, `start_date`, `end_date`,
+`exact_match` — and nothing else. In particular it does **not** publish
+`include_published_date` or `include_usage`, so results carry no publication date and the
+answer reports no credits. Nothing here is assumed: the arguments are filtered against
+the schema the server itself published in `list_tools()`, and a parameter it does not
+publish is simply not sent.
+
+The words asked are never logged — only the source, how many results came back, and what
+the run's own request id was.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from urllib.parse import unquote
+from typing import Any
+from urllib.parse import unquote, urlsplit
 
-import httpx
+import httpx2
 
 from ingestion.search import (
     DEFAULT_ATTEMPTS,
@@ -38,17 +56,33 @@ from ingestion.search import (
     SearchAnswerError,
     SourceSearchQuery,
 )
-from monitor_core.retry import retry_async, transient_http_error
+from monitor_core.retry import retry_async
 
 logger = logging.getLogger("sources")
 
-# The one address this search ever asks. A constant, never built from a found text.
-TAVILY_URL = "https://api.tavily.com/search"
+# The one address this search ever asks. A constant, never built from a found text and
+# never carrying the key.
+TAVILY_MCP_URL = "https://mcp.tavily.com/mcp"
 TAVILY_API_KEY_ENV = "TAVILY_API_KEY"
+# The tool the server publishes for a search. Verified by `list_tools()` on every call:
+# a server that stopped publishing it is a failed search, not a silent one.
+SEARCH_TOOL = "tavily_search"
 # Tavily answers 0–20 results; a search asks for what its own retriever wanted.
 MAX_RESULTS = 10
-# «basic» is one credit; «advanced» is two and buys a slower, longer crawl.
+# «basic» is one credit; «advanced» is two and buys a slower, longer crawl. Which one is
+# used is a setting, and the benchmark measures both (see `docs/wiki/Pipeline.md`).
 SEARCH_DEPTH = "basic"
+SEARCH_DEPTH_ENV = "INVESTIGATION_WEB_SEARCH_DEPTH"
+SEARCH_DEPTHS = ("basic", "advanced", "fast", "ultra-fast")
+# A `basic` search answers in under a second and a page's own text runs to a megabyte and
+# more, so the SDK's default 1 MiB cap on one server-sent event is raised: without it a
+# search that did return the page fails while reading the answer.
+MAX_SSE_EVENT_BYTES = 32 * 1024 * 1024
+# A session is opened and closed inside the one search that uses it. The SDK's context
+# managers end in the task that entered them, and the graph runs every search in a task of
+# its own, so a session could not be shared between searches without failing on exit. Its
+# cost is one `initialize` round trip, measured at ~0.5 s against a ~2 s search.
+HANDSHAKE_NOTE = " mcp_session=short_lived"
 # How much of the text before the words stand is kept, so the excerpt opens at a
 # sentence rather than mid-word. The retriever filters on the name, so it must be
 # inside the excerpt, not at its very first character.
@@ -62,27 +96,115 @@ _ENDING = 3
 _MIN_STEM = 3
 
 
-class TavilySearch:
-    """Tavily's search API, asked by words: one more `SourceSearch` (ADR 0027)."""
+class _AskedWordsOutOfLogs(logging.Filter):
+    """The MCP client logs every call's arguments at DEBUG, and the arguments of a search
+    are the words a person was looked up by. The investigation's own telemetry writes a
+    hash and a length of a query and never the query (ADR 0027); the transport's log must
+    not be the place the name comes back. Only the `query` argument is taken out."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(_without_asked_words(value) for value in record.args)
+        # The SDK writes most of its call lines already formatted, so the words are in the
+        # message itself and not in the arguments.
+        if isinstance(record.msg, str):
+            record.msg = str(_without_asked_words(record.msg))
+        return True
+
+
+_ASKED = re.compile(r"(['\"]query['\"]\s*:\s*)['\"][^'\"]*['\"]")
+_WHOLE_QUERY = re.compile(r"\bquery=[^&,\s]*", re.IGNORECASE)
+
+
+def _without_asked_words(value: object) -> object:
+    """The `query` of a call, wherever the SDK put it: the tool's arguments are nested
+    inside the request, and the answer echoes the query back as text."""
+    if isinstance(value, Mapping):
+        return {
+            key: ("<query>" if key == "query" else _without_asked_words(held))
+            for key, held in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_without_asked_words(held) for held in value]
+    if isinstance(value, str):
+        return _WHOLE_QUERY.sub("query=<query>", _ASKED.sub(r"\1'<query>'", value))
+    return value
+
+
+def _quiet_mcp_words() -> None:
+    """Put the filter on every logger of the MCP client, whoever creates it later.
+
+    A filter belongs to the logger whose record it reads, not to an ancestor of it, so
+    each of the SDK's own loggers gets one. They are created as the SDK is imported,
+    which is where this is done.
+    """
+    for name in list(logging.Logger.manager.loggerDict):
+        if name == "mcp" or name.startswith("mcp."):
+            logger_ = logging.getLogger(name)
+            if not any(isinstance(kept, _AskedWordsOutOfLogs) for kept in logger_.filters):
+                logger_.addFilter(_AskedWordsOutOfLogs())
+
+
+class TavilyMcpError(RuntimeError):
+    """The official Tavily MCP server could not answer one search.
+
+    Raised for a transport failure, a protocol failure and an answer that is not a list
+    of results alike, so the investigation turns all three into one warning and one
+    failed search. The key is never in its message: only the exception's class reaches a
+    log, and this text reaches none.
+    """
+
+
+def _transient(exc: BaseException) -> bool:
+    """Whether the failure is worth asking the server again.
+
+    A timeout, a refused, reset or half-open connection, a rate limit and Tavily's own
+    server errors are transient. A rejected key, a tool the server does not publish, an
+    answer whose shape is not a search's and every protocol failure are not: the same
+    call answers the same way again, and a retry that cannot succeed only spends the run's
+    time and the plan's searches.
+    """
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError, ConnectionError, OSError)):
+        return True
+    if isinstance(exc, (httpx2.TimeoutException, httpx2.NetworkError, httpx2.RemoteProtocolError)):
+        return True
+    code = getattr(getattr(exc, "response", None), "status_code", None)
+    return isinstance(code, int) and (code in {408, 409, 425, 429} or code >= 500)
+
+
+class TavilyMcpSearch:
+    """Tavily's official remote MCP server, asked by words: one more `SourceSearch`.
+
+    A session per search, opened and closed inside the search's own task (§HANDSHAKE_NOTE).
+    """
 
     def __init__(
         self,
         api_key: str,
         *,
-        client: httpx.AsyncClient | None = None,
+        url: str = TAVILY_MCP_URL,
+        search_tool: str = SEARCH_TOOL,
+        search_depth: str = SEARCH_DEPTH,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         attempts: int = DEFAULT_ATTEMPTS,
         base_delay_seconds: float = DEFAULT_BASE_DELAY_SECONDS,
+        client: Any | None = None,
     ) -> None:
         if not api_key.strip():
             raise ValueError("a Tavily search needs an API key")
+        if search_depth not in SEARCH_DEPTHS:
+            raise ValueError(f"search_depth must be one of {', '.join(SEARCH_DEPTHS)}")
         if attempts < 1:
             raise ValueError("attempts must be at least 1")
         self._api_key = api_key
+        self._url = url
+        self._search_tool = search_tool
+        self._search_depth = search_depth
         # None: a client per search, closed with it — a search runs on whatever event
-        # loop its caller has. A caller's own client is the caller's to close.
+        # loop its caller has, and the SDK's client is bound to the one it is made on.
+        # A caller's own client is the caller's to close.
         self._client = client
-        self.timeout = httpx.Timeout(timeout_seconds)
+        self._timeout = timeout_seconds
         self._attempts = attempts
         self._base_delay_seconds = base_delay_seconds
 
@@ -98,17 +220,28 @@ class TavilySearch:
     def title(self) -> str:
         return "Tavily"
 
-    def request_body(
+    @property
+    def search_depth(self) -> str:
+        return self._search_depth
+
+    @property
+    def timeout_seconds(self) -> float:
+        """What one search may take, whole or not: the run's own search timeout."""
+        return self._timeout
+
+    # ── what is asked ────────────────────────────────────────────────────────────
+
+    def request_arguments(
         self,
         text: str,
         *,
         limit: int,
-        published_from: datetime | None = None,
-        published_to: datetime | None = None,
+        published_from: datetime | None,
+        published_to: datetime | None,
     ) -> dict[str, object]:
-        """What is asked of Tavily: the words in the body, the address a constant."""
-        # A query that keeps to a window of dates is asked within it: days, as Tavily
-        # reads them.
+        """Every argument this search would like to send, before the schema has a say."""
+        # A query that keeps to a window of dates is asked within it: days, as the server
+        # documents them.
         window = {
             key: day.date().isoformat()
             for key, day in (("start_date", published_from), ("end_date", published_to))
@@ -118,89 +251,202 @@ class TavilySearch:
             **window,
             "query": text,
             "max_results": max(0, min(limit, MAX_RESULTS)),
-            "search_depth": SEARCH_DEPTH,
+            "search_depth": self._search_depth,
             # The page's own text, so no second fetch of what the answer already read.
-            # `true`, not the «text» the documentation lists beside «markdown»: the
-            # string answers an empty raw_content, and an empty one costs the retriever
-            # most of its results — a snippet does not name the person.
             "include_raw_content": True,
-            "include_published_date": True,
-            # Free, and it says what this search cost in the answer itself.
-            "include_usage": True,
-            # The answer is a summary written by a model: this search reads texts.
-            "include_answer": False,
         }
+
+    @staticmethod
+    def tool_arguments(
+        schema: Mapping[str, Any], wanted: Mapping[str, object]
+    ) -> dict[str, object]:
+        """What of `wanted` the server's own schema accepts.
+
+        The tool is described by `list_tools()`, not remembered: a parameter the published
+        schema does not list is not sent, whether it is absent, deprecated or one this
+        code has not heard of.
+        """
+        properties = schema.get("properties")
+        if not isinstance(properties, Mapping):
+            return dict(wanted)
+        return {key: value for key, value in wanted.items() if key in properties}
+
+    # ── the session ──────────────────────────────────────────────────────────────
+
+    def _http_client(self) -> tuple[Any, bool]:
+        """The SDK's own HTTP client, carrying the key as a bearer header and nothing
+        else, or a caller's own client."""
+        if self._client is not None:
+            return self._client, False
+        return (
+            httpx2.AsyncClient(
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "User-Agent": "court-monitor-investigation/1.0",
+                },
+                timeout=self._timeout,
+            ),
+            True,
+        )
+
+    async def _session(self, client: Any) -> Any:
+        """One MCP session over `client`: connected, initialized, and closed with it.
+
+        Both context managers are kept, not just what they yield: the SDK's session and
+        transport hold an anyio task group, and a context manager that nothing refers to
+        is collected — which closes the generator it wrapped and cancels the search that
+        is still using it.
+        """
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamable_http_client
+
+        _quiet_mcp_words()
+        transport = streamable_http_client(
+            self._url, http_client=client, max_sse_event_size=MAX_SSE_EVENT_BYTES
+        )
+        streams = await transport.__aenter__()
+        session = ClientSession(streams[0], streams[1])
+        await session.__aenter__()
+        try:
+            await session.initialize()
+        except BaseException:
+            await session.__aexit__(None, None, None)
+            await transport.__aexit__(None, None, None)
+            raise
+        return _Session(session, transport)
+
+    async def tools(self) -> list[Mapping[str, Any]]:
+        """What the server publishes: every tool with the schema it published it under."""
+        client, own = self._http_client()
+        try:
+            found: list[Mapping[str, Any]] = await self._with_session(client, self._read_tools)
+            return found
+        finally:
+            if own:
+                await client.aclose()
+
+    async def _with_session(self, client: Any, work: Any) -> Any:
+        held = await self._session(client)
+        try:
+            return await work(held)
+        finally:
+            await held.aclose()
+
+    async def _read_tools(self, held: _Session) -> list[Mapping[str, Any]]:
+        listed = await held.session.list_tools()
+        return [
+            {"name": tool.name, "description": tool.description, "input_schema": tool.input_schema}
+            for tool in listed.tools
+        ]
 
     async def search(self, query: SourceSearchQuery) -> list[ExternalEvidence]:
         text = " ".join(query.text.split())[:MAX_QUERY_LENGTH]
         if not text:
             return []
 
-        async def ask(client: httpx.AsyncClient) -> httpx.Response:
-            response = await client.post(
-                TAVILY_URL,
-                json=self.request_body(
-                    text,
-                    limit=query.limit,
-                    published_from=query.published_from,
-                    published_to=query.published_to,
-                ),
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "User-Agent": "court-monitor-investigation/1.0",
-                },
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response
+        def asked(held: _Session) -> Any:
+            return self._call(held, text, query)
 
-        async def with_retry(client: httpx.AsyncClient) -> httpx.Response:
-            return await retry_async(
-                lambda: ask(client),
+        client, own = self._http_client()
+        found: list[ExternalEvidence]
+        request_id: str | None
+        try:
+            found, request_id = await retry_async(
+                lambda: self._with_session(client, asked),
                 attempts=self._attempts,
-                should_retry=transient_http_error,
+                should_retry=_transient,
                 delay_seconds=lambda failures: self._base_delay_seconds * (2 ** (failures - 1)),
                 sleep=asyncio.sleep,
             )
-
-        if self._client is not None:
-            response = await with_retry(self._client)
-        else:
-            async with httpx.AsyncClient() as client:
-                response = await with_retry(client)
-        found = self.parse(response, text=text, limit=query.limit)
+        except asyncio.CancelledError:
+            raise
+        except SearchAnswerError:
+            # The server answered and what it answered is not a search's. Retrying buys
+            # the same answer, so this one is raised as it is: the investigation turns it
+            # into a warning and a failed search, not into a lost run.
+            raise
+        except Exception as exc:
+            # Only the class of the cause is ever logged: a transport error carries the
+            # request it made, and the request carries the person's name.
+            raise TavilyMcpError(
+                f"{self.source}: the search failed ({type(exc).__name__})"
+            ) from exc
+        finally:
+            if own:
+                await client.aclose()
         # Never the words: a person's name does not stand in the process log.
         logger.info(
-            "event=source_search source=%s results=%d%s",
+            "event=source_search source=%s results=%d%s%s",
             self.source,
             len(found),
-            _credits(response),
+            HANDSHAKE_NOTE,
+            f" request_id={request_id}" if request_id else "",
         )
         return found
 
-    def parse(self, response: httpx.Response, *, text: str, limit: int) -> list[ExternalEvidence]:
+    async def _call(self, held: _Session, text: str, query: SourceSearchQuery) -> Any:
+        """One search inside one session: the tool the server publishes, then its answer.
+
+        The tool is chosen from `list_tools()` and not from what this code remembers, and
+        the arguments from the schema that tool published under.
+        """
+        published = await self._read_tools(held)
+        tool = next((entry for entry in published if entry["name"] == self._search_tool), None)
+        if tool is None:
+            raise SearchAnswerError(
+                f"{self.source}: the server publishes no {self._search_tool}; "
+                f"it publishes {', '.join(sorted(str(e['name']) for e in published)) or 'nothing'}"
+            )
+        schema = tool.get("input_schema")
+        arguments = self.tool_arguments(
+            schema if isinstance(schema, Mapping) else {},
+            self.request_arguments(
+                text,
+                limit=query.limit,
+                published_from=query.published_from,
+                published_to=query.published_to,
+            ),
+        )
+        answered = await held.session.call_tool(self._search_tool, arguments)
+        body = self.answer_of(answered)
+        return self.parse(body, text=text, limit=query.limit), _request_id(body)
+
+    @staticmethod
+    def answer_of(answered: Any) -> Mapping[str, Any]:
+        """The answer of a tool call, as a mapping that holds a list of results.
+
+        Tavily's server sends that list as structured content and repeats the same object
+        as one text block. A server that has no structured output sends the object in the
+        text block alone; the SDK then wraps a tool's string return in a single
+        `{"result": …}` key, which is unwrapped here rather than read as the answer.
+
+        A call the server itself marked failed, and a text that is not a search's, are
+        both a failed search.
+        """
+        if getattr(answered, "is_error", False):
+            raise SearchAnswerError("tavily: the search tool answered with a failure")
+        for candidate in _candidates(answered):
+            if _holds_results(candidate):
+                return candidate
+        raise SearchAnswerError("tavily: the answer holds no list of results")
+
+    # ── what came back ───────────────────────────────────────────────────────────
+
+    def parse(self, body: Mapping[str, Any], *, text: str, limit: int) -> list[ExternalEvidence]:
         """The results as Tavily shows them: each with the site's own text, opened at the
         words that were asked for."""
-        try:
-            body = response.json()
-        except ValueError as exc:
-            # Not the answer of a search API: a failed search, not an empty one.
-            raise SearchAnswerError(
-                f"{self.source}: not an answer of a search API "
-                f"({response.headers.get('content-type', '')[:40] or 'no content type'})"
-            ) from exc
-        if not isinstance(body, dict) or not isinstance(body.get("results"), list):
+        if not _holds_results(body):
             raise SearchAnswerError(f"{self.source}: the answer holds no list of results")
         found: list[ExternalEvidence] = []
         for entry in body["results"]:
-            if not isinstance(entry, dict):
+            if not isinstance(entry, Mapping):
                 continue
             item = self._evidence(entry, text=text)
             if item is not None:
                 found.append(item)
         return found[:limit]
 
-    def _evidence(self, entry: Mapping[str, object], *, text: str) -> ExternalEvidence | None:
+    def _evidence(self, entry: Mapping[str, Any], *, text: str) -> ExternalEvidence | None:
         url = str(entry.get("url") or "").strip()
         if not url.startswith(("http://", "https://")):
             return None
@@ -211,31 +457,89 @@ class TavilySearch:
             return None
         return ExternalEvidence(
             source=self.source,
-            source_name=httpx.URL(url).host or self.title,
+            source_name=_host(url) or self.title,
             external_id=_canonical(url),
             url=url,
-            title=(str(entry["title"]).strip() or None) if entry.get("title") else None,
             text=body,
+            # The published tool takes no `include_published_date`: a result it returns
+            # has no date. One that carries a date all the same is read as the REST API
+            # wrote it, so a server that starts publishing them is used as it stands.
             published_at=_published_at(entry.get("published_date")),
+            title=(str(entry["title"]).strip() or None) if entry.get("title") else None,
         )
+
+
+class _Session:
+    """The SDK's session and its transport, closed in the reverse order they were opened,
+    both inside the task that opened them."""
+
+    def __init__(self, session: Any, transport: Any) -> None:
+        self.session = session
+        self._transport = transport
+
+    async def aclose(self) -> None:
+        for held in (self.session, self._transport):
+            try:
+                await held.__aexit__(None, None, None)
+            except Exception:  # noqa: BLE001 - closing costs nothing; a live socket does
+                logger.debug("event=mcp_session_close_failed error=%s", type(held).__name__)
+
+
+def _holds_results(body: object) -> bool:
+    """Whether this mapping is a search's answer: it holds a list of results."""
+    return isinstance(body, Mapping) and isinstance(body.get("results"), list)
+
+
+def _candidates(answered: Any) -> Iterator[Mapping[str, Any]]:
+    """What a tool call could have answered with, best first: the structured content, then
+    every text block decoded. A tool that returned one string has its answer under a
+    single key of the structured content, so what that string holds is read too."""
+    structured = getattr(answered, "structured_content", None)
+    decoded_blocks: list[Mapping[str, Any]] = []
+    if isinstance(structured, Mapping) and structured:
+        yield structured
+    for block in getattr(answered, "content", ()) or ():
+        raw = getattr(block, "text", None)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        try:
+            decoded = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(decoded, Mapping):
+            decoded_blocks.append(decoded)
+    yield from decoded_blocks
+    for wrapper in (structured, *decoded_blocks):
+        if not isinstance(wrapper, Mapping) or len(wrapper) != 1:
+            continue
+        only = next(iter(wrapper.values()))
+        if not isinstance(only, str):
+            continue
+        try:
+            unwrapped = json.loads(only)
+        except ValueError:
+            continue
+        if isinstance(unwrapped, Mapping):
+            yield unwrapped
+
+
+def _host(url: str) -> str | None:
+    return urlsplit(url).hostname
+
+
+def _request_id(body: Mapping[str, Any]) -> str | None:
+    value = body.get("request_id")
+    return value if isinstance(value, str) and value else None
 
 
 def _canonical(url: str) -> str:
     """The address as one site writes it alike: the id the same page has everywhere."""
-    value = url.split("#", 1)[0].split("?", 1)[0].lower()
-    value = value.removeprefix("https://").removeprefix("http://").removeprefix("www.")
-    return value.rstrip("/")
-
-
-def _credits(response: httpx.Response) -> str:
-    """What the search cost, as it is written in its own log line: Tavily says so in
-    the answer when asked (`include_usage`), free. Nothing when it does not."""
-    try:
-        body = response.json()
-        credits = body.get("usage", {}).get("credits") if isinstance(body, dict) else None
-    except ValueError:
-        return ""
-    return f" credits={credits}" if isinstance(credits, (int, float)) else ""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    # The path is left as the site writes it: it may be case-sensitive, and two addresses
+    # that differ in the case of a path are two pages however alike they look.
+    path = parts.path.rstrip("/")
+    return f"{host}{path}"
 
 
 # The full text comes as Markdown. A menu of links is a chain of addresses, and those
@@ -328,8 +632,9 @@ def _places(folded: str, stem: str) -> Iterator[int]:
 
 
 def _published_at(value: object) -> datetime | None:
-    """When the page was published, as Tavily writes it: RFC 2822
-    («Tue, 21 Jul 2026 00:00:00 GMT»), not the ISO the tests were written with."""
+    """When the page was published, as a date is written: RFC 2822 («Tue, 21 Jul 2026
+    00:00:00 GMT»), or ISO. The published MCP tool asks for no date and returns none, so
+    this is read only when a result carries one."""
     if not isinstance(value, str) or not value.strip():
         return None
     raw = value.strip()
@@ -345,11 +650,39 @@ def _published_at(value: object) -> datetime | None:
 
 
 def tavily_search_from_env(
-    env: Mapping[str, str] | None = None, *, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
-) -> TavilySearch | None:
-    """The web search of the run, if a key is configured; None without `TAVILY_API_KEY`."""
+    env: Mapping[str, str] | None = None,
+    *,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    attempts: int = DEFAULT_ATTEMPTS,
+) -> TavilyMcpSearch | None:
+    """The web search of the run, if a key is configured; None without `TAVILY_API_KEY`.
+
+    Without a key there is no search at all: nothing is built, nothing is connected, and
+    a run that asked the web asks nothing and says so.
+    """
     env = os.environ if env is None else env
     api_key = (env.get(TAVILY_API_KEY_ENV) or "").strip()
     if not api_key:
         return None
-    return TavilySearch(api_key, timeout_seconds=timeout_seconds)
+    depth = (env.get(SEARCH_DEPTH_ENV) or "").strip() or SEARCH_DEPTH
+    if depth not in SEARCH_DEPTHS:
+        raise ValueError(f"{SEARCH_DEPTH_ENV} must be one of {', '.join(SEARCH_DEPTHS)}")
+    return TavilyMcpSearch(
+        api_key,
+        search_depth=depth,
+        timeout_seconds=timeout_seconds,
+        attempts=attempts,
+    )
+
+
+__all__ = [
+    "MAX_RESULTS",
+    "SEARCH_DEPTH",
+    "SEARCH_DEPTH_ENV",
+    "SEARCH_TOOL",
+    "TAVILY_API_KEY_ENV",
+    "TAVILY_MCP_URL",
+    "TavilyMcpError",
+    "TavilyMcpSearch",
+    "tavily_search_from_env",
+]

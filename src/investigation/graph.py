@@ -1,7 +1,7 @@
 """The investigation as a LangGraph state graph: explicit nodes, one bounded loop.
 
     START ─┬→ intake ─┬─ nothing to look up ──────────────────────────────→ report → END
-           │          └→ plan ─→ search × task ─→ merge_evidence → coverage
+           │          └→ plan ─→ search × task ─→ merge_evidence → extract_charges → coverage
            │                       ↑   in parallel, bounded             │
            │                       │                     enough, no new │
            │                       └── follow_up ←── gaps ──  search,  ─┴→ report
@@ -133,6 +133,7 @@ def build_graph(
     builder.add_node("plan", _node(nodes.plan, tools))
     builder.add_node("search", search)
     builder.add_node(MERGE, _node(nodes.merge_evidence, tools))
+    builder.add_node("extract_charges", _node(nodes.extract_charges, tools))
     builder.add_node("coverage", _node(nodes.coverage, tools))
     builder.add_node("follow_up", _node(nodes.follow_up, tools))
     builder.add_node("report", _node(nodes.report, tools))
@@ -141,7 +142,8 @@ def build_graph(
     builder.add_conditional_edges("intake", after_intake, ["plan", "report"])
     builder.add_conditional_edges("plan", fan_out, ["search", MERGE])
     builder.add_edge("search", MERGE)
-    builder.add_edge(MERGE, "coverage")
+    builder.add_edge(MERGE, "extract_charges")
+    builder.add_edge("extract_charges", "coverage")
     builder.add_conditional_edges("coverage", after_coverage, ["follow_up", "report"])
     builder.add_conditional_edges("follow_up", fan_out, ["search", MERGE])
     builder.add_edge("report", END)

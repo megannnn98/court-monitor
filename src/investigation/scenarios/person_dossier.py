@@ -278,7 +278,19 @@ class PersonDossierScenario:
             )
         conflicts.extend(mixed_identity(evidence))
 
-        looked_up = {lead for item in evidence for lead in item.leads}
+        # A charge lead from the web is only a candidate text: a page the open web found
+        # is not the database, and nothing has read it yet. It does not close a follow-up
+        # until the grounded extractor has confirmed a concrete УК value from it — and by
+        # then the value is a fact, not a lead, and closes the gap by itself. A charge the
+        # database's own search found keeps closing the follow-up as it always has: that is
+        # the pipeline's own text about its own publications, read by rules, and changing
+        # it would change a mode that does not use the web at all.
+        looked_up = {
+            lead
+            for item in evidence
+            for lead in item.leads
+            if not (lead == "charges" and item.source_type == "external")
+        }
         follow_ups: list[InvestigationQuery] = []
         for fact in missing:
             if fact in looked_up or fact not in FOLLOW_UP_TERMS:

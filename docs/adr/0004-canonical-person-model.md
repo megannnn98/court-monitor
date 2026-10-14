@@ -243,7 +243,7 @@ def merge_persons(source_id: int, target_id: int, reason: str):
     move_events(source_id, target_id)
 
     # Mark source as merged
-    update_person(source_id, status='merged', merged_into_id=target_id)
+    update_person(source_id, status="merged", merged_into_id=target_id)
 
     # Record the merge
     create_merge_record(source_id, target_id, reason)

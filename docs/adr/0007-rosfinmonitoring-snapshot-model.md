@@ -37,6 +37,7 @@ class RosfinmonitoringSnapshot:
     fetched_at: datetime  # When we fetched it
     raw_content: bytes | None  # Original content (optional)
 
+
 class RosfinmonitoringEntry:
     id: int
     snapshot_id: int  # Which snapshot this belongs to
@@ -51,6 +52,7 @@ class RosfinmonitoringEntry:
     inclusion_date: datetime | None
     status: str  # active/removed/unknown
     raw_data: dict  # Original data from source
+
 
 class RosfinMatchResult:
     person_id: int  # Canonical person
@@ -256,7 +258,7 @@ def match_person(person_id: int, snapshot_id: int):
         result = RosfinMatchResult(
             person_id=person_id,
             snapshot_id=snapshot_id,
-            status='matched',
+            status="matched",
             confidence=best[1],
             matched_entry_id=best[0].id,
             matched_entry_name=best[0].full_name,
@@ -268,7 +270,7 @@ def match_person(person_id: int, snapshot_id: int):
         result = RosfinMatchResult(
             person_id=person_id,
             snapshot_id=snapshot_id,
-            status='not_matched',
+            status="not_matched",
             confidence=0.0,
             matched_at=datetime.now(UTC),
         )
@@ -329,10 +331,10 @@ def compare_snapshots(snapshot_id_1: int, snapshot_id_2: int):
     removed = [e for e in entries_1 if e.full_name not in entries_2]
 
     return {
-        'added': added,
-        'removed': removed,
-        'snapshot_1_count': len(entries_1),
-        'snapshot_2_count': len(entries_2),
+        "added": added,
+        "removed": removed,
+        "snapshot_1_count": len(entries_1),
+        "snapshot_2_count": len(entries_2),
     }
 ```
 
@@ -356,9 +358,9 @@ def check_for_changes(person_id: int, old_snapshot_id: int, new_snapshot_id: int
     old_match = get_match(person_id, old_snapshot_id)
     new_match = get_match(person_id, new_snapshot_id)
 
-    if old_match.status == 'not_matched' and new_match.status == 'matched':
+    if old_match.status == "not_matched" and new_match.status == "matched":
         notify(f"Person {person_id} was added to Rosfinmonitoring")
-    elif old_match.status == 'matched' and new_match.status == 'not_matched':
+    elif old_match.status == "matched" and new_match.status == "not_matched":
         notify(f"Person {person_id} was removed from Rosfinmonitoring")
 ```
 

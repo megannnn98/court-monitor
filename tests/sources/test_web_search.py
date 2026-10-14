@@ -1,97 +1,198 @@
-"""The web as one more source of the read-only search: Tavily, over a fake transport.
-No site is asked.
+"""The web as one more source of the read-only search: Tavily over its own remote MCP.
 
-What is held: one address, the words only in the body; the page's own text opens at the
-words, so a name is inside the excerpt; a result without an address or text is nothing;
-a rate limit and a server failure are tried again, a bad key and a bad query are not;
-an answer that is not a search answer is a failed search; the key and the words stand in
-no log line, no `repr` and no exception. The live check is opt-in:
-`INVESTIGATION_LIVE_SEARCH=1` with `TAVILY_API_KEY`.
+No site is asked and no key is needed: the server is an in-process MCP server built by
+the official SDK and reached by the official SDK's client (`tests/sources/mcp_server.py`),
+so the handshake, the tool listing, the tool call and the answer's two shapes are the
+real ones and only the network between the ends is gone.
+
+What is held: the one endpoint with the key as a bearer header and the words only in the
+body of a tool call; the tool and the arguments come from the schema the server publishes
+rather than from what this code remembers; the page's own text opens at the words, so a
+name is inside the excerpt; a result without an address or text is nothing; a timeout and
+a dropped connection are tried again, a rejected key and an answer that is not a search's
+are not; the key and the words stand in no log line, no `repr` and no exception. The live
+check is opt-in: `INVESTIGATION_LIVE_SEARCH=1` with `TAVILY_API_KEY`.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from datetime import UTC, datetime
+from typing import Any
 
-import httpx
 import pytest
+from sources.mcp_server import ENDPOINT, KEY, fake_tavily_mcp, page, results
 
 from ingestion.search import SearchAnswerError, SourceSearchQuery
-from ingestion.web_search import TAVILY_URL, TavilySearch, tavily_search_from_env
+from ingestion.web_search import (
+    TAVILY_API_KEY_ENV,
+    TAVILY_MCP_URL,
+    TavilyMcpError,
+    TavilyMcpSearch,
+    tavily_search_from_env,
+)
 from investigation.services.external import names
 
-KEY = "tvly-a-key-nobody-must-see"
 # Read when the module is loaded: the fixture that keeps every test off the network takes
 # the key out of the environment before a test runs, the live one included.
-LIVE_KEY = os.environ.get("TAVILY_API_KEY") if os.environ.get("INVESTIGATION_LIVE_SEARCH") else None
+LIVE_KEY = (
+    os.environ.get(TAVILY_API_KEY_ENV) if os.environ.get("INVESTIGATION_LIVE_SEARCH") else None
+)
 NAME = "Мария Бонцлер"
 WORDS = f"{NAME} статья"
 
 
-def answer(*results: dict[str, object]) -> httpx.Response:
-    return httpx.Response(200, json={"results": list(results)})
+def search_over(client: Any) -> TavilyMcpSearch:
+    return TavilyMcpSearch(KEY, url=ENDPOINT, client=client, base_delay_seconds=0)
 
 
-def page(
-    *,
-    title: str = "Суд над адвокатом",
-    raw: str | None = "Городской суд оставил Марию Бонцлер под стражей.",
-    published: str | None = "Tue, 21 Jul 2026 00:00:00 GMT",
-    url: str = "https://news.example.test/boncler-1",
-    content: str = "Кратко: Мария Бонцлер арестована.",
-) -> dict[str, object]:
-    found: dict[str, object] = {"title": title, "url": url, "content": content}
-    if raw is not None:
-        found["raw_content"] = raw
-    if published is not None:
-        found["published_date"] = published
-    return found
+async def ask(client: Any, *answers: Any, **options: Any) -> list[Any]:
+    """One search against the fake server, inside the server's own lifetime."""
+    async with fake_tavily_mcp(list(answers) or [results()], **options) as (held, _recorder):
+        return await search_over(held).search(SourceSearchQuery(WORDS, limit=5))
 
 
-def search_over(handler: httpx.MockTransport) -> TavilySearch:
-    return TavilySearch(KEY, client=httpx.AsyncClient(transport=handler), base_delay_seconds=0)
+def run_search(client: Any, *answers: Any, **options: Any) -> list[Any]:
+    return asyncio.run(ask(client, *answers, **options))
 
 
-def test_a_search_asks_the_one_address_with_the_key_in_the_header_and_the_words_in_the_body() -> (
-    None
-):
-    asked: list[httpx.Request] = []
+# ── the transport ───────────────────────────────────────────────────────────────
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        asked.append(request)
-        return answer(page())
 
-    asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5)))
+def test_the_search_asks_the_one_mcp_endpoint_with_the_key_as_a_bearer_header() -> None:
+    async def go() -> tuple[Any, list[dict[str, Any]]]:
+        async with fake_tavily_mcp([results(page())]) as (client, recorder):
+            found = await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
+            return found, recorder.calls
 
-    (request,) = asked
-    assert str(request.url) == TAVILY_URL == "https://api.tavily.com/search"
-    assert request.method == "POST"
-    assert request.headers["Authorization"] == f"Bearer {KEY}"
-    body = json.loads(request.content)
-    assert body == {
-        "query": WORDS,
-        "max_results": 5,
-        "search_depth": "basic",
-        "include_raw_content": True,
-        "include_published_date": True,
-        "include_answer": False,
-        "include_usage": True,
-    }
-    # The words never become an address: there is no query string to carry them.
-    assert WORDS not in str(request.url)
+    found, calls = asyncio.run(go())
+
+    assert TAVILY_MCP_URL == "https://mcp.tavily.com/mcp"
+    assert len(found) == 1
+    # The key is a header, never an address, and the words are in the arguments.
+    assert calls == [
+        {
+            "query": WORDS,
+            "max_results": 5,
+            "search_depth": "basic",
+            "include_raw_content": True,
+            "start_date": "",
+            "end_date": "",
+        }
+    ]
+
+
+def test_the_key_is_sent_as_a_bearer_header_and_the_words_never_become_an_address() -> None:
+    async def go() -> list[str | None]:
+        async with fake_tavily_mcp([results(page())]) as (client, recorder):
+            await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
+            return recorder.authorizations
+
+    assert set(asyncio.run(go())) == {f"Bearer {KEY}"}
+
+
+def test_the_tool_is_the_one_the_server_publishes_and_no_other_is_asked() -> None:
+    async def go() -> list[str]:
+        async with fake_tavily_mcp([results(page())]) as (client, _recorder):
+            published = await search_over(client).tools()
+        return [str(tool["name"]) for tool in published]
+
+    assert asyncio.run(go()) == ["tavily_search"]
+
+
+def test_a_server_that_publishes_no_search_tool_is_a_failed_search_and_says_what_there_is() -> None:
+    with pytest.raises(SearchAnswerError) as failure:
+        run_search(None, results(page()), publish_tool=False)
+
+    assert "tavily_search" in str(failure.value)
+
+
+def test_a_server_that_answers_with_a_different_tool_is_refused() -> None:
+    async def go() -> list[Any]:
+        async with fake_tavily_mcp([results(page())], tool="tavily_crawl") as (client, _r):
+            return await TavilyMcpSearch(
+                KEY, url=ENDPOINT, client=client, base_delay_seconds=0
+            ).search(SourceSearchQuery(WORDS, limit=5))
+
+    with pytest.raises(SearchAnswerError, match="tavily_search"):
+        asyncio.run(go())
+
+
+# ── the arguments, read off the published schema ─────────────────────────────────
+
+
+def test_an_argument_the_server_does_not_publish_is_not_sent() -> None:
+    wanted = {"query": "x", "max_results": 5, "include_usage": True, "topic": "general"}
+
+    assert TavilyMcpSearch.tool_arguments(
+        {"properties": {"query": {}, "max_results": {}}, "additionalProperties": False}, wanted
+    ) == {"query": "x", "max_results": 5}
+    # A schema that says nothing about its properties takes what it is given.
+    assert TavilyMcpSearch.tool_arguments({}, wanted) == wanted
+
+
+def test_a_window_of_dates_is_asked_of_tavily_as_its_first_and_last_day() -> None:
+    async def go() -> list[dict[str, Any]]:
+        async with fake_tavily_mcp([results(page()), results(page())]) as (client, recorder):
+            search = search_over(client)
+            await search.search(
+                SourceSearchQuery(
+                    WORDS,
+                    limit=5,
+                    published_from=datetime(2026, 8, 6, 9, 30, tzinfo=UTC),
+                    published_to=datetime(2026, 11, 4, 9, 30, tzinfo=UTC),
+                )
+            )
+            await search.search(
+                SourceSearchQuery(WORDS, published_from=datetime(2026, 8, 6, tzinfo=UTC))
+            )
+            return recorder.calls
+
+    bounded, open_ended = asyncio.run(go())
+    assert (bounded["start_date"], bounded["end_date"]) == ("2026-08-06", "2026-11-04")
+    assert open_ended["start_date"] == "2026-08-06" and open_ended["end_date"] == ""
+
+
+def test_the_asked_limit_is_asked_for_and_no_more_than_tavily_answers_is_kept() -> None:
+    async def go() -> tuple[int, list[dict[str, Any]]]:
+        pages = [page(url=f"https://news.example.test/{number}") for number in range(10)]
+        async with fake_tavily_mcp([results(*pages)]) as (client, recorder):
+            found = await search_over(client).search(SourceSearchQuery("x", limit=3))
+            return len(found), recorder.calls
+
+    kept, calls = asyncio.run(go())
+    assert kept == 3
+    assert calls[0]["max_results"] == 3
+
+    async def capped() -> list[dict[str, Any]]:
+        async with fake_tavily_mcp([results()]) as (client, recorder):
+            await search_over(client).search(SourceSearchQuery("x", limit=50))
+            return recorder.calls
+
+    # Tavily answers no more than twenty; the search asks for what it wants, capped.
+    assert asyncio.run(capped())[0]["max_results"] == 10
+
+
+def test_the_depth_of_the_search_is_a_setting_and_is_sent_as_it_is() -> None:
+    async def go() -> list[dict[str, Any]]:
+        async with fake_tavily_mcp([results(page())]) as (client, recorder):
+            await TavilyMcpSearch(
+                KEY, url=ENDPOINT, client=client, search_depth="advanced", base_delay_seconds=0
+            ).search(SourceSearchQuery(WORDS, limit=5))
+            return recorder.calls
+
+    assert asyncio.run(go())[0]["search_depth"] == "advanced"
+    with pytest.raises(ValueError, match="search_depth"):
+        TavilyMcpSearch(KEY, search_depth="deep")
+
+
+# ── what came back ───────────────────────────────────────────────────────────────
 
 
 def test_the_answer_is_read_as_external_evidence_of_the_site_that_published_it() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page())
-
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
+    (item,) = run_search(None, results(page(published_date="Tue, 21 Jul 2026 00:00:00 GMT")))
 
     assert item.source == "tavily"
     assert item.source_name == "news.example.test"
@@ -100,8 +201,19 @@ def test_the_answer_is_read_as_external_evidence_of_the_site_that_published_it()
     assert item.external_id == "news.example.test/boncler-1"
     assert item.title == "Суд над адвокатом"
     assert "Бонцлер" in item.text
-    # Tavily writes the date as a mail header, not as ISO: it is read either way.
+    # Tavily writes a date as a mail header, not as ISO: it is read either way.
     assert item.published_at == datetime(2026, 7, 21, tzinfo=UTC)
+
+
+def test_an_answer_the_server_sends_as_structured_content_and_as_a_text_block_reads_the_same() -> (
+    None
+):
+    structured = run_search(None, results(page()))
+    in_text = run_search(None, results(page()), text_only=True)
+
+    assert [(i.url, i.text, i.title) for i in structured] == [
+        (i.url, i.text, i.title) for i in in_text
+    ]
 
 
 @pytest.mark.parametrize(
@@ -110,6 +222,8 @@ def test_the_answer_is_read_as_external_evidence_of_the_site_that_published_it()
         ("Tue, 21 Jul 2026 00:00:00 GMT", datetime(2026, 7, 21, tzinfo=UTC)),
         ("2026-09-25T07:00:14Z", datetime(2026, 9, 25, 7, 0, 14, tzinfo=UTC)),
         ("2026-09-25", datetime(2026, 9, 25, tzinfo=UTC)),
+        # The published tool asks for no date and returns none: a web page of the
+        # investigation is undated evidence, and is kept as it is rather than dropped.
         (None, None),
         ("вчера", None),
         (12345, None),
@@ -118,13 +232,7 @@ def test_the_answer_is_read_as_external_evidence_of_the_site_that_published_it()
 def test_a_published_date_is_read_in_the_format_tavily_writes_it(
     published: str | None, read: datetime | None
 ) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(published=published))
-
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
-
+    (item,) = run_search(None, results(page(published_date=published)))
     assert item.published_at == read
 
 
@@ -132,14 +240,8 @@ def test_the_text_is_the_pages_own_and_opens_at_the_words_asked_for() -> None:
     filler = "Меню. Подписка. Реклама. " * 200
     raw = f"{filler}Заголовок публикации. {NAME} обжаловала приговор. Хвост новости."
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(raw=raw))
+    (item,) = run_search(None, results(page(raw_content=raw)))
 
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
-
-    # The site's own header is cut: what is kept opens just before the words.
     assert len(item.text) < len(raw)
     assert NAME in item.text
     # The retriever shows 600 characters: the name must be inside them, not behind the
@@ -160,12 +262,7 @@ def test_the_excerpt_is_anchored_where_the_asked_words_stand_together() -> None:
         "Марию Бонцлер оставили под стражей по статье 280. " + "Подробности дела. " * 300
     )
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(raw=raw))
-
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
+    (item,) = run_search(None, results(page(raw_content=raw)))
 
     # Declined («Марию», «по статье») and thousands of characters further down: the name
     # is still inside what the retriever filters by and what the model reads of it.
@@ -191,17 +288,10 @@ def test_the_markup_of_a_page_is_taken_off_before_the_excerpt_is_chosen() -> Non
         + "Подробности дела. " * 300
     )
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(raw=raw))
+    (item,) = run_search(None, results(page(raw_content=raw)))
 
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
-
-    # What a link says is the site's own words and stays; where it goes does not.
     assert "http" not in item.text and "](" not in item.text
     assert "#" not in item.text and "Логотип издания" not in item.text
-    # And the menu of twenty links did not cost the name its place in the window.
     assert names(item.text, NAME)
     assert names(item.text[:600], NAME)
     assert "по статье 280" in item.text
@@ -219,18 +309,11 @@ def test_what_a_page_left_of_its_markup_is_taken_off() -> None:
         "И%D0%BA%D0%B8%D0%BF%D0%B5%D0%B4%D0%B8%D1%8F: известный российский юрист"
     )
 
-    (item,) = asyncio.run(
-        search_over(
-            httpx.MockTransport(
-                lambda request: httpx.Response(200, json={"results": [page(raw=raw)]})
-            )
-        ).search(SourceSearchQuery(WORDS, limit=5))
-    )
+    (item,) = run_search(None, results(page(raw_content=raw)))
 
     text = item.text
     assert "**" not in text and "cite_note" not in text and "%D0" not in text
     assert '")' not in text
-    # The words a reader reads survive: the menu's, the links', the bold one.
     assert "Новая газета" in text and "Функция (математика)" in text
     assert "Википедия" in text
 
@@ -238,12 +321,7 @@ def test_what_a_page_left_of_its_markup_is_taken_off() -> None:
 def test_a_word_asked_for_is_found_where_it_stands_in_another_case_of_the_noun() -> None:
     raw = "Ничего общего. " * 400 + "Мария Бонцлер: по части 3 статьи 280 УК РФ." + " Хвост. " * 300
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(raw=raw))
-
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
+    (item,) = run_search(None, results(page(raw_content=raw)))
 
     assert names(item.text, NAME)
     assert names(item.text[:600], NAME)
@@ -251,102 +329,29 @@ def test_a_word_asked_for_is_found_where_it_stands_in_another_case_of_the_noun()
 
 
 def test_without_the_full_text_the_snippet_is_taken() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(raw=None, content="Мария Бонцлер арестована по статье 280."))
+    (item,) = run_search(None, results(page(raw_content=None, content="Мария Бонцлер арестована.")))
 
-    (item,) = asyncio.run(
-        search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS, limit=5))
-    )
-
-    assert item.text == "Мария Бонцлер арестована по статье 280."
-
-
-def test_a_window_of_dates_is_asked_of_tavily_as_its_first_and_last_day() -> None:
-    asked: list[dict[str, object]] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        asked.append(json.loads(request.content))
-        return answer(page())
-
-    search = search_over(httpx.MockTransport(handler))
-    asyncio.run(
-        search.search(
-            SourceSearchQuery(
-                WORDS,
-                limit=5,
-                published_from=datetime(2026, 8, 6, 9, 30, tzinfo=UTC),
-                published_to=datetime(2026, 11, 4, 9, 30, tzinfo=UTC),
-            )
-        )
-    )
-    asyncio.run(
-        search.search(SourceSearchQuery(WORDS, published_from=datetime(2026, 8, 6, tzinfo=UTC)))
-    )
-
-    bounded, open_ended = asked
-    assert (bounded["start_date"], bounded["end_date"]) == ("2026-08-06", "2026-11-04")
-    assert open_ended["start_date"] == "2026-08-06" and "end_date" not in open_ended
-
-
-def test_the_asked_limit_is_asked_for_and_no_more_is_kept() -> None:
-    asked: list[int] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        asked.append(json.loads(request.content)["max_results"])
-        return answer(*[page(url=f"https://news.example.test/{number}") for number in range(10)])
-
-    assert (
-        len(
-            asyncio.run(
-                search_over(httpx.MockTransport(handler)).search(SourceSearchQuery("x", limit=3))
-            )
-        )
-        == 3
-    )
-    # Tavily asks for no more than twenty; the search asks for what it wants.
-    assert asked == [3]
-
-    def plain(request: httpx.Request) -> httpx.Response:
-        asked.append(json.loads(request.content)["max_results"])
-        return answer()
-
-    asyncio.run(search_over(httpx.MockTransport(plain)).search(SourceSearchQuery("x", limit=50)))
-    assert asked[-1] == 10
+    assert item.text == "Мария Бонцлер арестована."
 
 
 def test_an_empty_answer_is_no_evidence() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer()
-
-    assert (
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
-        == []
-    )
+    assert run_search(None, results()) == []
 
 
 def test_words_nobody_typed_ask_nothing() -> None:
-    calls = 0
+    async def go() -> list[Any]:
+        async with fake_tavily_mcp([results(page())]) as (client, recorder):
+            found = await search_over(client).search(SourceSearchQuery("  "))
+            return [found, recorder.calls]
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        nonlocal calls
-        calls += 1
-        return answer(page())
-
-    assert (
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery("  "))) == []
-    )
-    assert calls == 0
+    found, calls = asyncio.run(go())
+    assert found == []
+    assert calls == []
 
 
 @pytest.mark.parametrize("result", [{"url": "not-an-address", "content": "Мария Бонцлер"}])
 def test_a_result_without_an_address_is_dropped(result: dict[str, object]) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(result)
-
-    assert (
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
-        == []
-    )
+    assert run_search(None, results(result)) == []
 
 
 @pytest.mark.parametrize(
@@ -354,158 +359,224 @@ def test_a_result_without_an_address_is_dropped(result: dict[str, object]) -> No
     [{"url": "https://news.example.test/a"}, {"url": "https://n.test/a", "content": "   "}],
 )
 def test_a_result_without_text_is_dropped(result: dict[str, object]) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(result)
+    assert run_search(None, results(result)) == []
 
-    assert (
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
-        == []
-    )
+
+# ── what the server answers that is not a search ─────────────────────────────────
 
 
 @pytest.mark.parametrize(
     "failure",
     [
-        httpx.Response(200, text="rate limited"),
-        httpx.Response(200, json={"error": "forbidden"}),
-        httpx.Response(200, json={"results": "none"}),
+        {"nope": 1},
+        {"results": "none"},
+        "not json at all",
+        {"result": "not a search"},
     ],
 )
-def test_an_answer_that_is_not_a_search_answer_is_a_failed_search(failure: httpx.Response) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return failure
-
+def test_an_answer_that_is_not_a_search_answer_is_a_failed_search(failure: Any) -> None:
     with pytest.raises(SearchAnswerError):
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+        run_search(None, failure)
 
 
-@pytest.mark.parametrize("status", [401, 432, 433, 400])
-def test_a_bad_key_or_a_bad_query_fails_at_once(status: int) -> None:
-    calls = 0
+def test_a_tool_that_fails_itself_is_a_failed_search_and_is_not_asked_again() -> None:
+    async def go() -> list[dict[str, Any]]:
+        async with fake_tavily_mcp([RuntimeError("upstream is down")]) as (client, recorder):
+            with pytest.raises(SearchAnswerError):
+                await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
+            return recorder.calls
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        nonlocal calls
-        calls += 1
-        return httpx.Response(status, json={"detail": "nope"})
-
-    with pytest.raises(httpx.HTTPStatusError) as failure:
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
-
-    assert failure.value.response.status_code == status
-    assert calls == 1
+    assert len(asyncio.run(go())) == 1
 
 
-@pytest.mark.parametrize("status", [429, 500, 503])
-def test_a_rate_limit_and_a_server_failure_are_asked_again_once(status: int) -> None:
-    statuses = iter([status, 200])
+def test_a_rejected_key_is_not_asked_again_and_never_reaches_the_message() -> None:
+    async def go() -> list[str | None]:
+        async with fake_tavily_mcp([results(page())], key="a-key-the-server-does-not-know") as (
+            client,
+            recorder,
+        ):
+            with pytest.raises(TavilyMcpError) as failure:
+                await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
+            assert KEY not in str(failure.value)
+            return recorder.authorizations
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        code = next(statuses)
-        return answer(page()) if code == 200 else httpx.Response(code, json={"detail": "later"})
-
-    assert (
-        len(asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS))))
-        == 1
-    )
-
-
-@pytest.mark.parametrize("failure", [httpx.ReadTimeout("slow"), httpx.ConnectError("refused")])
-def test_a_timeout_and_a_dropped_connection_are_asked_again_once(failure: Exception) -> None:
-    attempts = iter([failure, None])
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        first = next(attempts)
-        if first is not None:
-            raise first
-        return answer(page())
-
-    assert (
-        len(asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS))))
-        == 1
-    )
+    # One attempt: an authorization the server will not grant answers the same way again.
+    assert len(asyncio.run(go())) == 1
 
 
-def test_a_failure_that_passes_the_retry_is_raised_as_it_was() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, json={"detail": "later"})
+def test_a_search_that_never_answers_is_a_timeout_of_the_run_not_a_lost_run() -> None:
+    async def go() -> str:
+        async with fake_tavily_mcp([results(page())], delay_seconds=0.2) as (client, _recorder):
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(
+                    search_over(client).search(SourceSearchQuery(WORDS, limit=5)), timeout=0.05
+                )
+            return "stopped"
 
-    with pytest.raises(httpx.HTTPStatusError):
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+    assert asyncio.run(go()) == "stopped"
+
+
+def test_a_cancelled_search_leaves_nothing_behind() -> None:
+    async def go() -> bool:
+        async with fake_tavily_mcp([results(page())], delay_seconds=0.2) as (client, _recorder):
+            work = asyncio.ensure_future(search_over(client).search(SourceSearchQuery(WORDS)))
+            await asyncio.sleep(0.02)
+            work.cancel()
+            try:
+                await work
+            except asyncio.CancelledError:
+                return True
+            return False
+
+    assert asyncio.run(go()) is True
+
+
+def test_two_searches_at_once_each_get_their_own_answer() -> None:
+    """Several network searches of one run are in flight at the same time; each opens its
+    own session, neither waits for the other, and neither sees the other's words."""
+
+    async def go() -> list[list[Any]]:
+        async def answers(arguments: dict[str, Any]) -> dict[str, Any]:
+            await asyncio.sleep(0.05)
+            return results(page(url=f"https://{arguments['query'][:4]}.test/1"))
+
+        async with fake_tavily_mcp(answers) as (client, _recorder):
+            first, second = search_over(client), search_over(client)
+            return list(
+                await asyncio.gather(
+                    first.search(SourceSearchQuery("Мария Бонцлер статья", limit=5)),
+                    second.search(SourceSearchQuery("Иван Петров обвинение", limit=5)),
+                )
+            )
+
+    found = asyncio.run(go())
+    assert [item.url for group in found for item in group] == [
+        "https://Мари.test/1",
+        "https://Иван.test/1",
+    ]
 
 
 def test_the_key_stands_in_no_exception_and_no_repr() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(401, json={"detail": "invalid key"})
-
-    with pytest.raises(httpx.HTTPStatusError) as failure:
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
-
-    assert KEY not in str(failure.value)
-    assert KEY not in repr(search_over(httpx.MockTransport(handler)))
-    assert KEY not in f"{search_over(httpx.MockTransport(handler))}"
+    search = TavilyMcpSearch(KEY)
+    assert KEY not in repr(search)
+    assert KEY not in f"{search}"
+    assert KEY not in str(search)
 
 
 def test_the_words_and_the_key_never_reach_the_log(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page(raw=f"{NAME} арестована."))
+    """The MCP client logs every call's arguments at DEBUG, and an argument of a search
+    is the words a person was looked up by. Even with everything at DEBUG — the transport
+    included — the query and the key stand in nothing."""
+
+    async def go() -> None:
+        async with fake_tavily_mcp(
+            [
+                results(
+                    page(
+                        content="Кратко: под стражей.",
+                        raw_content="Городской суд оставил под стражей.",
+                    )
+                )
+            ]
+        ) as (client, _r):
+            await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
 
     with caplog.at_level(logging.DEBUG):
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+        asyncio.run(go())
 
     logged = "\n".join(record.getMessage() for record in caplog.records)
-    # The request itself was logged — by its address alone.
-    assert TAVILY_URL in logged
     assert "event=source_search source=tavily results=1" in logged
+    assert "request_id=req-1" in logged
+    # The SDK's own call line is still there — with the query taken out of it.
+    assert "method='tools/call'" in logged
+    assert "<query>" in logged
     for form in (KEY, WORDS, NAME, "Бонцлер"):
         assert form not in logged
 
 
-def test_what_the_search_cost_is_written_where_the_results_are(
+def test_a_page_the_search_brought_back_is_not_the_query_and_is_not_logged_as_one(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"results": [page()], "usage": {"credits": 1}})
+    """What the transport logs about a page is the page's own text — evidence, held in the
+    result and shown to a reader anyway — and not the words the search was asked with."""
 
-    with caplog.at_level(logging.INFO, logger="sources"):
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+    async def go() -> None:
+        async with fake_tavily_mcp([results(page(raw_content=f"{NAME} арестована."))]) as (
+            client,
+            _r,
+        ):
+            await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
 
-    assert "event=source_search source=tavily results=1 credits=1" in "\n".join(
-        record.getMessage() for record in caplog.records
-    )
+    with caplog.at_level(logging.DEBUG):
+        asyncio.run(go())
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert WORDS not in logged
+    assert "Бонцлер" in logged
 
 
-def test_an_answer_that_says_nothing_of_its_cost_is_logged_without_it(
+def test_what_the_search_cost_is_not_logged_as_a_number_the_server_never_sent(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return answer(page())
+    """The published `tavily_search` has no `include_usage` and reports no credits: the
+    log line says what the server really said and nothing more."""
+
+    async def go() -> None:
+        async with fake_tavily_mcp([results(page())]) as (client, _recorder):
+            await search_over(client).search(SourceSearchQuery(WORDS, limit=5))
 
     with caplog.at_level(logging.INFO, logger="sources"):
-        asyncio.run(search_over(httpx.MockTransport(handler)).search(SourceSearchQuery(WORDS)))
+        asyncio.run(go())
 
-    assert "event=source_search source=tavily results=1\n" in "\n".join(
-        record.getMessage() + "\n" for record in caplog.records
-    )
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "credits" not in logged
+    assert "event=source_search source=tavily results=1 mcp_session=short_lived" in logged
+
+
+# ── how it is configured ─────────────────────────────────────────────────────────
 
 
 def test_without_a_key_there_is_no_web_search() -> None:
     assert tavily_search_from_env({}) is None
     assert tavily_search_from_env({"TAVILY_API_KEY": "  "}) is None
     with pytest.raises(ValueError, match="API key"):
-        TavilySearch("   ")
+        TavilyMcpSearch("   ")
 
     search = tavily_search_from_env({"TAVILY_API_KEY": KEY})
     assert search is not None
     assert (search.source, search.title) == ("tavily", "Tavily")
     assert KEY not in repr(search)
+    assert TAVILY_API_KEY_ENV == "TAVILY_API_KEY"
+
+
+def test_the_depth_of_the_search_is_read_from_the_environment() -> None:
+    assert tavily_search_from_env({"TAVILY_API_KEY": KEY}).search_depth == "basic"
+    deeper = tavily_search_from_env(
+        {"TAVILY_API_KEY": KEY, "INVESTIGATION_WEB_SEARCH_DEPTH": "advanced"}
+    )
+    assert deeper is not None
+    assert deeper.search_depth == "advanced"
+    with pytest.raises(ValueError, match="INVESTIGATION_WEB_SEARCH_DEPTH"):
+        tavily_search_from_env({"TAVILY_API_KEY": KEY, "INVESTIGATION_WEB_SEARCH_DEPTH": "deep"})
+
+
+# ── the live server ──────────────────────────────────────────────────────────────
 
 
 @pytest.mark.skipif(not LIVE_KEY, reason="live network with a real key: opt-in")
-def test_live_tavily_search_answers() -> None:
+def test_the_official_remote_mcp_server_publishes_a_search_tool_and_answers_one() -> None:
     assert LIVE_KEY is not None
+    search = TavilyMcpSearch(LIVE_KEY, timeout_seconds=60.0)
 
-    found = asyncio.run(TavilySearch(LIVE_KEY).search(SourceSearchQuery(NAME, limit=3)))
+    published = asyncio.run(search.tools())
+    assert "tavily_search" in {str(tool["name"]) for tool in published}
 
-    assert found and all(item.url.startswith("https://") for item in found)
+    found = asyncio.run(search.search(SourceSearchQuery(NAME, limit=3)))
+
+    assert found
+    assert all(item.url.startswith("https://") for item in found)
+    assert all(item.text for item in found)
+    # The key is nowhere in what the search object says about itself or about an answer.
+    assert LIVE_KEY not in repr(search)

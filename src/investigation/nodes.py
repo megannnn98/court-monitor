@@ -39,6 +39,7 @@ from investigation.runs import RunStore
 from investigation.scenarios.base import InvestigationScenario, ScenarioView
 from investigation.scenarios.registry import ScenarioRegistry
 from investigation.services import evidence as evidence_rules
+from investigation.services.charges import normalised_charges
 from investigation.services.model import InvestigationModel, ModelReply, prompt
 from investigation.services.retrieval import InvestigationRetriever, RetrieverRegistry
 from investigation.state import InvestigationState, SearchBranch, dump_state
@@ -55,6 +56,7 @@ FOLLOWUPS_LEFT = "лимит дополнительных поисков исч�
 EXHAUSTED = "новых способов поиска недостающих данных не осталось: искали везде, где могли"
 NO_RETRIEVER = "ни один разрешённый источник не умеет искать то, что нужно"
 REPORT_MAX_TOKENS = 1_500
+CHARGES_MAX_TOKENS = 200
 # Characters of one piece of evidence shown to the model.
 EVIDENCE_SHOWN = 600
 # The keys of the state a stored run is resumed from.
@@ -72,6 +74,7 @@ RESUMABLE = (
     "done",
     "answered",
     "found",
+    "charges_asked",
     "usage",
     "warnings",
 )
@@ -95,6 +98,23 @@ REPORT_SCHEMA: dict[str, object] = {
     "required": ["sentences"],
     "additionalProperties": False,
 }
+
+CHARGES_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "supported": {"type": "boolean"},
+        "value": {"type": ["string", "null"]},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["supported", "value", "evidence_refs"],
+    "additionalProperties": False,
+}
+
+
+class _ChargesAnswer(BaseModel):
+    supported: bool
+    value: str | None
+    evidence_refs: list[str]
 
 
 class NotEvidenceError(TypeError):
@@ -492,6 +512,85 @@ async def merge_evidence(state: InvestigationState, tools: Toolbox) -> dict[str,
     if cut:
         update["warnings"] = [f"найдено больше материалов, чем разрешено показать: {cut} отброшено"]
     return update
+
+
+_normalised_charges = normalised_charges
+
+
+def charges_messages(subject: Subject, evidence: Sequence[EvidenceItem]) -> tuple[str, str]:
+    """The extractor sees the subject plus numbered quote bodies, never titles or queries."""
+    listed = "\n".join(f"[{item.ref}] {item.text[:EVIDENCE_SHOWN]}" for item in evidence)
+    return prompt("charges"), f"Вопрос о: {subject.name}\n<evidence>\n{listed}\n</evidence>"
+
+
+async def extract_charges(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:
+    """Turn a lead into a fact only when the model and the quoted text agree.
+
+    This is deliberately one fact, not a generic extraction framework. A lead merely
+    chose a short list of texts; it does not settle coverage until this node has made a
+    grounded charge from one of them.
+    """
+    subject = state.get("subject")
+    evidence = state.get("evidence", [])
+    if (
+        subject is None
+        or subject.entity_key is None
+        or any(item.fact == "charges" for item in evidence)
+    ):
+        return {}
+    asked = set(state.get("charges_asked", []))
+    candidates = [
+        item
+        for item in evidence
+        if item.source_type == "external"
+        and item.fact is None
+        and "charges" in item.leads
+        and item.ref not in asked
+    ]
+    if not candidates or not _may_ask(state, tools):
+        return {}
+    system, user = charges_messages(subject, candidates)
+    try:
+        reply = await _ask(
+            tools,
+            system=system,
+            user=user,
+            schema_name="investigation_charges",
+            schema=CHARGES_SCHEMA,
+            max_tokens=CHARGES_MAX_TOKENS,
+        )
+        answer = _ChargesAnswer.model_validate_json(reply.text)
+    except (ModelError, ValidationError, ValueError) as exc:
+        return {
+            "usage": Usage(llm_calls=1),
+            "warnings": [f"модель не подтвердила статьи: {type(exc).__name__}"],
+        }
+
+    spent = _spent(reply)
+    known = {item.ref: item for item in candidates}
+    cited = [known[ref] for ref in answer.evidence_refs if ref in known]
+    values = _normalised_charges(answer.value or "")
+    value = next(iter(values), None) if len(values) == 1 else None
+    if (
+        not answer.supported
+        or answer.value is None
+        or not cited
+        or len(cited) != len(answer.evidence_refs)
+        or value is None
+        or any(value not in _normalised_charges(item.text[:EVIDENCE_SHOWN]) for item in cited)
+    ):
+        return {"usage": spent, "charges_asked": [item.ref for item in candidates]}
+    cited_refs = {item.ref for item in cited}
+    return {
+        "usage": spent,
+        "charges_asked": [item.ref for item in candidates],
+        "evidence": [
+            item.model_copy(update={"fact": "charges", "value": value})
+            if item.ref in cited_refs
+            else item
+            for item in evidence
+        ],
+    }
 
 
 async def coverage(state: InvestigationState, tools: Toolbox) -> dict[str, Any]:

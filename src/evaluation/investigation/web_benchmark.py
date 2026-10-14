@@ -452,6 +452,10 @@ def summarise(report: Mapping[str, Any]) -> dict[str, Any]:
     def average(key: str, where: Sequence[dict[str, Any]] = cases) -> float:
         return round(total(key, where) / len(where), 2) if where else 0.0
 
+    def false_count(where: Sequence[dict[str, Any]]) -> int:
+        """The report keeps false values for review; the aggregate is their count."""
+        return sum(len(case.get("false_facts") or []) for case in where)
+
     closed = [case for case in people if case["status"] == "completed"]
     # `есть ли в перечне Росфинмониторинга` is required of every dossier and is decided
     # only for a person who IS on the list — that is most of none of them, so no dossier
@@ -470,7 +474,7 @@ def summarise(report: Mapping[str, Any]) -> dict[str, Any]:
         "subject_accuracy": _mean([float(c["subject_correct"]) for c in people]) if people else 0.0,
         "facts_recall_mean": _mean([case.get("facts_recall") for case in people]),
         "facts_precision_mean": _mean([case.get("facts_precision") for case in people]),
-        "false_facts": total("false_facts", people),
+        "false_facts": false_count(people),
         "dossiers_closed": len(closed),
         "dossiers_closed_without_rf_list": len(without_list),
         "still_missing_rf_list": sum(

@@ -76,8 +76,8 @@ def classify_person(person_id: int) -> PersecutionClassification:
 
     # Check for political charges
     for event in events:
-        if event.event_type in ['charge', 'sentence']:
-            article = event.attributes.get('article', '')
+        if event.event_type in ["charge", "sentence"]:
+            article = event.attributes.get("article", "")
             if article in POLITICAL_ARTICLES:
                 evidence.append(EvidenceType.POLITICAL_CHARGE)
 
@@ -92,35 +92,33 @@ def classify_person(person_id: int) -> PersecutionClassification:
     # Compute confidence
     if not evidence:
         return PersecutionClassification(
-            status='non_political',
-            confidence=0.9,
-            reasons=['No evidence of political persecution']
+            status="non_political", confidence=0.9, reasons=["No evidence of political persecution"]
         )
 
     # Strong evidence
     if EvidenceType.POLITICAL_CHARGE in evidence:
         return PersecutionClassification(
-            status='political',
+            status="political",
             confidence=0.95,
-            reasons=['Charged under political article'],
-            evidence_types=evidence
+            reasons=["Charged under political article"],
+            evidence_types=evidence,
         )
 
     # Moderate evidence
     if len(evidence) >= 2:
         return PersecutionClassification(
-            status='political',
+            status="political",
             confidence=0.8,
-            reasons=['Multiple indicators of political persecution'],
-            evidence_types=evidence
+            reasons=["Multiple indicators of political persecution"],
+            evidence_types=evidence,
         )
 
     # Weak evidence
     return PersecutionClassification(
-        status='uncertain',
+        status="uncertain",
         confidence=0.6,
-        reasons=['Some indicators but not conclusive'],
-        evidence_types=evidence
+        reasons=["Some indicators but not conclusive"],
+        evidence_types=evidence,
     )
 ```
 
@@ -184,6 +182,7 @@ class PersecutionClassification(BaseModel):
     classifier_name: str
     classifier_version: str
     classified_at: datetime
+
 
 class EvidenceType(StrEnum):
     POLITICAL_CHARGE = "political_charge"

@@ -63,6 +63,8 @@ class InvestigationState(TypedDict, total=False):
     found: Annotated[list[EvidenceItem], operator.add]
     # `found` without repeats, ranked, capped and numbered: what findings cite.
     evidence: list[EvidenceItem]
+    # External charge refs already sent to the extractor; they are not paid for twice.
+    charges_asked: Annotated[list[str], operator.add]
     coverage: CoverageAssessment | None
     usage: Annotated[Usage, add_usage]
     warnings: Annotated[list[str], operator.add]

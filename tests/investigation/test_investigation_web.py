@@ -14,13 +14,13 @@ import asyncio
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
-import httpx
 import pytest
+from sources.mcp_server import served_tavily_mcp
 from sqlalchemy.orm import Session, sessionmaker
 
 from application import build_investigation_retrievers
 from ingestion.search import ExternalEvidence, SourceSearchQuery
-from ingestion.web_search import TAVILY_URL, TavilySearch
+from ingestion.web_search import TavilyMcpSearch
 from investigation.models import (
     EvidenceItem,
     InvestigationQuery,
@@ -44,7 +44,7 @@ DOSSIER_QUESTION = "Мария Бонцлер статья"
 FIGURANT_QUESTION = "Установи фигуранта публикации 28191"
 PAGE = "https://news.example.test/boncler-1"
 OTHER_PAGE = "https://other.example.test/ivanov"
-PUBLISHED = "Мария Бонцлер арестована по статье 280 УК РФ."
+PUBLISHED = "Марию Бонцлер обвиняют по статье 207.3 УК РФ, суд оставил под стражей."
 
 
 # -- the fakes ----------------------------------------------------------------------------------
@@ -263,9 +263,9 @@ def test_a_web_takes_the_timeout_of_the_runs_own_searches(
     (one,) = [retriever for retriever in built if retriever.name == "web:tavily"]
     assert isinstance(one, SourceSearchRetriever)
     search = one._search
-    assert isinstance(search, TavilySearch)
+    assert isinstance(search, TavilyMcpSearch)
     # The web waits no longer than any other search of the run.
-    assert search.timeout.read == 7
+    assert search.timeout_seconds == 7.0
 
 
 # -- the flags of a run --------------------------------------------------------------------------
@@ -347,14 +347,24 @@ def test_a_text_that_only_names_her_is_no_lead_and_the_fact_is_looked_for_again(
     assert f"{NAME} обвинение" in asked
 
 
-def test_a_text_with_the_word_in_another_case_is_a_lead_and_ends_the_search_for_it() -> None:
-    outside = web(web_answer("Марии Бонцлер вменили две статьи."))
+def test_a_charge_about_her_is_a_lead_and_the_fact_is_still_looked_up_until_it_is_verified() -> (
+    None
+):
+    """«Вменили две статьи, в том числе ч. 3 ст. 280 УК РФ» is a charge about *this*
+    person — the name stands next to the accusation and a Criminal Code article next to
+    it, and the word of the fact may be declined («статьи» of «статья»). It is a *lead*:
+    which text to read, not a fact, so the run keeps looking for the fact until something
+    grounded has confirmed it. That is the whole point: a lead must never be what stops a
+    follow-up that could still find the truth."""
+    outside = web(web_answer("Марии Бонцлер вменили две статьи, в том числе ч. 3 ст. 280 УК РФ."))
 
     result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
 
     (item,) = page_items(result)
     assert item.leads == ("charges",)
-    assert f"{NAME} обвинение" not in [call.text for call in search_of(outside).calls]
+    assert "статьи обвинения" in result.missing_information
+    asked = [call.text for call in search_of(outside).calls]
+    assert f"{NAME} статья" in asked and f"{NAME} обвинение" in asked
 
 
 def test_a_word_that_only_begins_the_same_way_is_not_the_word_looked_for() -> None:
@@ -372,25 +382,16 @@ def test_a_word_that_only_begins_the_same_way_is_not_the_word_looked_for() -> No
 
 
 def test_the_words_travel_to_tavily_in_the_body_and_the_key_in_the_header() -> None:
-    asked: list[httpx.Request] = []
+    with served_tavily_mcp([], expected_key="a-key") as (endpoint, recorder):
+        outside = SourceSearchRetriever(
+            TavilyMcpSearch("a-key", url=endpoint, base_delay_seconds=0), source="web"
+        )
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        asked.append(request)
-        return httpx.Response(200, json={"results": []})
+        run([people(), outside], DOSSIER_QUESTION)
 
-    outside = SourceSearchRetriever(
-        TavilySearch(
-            "a-key",
-            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-            base_delay_seconds=0,
-        ),
-        source="web",
-    )
-
-    run([people(), outside], DOSSIER_QUESTION)
-
-    assert asked and all(str(request.url) == TAVILY_URL for request in asked)
-    assert all(request.headers["Authorization"] == "Bearer a-key" for request in asked)
+    assert recorder.calls
+    assert all(NAME in call["query"] for call in recorder.calls)
+    assert set(recorder.authorizations) == {"Bearer a-key"}
 
 
 # -- the dossier of a person ---------------------------------------------------------------------
@@ -1001,25 +1002,15 @@ def test_a_finished_run_is_read_again_without_asking_the_web_again() -> None:
 
 def test_a_stored_run_keeps_neither_the_web_key_nor_the_words_it_was_asked() -> None:
     store = InMemoryRunStore()
-    asked: list[httpx.Request] = []
+    with served_tavily_mcp([], expected_key="tvly-secret-key") as (endpoint, recorder):
+        outside = SourceSearchRetriever(
+            TavilyMcpSearch("tvly-secret-key", url=endpoint, base_delay_seconds=0), source="web"
+        )
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        asked.append(request)
-        return httpx.Response(200, json={"results": []})
-
-    outside = SourceSearchRetriever(
-        TavilySearch(
-            "tvly-secret-key",
-            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-            base_delay_seconds=0,
-        ),
-        source="web",
-    )
-
-    result = asyncio.run(service(people(), outside, runs=store).investigate(DOSSIER_QUESTION))
+        result = asyncio.run(service(people(), outside, runs=store).investigate(DOSSIER_QUESTION))
 
     stored = store.load(result.run_id or "")
-    assert stored is not None and asked
+    assert stored is not None and recorder.authorizations
     kept = str(stored.progress) + str(stored.result)
     assert "tvly-secret-key" not in kept
-    assert "api.tavily.com" not in kept
+    assert "mcp.tavily.com" not in kept

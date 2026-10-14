@@ -29,8 +29,8 @@ from monitor_core.model import SourceReference
 
 pipeline = IngestionPipeline(
     source_adapter=my_fetcher,  # DocumentFetcher
-    parser=my_parser,           # ArticleParser
-    persistence=my_store,       # IngestionPersistence[int]
+    parser=my_parser,  # ArticleParser
+    persistence=my_store,  # IngestionPersistence[int]
 )
 result = await pipeline.run(SourceReference(external_id="1", url="https://example.test/1"))
 result.persistence  # то, что вернул my_store.save(): здесь int
