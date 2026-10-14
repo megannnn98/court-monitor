@@ -1,0 +1,506 @@
+{
+  "note": "The shape of the manual set, filled with invented subjects. The set that is measured is annotated from open sources and lives in var/investigation_eval/ (gitignored): this repository is public, and a file of real names with the article of each is an index of who is prosecuted, not a fixture. See README.md in this directory.",
+  "built_at": "2026-10-14",
+  "synthetic": true,
+  "bias": "No bias to measure: every subject is invented and in no database, so this file exercises the harness rather than retrieval. The measured numbers come from the annotated set outside the repository.",
+  "db_articles_range": "не применимо: случаи вымышленные",
+  "unnamed_rule": "Фигурант, которого исходная публикация не называет, остаётся неназванным, пока другая публикация не назовёт его сама и не подтвердит это место и дело. Собственный текст публикации не подтверждает сам себя.",
+  "cases": [
+    {
+      "case_id": "manual|андреев",
+      "query": "Пётр Андреев",
+      "group": "namesake_collision",
+      "in_db_person": false,
+      "note": "Человека с таким именем нет. На первом прогоне база всё же отдала роль в деле — чужую. Правильный ответ — «не установлено», и любая находка здесь ложная: счётчик ложных confirmed_finding для этого кейса и написан.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|андреев_declined",
+      "query": "Петра Андреева",
+      "group": "declined",
+      "in_db_person": false,
+      "note": "Тот же человек в родительном падеже — так его пишут в новости.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|андреев_reversed",
+      "query": "Андреев Пётр",
+      "group": "namesake_collision",
+      "in_db_person": false,
+      "note": "Тот же человек в том порядке, в каком пишут в списках, и та же чужая роль на первом прогоне.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|беляев",
+      "query": "Антон Беляев",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Редкая фамилия: словарь читает её не как фамилию.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|гурьева",
+      "query": "Вера Гурьева",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Редкая фамилия в женском роде.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|дьяченко",
+      "query": "Олег Дьяченко",
+      "group": "rare_surname",
+      "in_db_person": false,
+      "note": "Фамилия, которую словарь склоняет не по тому правилу.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|зайцев",
+      "query": "Сергей Зайцев",
+      "group": "namesake_risk",
+      "in_db_person": false,
+      "note": "Очень частая фамилия: в вебе столько же тёзок, сколько людей.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|зимин",
+      "query": "Павел Зимин",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Фамилия, похожая на другую по написанию, но не по человеку.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|ивкин",
+      "query": "Марк Ивкин",
+      "group": "rare_surname",
+      "in_db_person": false,
+      "note": "Редкая фамилия на согласную: словарь предпочитает другое чтение.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|калашников",
+      "query": "Егор Калашников",
+      "group": "namesake_risk",
+      "in_db_person": false,
+      "note": "Фамилия спортсмена и человека того же дела.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|кириллова",
+      "query": "Анна Кириллова",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Двойное «л»: проверка на совпадение по началу слова.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|кузьмин",
+      "query": "Артём Кузьмин",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Частая фамилия и омонимичная фамилия в вебе.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|левченко",
+      "query": "Ян Левченко",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Фамилия на «лев»: в вече и спортсмен с тем же именем.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|мокрова",
+      "query": "Инна Мокрова",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Женская фамилия на «а».",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|нестеров",
+      "query": "Тимофей Нестеров",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Человек с однофамильцем-футболистом.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|орлов",
+      "query": "Глеб Орлов",
+      "group": "namesake_risk",
+      "in_db_person": false,
+      "note": "Фамилия и вид деятельности совпадают у нескольких людей.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|панарин",
+      "query": "Кирилл Панарин",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Редкая фамилия: словарь знает только мужскую форму.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|пушкин",
+      "query": "Лев Пушкин",
+      "group": "namesake_risk",
+      "in_db_person": false,
+      "note": "Фамилия поэта: в вебе тысячи страниц о другом человеке.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|румянцев",
+      "query": "Денис Румянцев",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Редкая фамилия на «цев».",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|севастьянов",
+      "query": "Игорь Севастьянов",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Двойное «ь»: проверка на близость слов имени.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|сокол",
+      "query": "Роман Сокол",
+      "group": "short_surname",
+      "in_db_person": false,
+      "note": "Короткая фамилия: подстрока встречается в куче слов.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|тимофеев",
+      "query": "Лев Тимофеев",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Имя и отчество как два разных слова.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|фомин",
+      "query": "Арсений Фомин",
+      "group": "web_only_fact",
+      "in_db_person": false,
+      "note": "Фамилия, у которой словарь видит глагольное чтение.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|яхонтов",
+      "query": "Глеб Яхонтов",
+      "group": "rare_surname",
+      "in_db_person": false,
+      "note": "Редкая фамилия: почти нет страниц о человеке.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    },
+    {
+      "case_id": "manual|фамилия_только",
+      "query": "Петров",
+      "group": "surname_only",
+      "in_db_person": false,
+      "note": "Только фамилия: правильный ответ — «нужен выбор», а не факты одного человека. Проверяет, что досье не объявляет одного.",
+      "expected": [
+        {
+          "kind": "not_established",
+          "value": "не установлено"
+        }
+      ]
+    }
+  ],
+  "unnamed_cases": [
+    {
+      "case_id": "manual|unnamed_31840",
+      "article_id": 31840,
+      "group": "unnamed_no_name",
+      "name_verified": false,
+      "clues_in_db": {
+        "age": 70,
+        "place": "Токмак",
+        "articles": "275"
+      },
+      "note": "Номер публикации настоящий; человек, которого она не называет, вымышленный. Имя не называет ни один источник — ожидаемый ответ «не установлено».",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_32546",
+      "article_id": 32546,
+      "group": "unnamed_no_name",
+      "name_verified": false,
+      "clues_in_db": {
+        "age": 20,
+        "place": "Марковский район",
+        "articles": "275"
+      },
+      "note": "То же: имя не установлено.",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_2803",
+      "article_id": 28191,
+      "group": "unnamed_with_initial",
+      "name_verified": false,
+      "clues_in_db": {
+        "age": 15,
+        "place": "Санкт-Петербург",
+        "event": "передача сведений"
+      },
+      "note": "Есть инициал: кандидаты по перечню возможны, но имя остаётся неназванным.",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_2804",
+      "article_id": 28322,
+      "group": "unnamed_with_articles",
+      "name_verified": false,
+      "clues_in_db": {
+        "age": 19,
+        "place": "Ростовская область",
+        "articles": "205"
+      },
+      "note": "Есть статья и место: этого достаточно для кандидатов, но не для имени.",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_2805",
+      "article_id": 28393,
+      "group": "unnamed_with_articles",
+      "name_verified": false,
+      "clues_in_db": {
+        "age": 35,
+        "place": "Нижний Тагил",
+        "articles": "167"
+      },
+      "note": "То же.",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_no_figurant",
+      "article_id": 1,
+      "group": "unnamed_absent",
+      "name_verified": false,
+      "clues_in_db": {},
+      "note": "Публикации с неназванным фигурантом в базе нет: ожидаемый ответ — «фигуранта в публикации нет».",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_out_of_range",
+      "article_id": 99999999,
+      "group": "unnamed_absent",
+      "name_verified": false,
+      "clues_in_db": {},
+      "note": "Номер публикации заведомо не существует: тот же ответ.",
+      "sources": []
+    },
+    {
+      "case_id": "manual|unnamed_second_case",
+      "article_id": 28419,
+      "group": "unnamed_no_name",
+      "name_verified": false,
+      "clues_in_db": {
+        "age": 32,
+        "place": "Севастополь",
+        "event": "передача сведений"
+      },
+      "note": "Второй случай того же типа, что и unnamed_2803: проверка, что один не подменяет другой.",
+      "sources": []
+    }
+  ],
+  "namesake_pairs": [
+    {
+      "case_id": "manual|петров",
+      "query": "Петров",
+      "group": "namesake",
+      "note": "На одну фамилию — «нужен выбор»; на «имя + фамилия» — факты только своего дела.",
+      "people": [
+        {
+          "name": "Руслан Петров",
+          "in_db_charges": null
+        },
+        {
+          "name": "Юрий Петров",
+          "in_db_charges": null
+        }
+      ]
+    },
+    {
+      "case_id": "manual|соколов",
+      "query": "Соколов",
+      "group": "namesake",
+      "note": "Двое тёзок и один однофамилец-спортсмен в вебе.",
+      "people": [
+        {
+          "name": "Артём Соколов",
+          "in_db_charges": null
+        },
+        {
+          "name": "Пётр Соколов",
+          "in_db_charges": null
+        }
+      ]
+    },
+    {
+      "case_id": "manual|кузнецов",
+      "query": "Кузнецов",
+      "group": "namesake",
+      "note": "Фамилия на «ц»: склонение и близость слов.",
+      "people": [
+        {
+          "name": "Даниил Кузнецов",
+          "in_db_charges": null
+        },
+        {
+          "name": "Егор Кузнецов",
+          "in_db_charges": null
+        }
+      ]
+    },
+    {
+      "case_id": "manual|морозов",
+      "query": "Морозов",
+      "group": "namesake",
+      "note": "Однофамилец-спортсмен и человек того же дела.",
+      "people": [
+        {
+          "name": "Игорь Морозов",
+          "in_db_charges": null
+        },
+        {
+          "name": "Антон Морозов",
+          "in_db_charges": null
+        }
+      ]
+    }
+  ],
+  "not_taken": [
+    "Кейсы без публичного источника ожидаемого факта: их нельзя проверить, а неверное ожидание хуже его отсутствия.",
+    "Кейсы, где ожидаемое значение пишется двумя способами и оба встречаются: ожидание перестаёт быть проверяемым."
+  ],
+  "todo": [
+    "Положительные кейсы identify_unnamed (публикация не называет фигуранта, другая публикация называет) требуют ручной разметки вторых публикаций; в базе фигурантов с инициалом всего два."
+  ]
+}

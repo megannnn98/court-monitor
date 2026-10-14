@@ -3,6 +3,11 @@
 Every command reads the database read-only (`--database-url`, default DATABASE_URL);
 the golden set and the reports go to `var/investigation_eval/` (ignored: real names).
 
+`manual` asks the hand-annotated questions two ways and reports fact by fact. It runs on
+the set committed in `data/` — invented subjects, so that a clone can run it — or on the
+annotated one outside the repository (`--manual var/investigation_eval/manual_golden.json`),
+which is what the numbers in the PR description come from.
+
 `web` asks the golden questions two ways — `local + Telegram`, and the same plus Tavily —
 and measures what a reader gets against what it costs. The second mode spends real
 credits, so it is asked for by name (`--modes local web`), never by default.
@@ -24,6 +29,11 @@ from observability import configure_logging
 
 OUT = Path("var/investigation_eval")
 READ_ONLY = {"options": "-c default_transaction_read_only=on -c statement_timeout=60000"}
+# The set a fresh clone runs on: the shape of the manual set with invented subjects, so
+# the benchmark is reproducible without copying a file by hand. The set that is measured
+# is annotated from open sources, names real people, and lives in `var/` — see
+# `data/README.md` for why it is not in the repository.
+DATA = Path(__file__).parent / "data" / "manual_golden.json"
 
 
 def main() -> None:
@@ -34,8 +44,11 @@ def main() -> None:
     parser.add_argument(
         "--manual",
         type=Path,
-        default=OUT / "manual_golden.json",
-        help="the hand-annotated set, with an expected fact per case and its source",
+        default=DATA,
+        help=(
+            "the manual set: the committed one with invented subjects, or the annotated "
+            "one outside the repository (`--manual var/investigation_eval/manual_golden.json`)"
+        ),
     )
     parser.add_argument(
         "--kinds",
@@ -92,12 +105,13 @@ def main() -> None:
         if len(reports) == 2:
             written["displacement"] = manual.displacement(reports[0], reports[1])
             written["fact_table"] = manual.fact_table(reports[0], reports[1])
+            written["gained"] = manual.gained(reports[0], reports[1])
         (OUT / "manual_benchmark.json").write_text(
             json.dumps(written, indent=1, ensure_ascii=False), encoding="utf-8"
         )
         print(json.dumps(written["summary"], indent=1, ensure_ascii=False))
-        if "fact_table" in written:
-            print(json.dumps(written["fact_table"], indent=1, ensure_ascii=False))
+        if "gained" in written:
+            print(json.dumps(written["gained"], indent=1, ensure_ascii=False))
             print(json.dumps(written["displacement"], indent=1, ensure_ascii=False))
         return
     loaded = golden_set.GoldenSet.load(args.golden)

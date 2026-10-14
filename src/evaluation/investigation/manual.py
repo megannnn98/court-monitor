@@ -44,7 +44,14 @@ def load(path: Path) -> dict[str, Any]:
 def _fact_rows(
     session: Session, case: Mapping[str, Any], result: InvestigationResult | None
 ) -> list[dict[str, Any]]:
-    """One row per expected fact: what the database holds of it, and what the run did."""
+    """One row per expected fact: what the database holds of it, and what the run did.
+
+    Two questions, never one. `evidence_contains_expected_value` asks whether some piece
+    of evidence held the whole value in a text about that person — retrieval. It is not a
+    finding and is never reported as one. `confirmed_finding` asks whether the value came
+    back as a `Finding` citing evidence — what a reader of the result is told. A retrieval
+    hit that never became a finding is a gap in the extractor, and the row says so.
+    """
     rows: list[dict[str, Any]] = []
     for entry in case.get("expected", []):
         if entry.get("kind"):
@@ -69,21 +76,35 @@ def _fact_rows(
             "common": entry.get("common"),
         }
         if result is not None:
-            found = [
-                item
-                for item in result.evidence
-                if names(item.text, str(case["query"])) and _holds_all([item.text], parts)
-            ]
-            loose = [
-                item
-                for item in result.evidence
-                if names(item.text, str(case["query"]))
-                and _holds_all([item.text], [entry.get("common")])
+            about = [item for item in result.evidence if names(item.text, str(case["query"]))]
+            found = [item for item in about if _holds_all([item.text], parts)]
+            loose = [item for item in about if _holds_all([item.text], [entry.get("common")])]
+            confirmed = [
+                finding
+                for finding in result.findings
+                if finding.fact == entry["fact"] and _reported_value(finding) == str(entry["value"])
             ]
             row.update(
                 {
-                    "found_strict": bool(found),
-                    "found_common_form_only": bool(loose) and not bool(found),
+                    # Retrieval: a page of the open web holds it.
+                    "evidence_contains_expected_value": bool(found),
+                    # The product: the run says it.
+                    "confirmed_finding": bool(confirmed),
+                    "confirmed_by": [
+                        {
+                            "ref": ref,
+                            "source": next(
+                                (item.source_id for item in result.evidence if item.ref == ref),
+                                "—",
+                            ),
+                            "url": next(
+                                (item.url for item in result.evidence if item.ref == ref), None
+                            ),
+                        }
+                        for finding in confirmed
+                        for ref in finding.evidence
+                    ],
+                    "evidence_contains_common_form_only": bool(loose) and not bool(found),
                     "evidence": [
                         {"ref": item.ref, "source": item.source_id, "url": item.url}
                         for item in found
@@ -92,6 +113,15 @@ def _fact_rows(
             )
         rows.append(row)
     return rows
+
+
+def _reported_value(finding: Any) -> str:
+    """The value a finding states, as the scenario wrote it: «статьи обвинения: <value>»."""
+    statement: str = finding.statement
+    if ": " in statement:
+        statement = statement.split(": ", 1)[1]
+    # `person_dossier` writes the charges the way the law writes them and nothing else.
+    return statement.split(" (", 1)[0].strip()
 
 
 def _person_report(
@@ -109,21 +139,50 @@ def _person_report(
     result = asyncio.run(built.investigate(f"Что известно про {case['query']}?"))
     elapsed = (time.perf_counter() - started) * 1000
     web_items = [item for item in result.evidence if item.source_id == "web:tavily"]
+    rows = _fact_rows(session, case, result)
+    expected = [row for row in rows if row.get("in_db") != "—"]
+    # A namesake's dossier has no expected facts of its own: what it must not do is report
+    # somebody else's. Counted apart, because a web mode that looks better only because of
+    # noise is worse, not better.
+    false_findings = [
+        {"fact": finding.fact, "statement": finding.statement}
+        for finding in result.findings
+        if not any(
+            finding.fact == row["fact"] and _reported_value(finding) == row["value"]
+            for row in expected
+        )
+    ]
     return {
         "case_id": case["case_id"],
         "group": case.get("group"),
         "status": result.status,
         "findings": [finding.statement for finding in result.findings],
         "missing": result.missing_information,
-        "facts": _fact_rows(session, case, result),
+        "facts": rows,
+        "facts_expected": len(expected),
+        "evidence_contains_expected_value": sum(
+            1 for row in expected if row.get("evidence_contains_expected_value")
+        ),
+        "confirmed_finding": sum(1 for row in expected if row.get("confirmed_finding")),
+        "retrieval_hit_without_a_finding": sum(
+            1
+            for row in expected
+            if row.get("evidence_contains_expected_value") and not row.get("confirmed_finding")
+        ),
+        "false_findings": false_findings,
         "evidence": len(result.evidence),
         "web_evidence": len(web_items),
         "web_leads": sum(1 for item in web_items if item.leads),
+        "verified_web_facts": sum(
+            1 for item in web_items if item.fact is not None and item.source_id.startswith("web:")
+        ),
         "searches": result.usage.search_calls,
         "tavily_requests": counted[0].requests if counted else 0,
         "tavily_results": counted[0].results if counted else 0,
         "tavily_credits": counted[0].requests * counted[0].credits if counted else 0,
         "llm_calls": result.usage.llm_calls,
+        "input_tokens": result.usage.input_tokens,
+        "output_tokens": result.usage.output_tokens,
         "cost_usd": round(result.usage.cost_usd, 6),
         "elapsed_ms": round(elapsed),
         "model_summary": result.model_summary,
@@ -169,6 +228,7 @@ def _unnamed_report(
         ),
         "web_evidence": sum(1 for item in result.evidence if item.source_id == "web:tavily"),
         "tavily_requests": counted[0].requests if counted else 0,
+        "tavily_results": counted[0].results if counted else 0,
         "tavily_credits": counted[0].requests * counted[0].credits if counted else 0,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "warnings": result.warnings,
@@ -288,8 +348,13 @@ def displacement(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[di
 
 
 def fact_table(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """One row per expected fact of every manual case: in the database, found in A, in B,
-    and by which evidence."""
+    """One row per expected fact of every manual case: in the database, and — for each
+    mode — whether a piece of evidence held it and whether the run reported it.
+
+    The two columns are separate on purpose. `evidence_a` / `evidence_b` is retrieval;
+    `finding_a` / `finding_b` is what a reader was told. A mode that retrieves more and
+    confirms the same has improved its search, not its answer.
+    """
     left = {report["case_id"]: report for report in before.get("persons", [])}
     right = {report["case_id"]: report for report in after.get("persons", [])}
     rows: list[dict[str, Any]] = []
@@ -303,48 +368,103 @@ def fact_table(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[dict
                     "fact": row_one["fact"],
                     "value": row_one["value"],
                     "in_db": row_one.get("in_db"),
-                    "found_a": row_one.get("found_strict"),
-                    "found_b": row_two.get("found_strict"),
-                    "common_form_only_b": row_two.get("found_common_form_only"),
-                    "evidence_b": row_two.get("evidence"),
+                    "evidence_a": row_one.get("evidence_contains_expected_value"),
+                    "evidence_b": row_two.get("evidence_contains_expected_value"),
+                    "finding_a": row_one.get("confirmed_finding"),
+                    "finding_b": row_two.get("confirmed_finding"),
+                    "confirmed_by": row_two.get("confirmed_by"),
+                    "common_form_only_b": row_two.get("evidence_contains_common_form_only"),
+                    "evidence_b_refs": row_two.get("evidence"),
                     "source": row_one.get("source"),
                 }
             )
     return rows
 
 
+def gained(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The facts the second mode confirms that the first did not — and the ones it lost.
+
+    This is the one row of the report that says what the web bought, as opposed to what it
+    retrieved. A fact already confirmed without the web is not the web's to credit.
+    """
+    rows = fact_table(before, after)
+    return [
+        {
+            "case_id": row["case_id"],
+            "fact": row["fact"],
+            "value": row["value"],
+            "gained": bool(row["finding_b"] and not row["finding_a"]),
+            "lost": bool(row["finding_a"] and not row["finding_b"]),
+            "evidence_only": bool(row["evidence_b"] and not row["finding_b"]),
+            "confirmed_by": row["confirmed_by"],
+            "source": row["source"],
+        }
+        for row in rows
+        if row["finding_a"] != row["finding_b"] or (row["evidence_b"] and not row["finding_b"])
+    ]
+
+
 def summary(reports: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """What one mode cost and gave, over the manual set."""
+    """What one mode cost and gave, over the manual set.
+
+    Four numbers are kept apart on purpose and are never added to each other: how many
+    expected facts some evidence held (retrieval), how many the run reported as findings
+    (the product), how many were retrieved but never confirmed (a gap in the extractor),
+    and how many findings nobody expected (precision).
+    """
     rows: list[dict[str, Any]] = []
     for report in reports:
         persons = report.get("persons", [])
+        expected = sum(p.get("facts_expected", 0) for p in persons)
         rows.append(
             {
                 "mode": report.get("mode"),
                 "with_llm": report.get("with_llm"),
                 "persons": len(persons),
-                "facts_expected": sum(
-                    1 for p in persons for row in p["facts"] if row.get("in_db") != "—"
+                "facts_expected": expected,
+                # Retrieval.
+                "evidence_contains_expected_value": sum(
+                    p.get("evidence_contains_expected_value", 0) for p in persons
                 ),
-                "facts_found": sum(
-                    1 for p in persons for row in p["facts"] if row.get("found_strict")
+                "evidence_recall": _share(
+                    sum(p.get("evidence_contains_expected_value", 0) for p in persons), expected
                 ),
-                "facts_found_web": sum(
+                # The product.
+                "confirmed_finding": sum(p.get("confirmed_finding", 0) for p in persons),
+                "finding_recall": _share(
+                    sum(p.get("confirmed_finding", 0) for p in persons), expected
+                ),
+                "confirmed_by_web": sum(
                     1
                     for p in persons
                     for row in p["facts"]
-                    if row.get("found_strict")
-                    and any(item["source"] == "web:tavily" for item in (row.get("evidence") or []))
+                    if row.get("confirmed_finding")
+                    and any(
+                        item["source"].startswith("web:")
+                        for item in (row.get("confirmed_by") or [])
+                    )
                 ),
-                "facts_common_form_only": sum(
-                    1 for p in persons for row in p["facts"] if row.get("found_common_form_only")
+                "retrieval_hit_without_a_finding": sum(
+                    p.get("retrieval_hit_without_a_finding", 0) for p in persons
                 ),
+                # Precision: what the run said that nobody expected.
+                "false_findings": sum(len(p.get("false_findings", [])) for p in persons),
+                "cases_with_false_findings": sum(1 for p in persons if p.get("false_findings")),
+                "verified_web_facts": sum(p.get("verified_web_facts", 0) for p in persons),
                 "web_evidence": sum(p.get("web_evidence", 0) for p in persons),
                 "web_leads": sum(p.get("web_leads", 0) for p in persons),
                 "unnamed_announced": sum(
                     1 for u in report.get("unnamed", []) if u.get("leading_announced")
                 ),
                 "unnamed_cases": len(report.get("unnamed", [])),
+                "unnamed_positive": sum(
+                    1 for u in report.get("unnamed", []) if u.get("name_verified")
+                ),
+                "unnamed_positive_announced": sum(
+                    1
+                    for u in report.get("unnamed", [])
+                    if u.get("name_verified") and u.get("leading_announced")
+                ),
                 "namesake_picked_one_alone": sum(
                     1 for n in report.get("namesakes", []) if n.get("by_surname_announced_one")
                 ),
@@ -357,17 +477,38 @@ def summary(reports: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "tavily_requests": sum(p.get("tavily_requests", 0) for p in persons)
                 + sum(u.get("tavily_requests", 0) for u in report.get("unnamed", []))
                 + sum(n.get("tavily_requests", 0) for n in report.get("namesakes", [])),
+                "tavily_results": sum(p.get("tavily_results", 0) for p in persons)
+                + sum(u.get("tavily_results", 0) for u in report.get("unnamed", []))
+                + sum(n.get("tavily_results", 0) for n in report.get("namesakes", [])),
                 "credits": report.get("credits", 0),
                 "llm_calls": sum(p.get("llm_calls", 0) for p in persons),
+                "input_tokens": sum(p.get("input_tokens", 0) for p in persons),
+                "output_tokens": sum(p.get("output_tokens", 0) for p in persons),
                 "cost_usd": report.get("cost_usd", 0),
-                "elapsed_ms_mean": round(
-                    sum(p.get("elapsed_ms", 0) for p in persons) / len(persons), 1
-                )
-                if persons
-                else 0,
+                "elapsed_ms_mean": _mean(p.get("elapsed_ms", 0) for p in persons),
+                "elapsed_ms_median": _median(p.get("elapsed_ms", 0) for p in persons),
             }
         )
     return rows
+
+
+def _share(part: int, whole: int) -> float:
+    return round(part / whole, 3) if whole else 0.0
+
+
+def _mean(values: Any) -> float:
+    held = [value for value in values if value]
+    return round(sum(held) / len(held), 1) if held else 0.0
+
+
+def _median(values: Any) -> float:
+    held: list[float] = sorted(float(value) for value in values if value)
+    if not held:
+        return 0.0
+    middle = len(held) // 2
+    if len(held) % 2:
+        return float(held[middle])
+    return round((held[middle - 1] + held[middle]) / 2, 1)
 
 
 __all__ = [
@@ -376,6 +517,7 @@ __all__ = [
     "ceilings",
     "displacement",
     "fact_table",
+    "gained",
     "load",
     "run",
     "summary",
