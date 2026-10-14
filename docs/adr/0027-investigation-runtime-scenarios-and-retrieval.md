@@ -433,6 +433,19 @@ the copy (2 446 windows, 1 632 articles), as the one it replaced did.
   do not name the person, but a namesake in a channel is still a lead, never the
   subject. The channel list is configuration; more channels mean more searches per
   round, bounded by the ceilings.
+- The name filter wants the words of the name together (three words apart at most, in
+  any case and order, an initial for its word); a post holding two other people's names
+  is not about a third. A post is the lead of the fact it was looked up for only when it
+  holds one of the words looked for, and a charges lead only when a Russian Criminal Code
+  citation follows the person's name and an accusation word, within the words since the
+  previous citation (another country's code is nobody's charge here). A name written
+  only after the citation is not read — a known limit: reading forward would hand the
+  person the article of the next one named.
+- A post the database stores (its embed view) and the channel's search finds again (its
+  bare address) is one document: it stands once, as the publication, with the facts the
+  post was looked up for. The unnamed figurant's own publication found again this way
+  corroborates nobody, and neither does a text that names the candidate and the place
+  but none of the case's article numbers.
 - ~~Dense retrieval needs its index built (`index-publications`) wherever it is enabled,
   and rebuilt for a new model.~~ Removed before it was deployed anywhere (ADR 0028).
 - `stored_publications` reads every text with `LIKE` (95 ms now, linear in the corpus).
