@@ -194,6 +194,15 @@ def test_a_post_of_a_channel_is_its_path_and_no_view_of_it() -> None:
     assert document_key(embed) == document_key(plain) == "t.me/ovdinfolive/5"
     # And a post is not the feed it stands in.
     assert document_key("https://t.me/s/ovdinfolive/5") != document_key(plain)
+    # A channel's name is written as it is written: Telegram reads it without case, and so
+    # does the search that asks the channel for its posts.
+    assert document_key("https://t.me/Mediazona/5") == document_key("https://t.me/mediazona/5")
+    # The host's own `www.` is a spelling of the host, not of the path.
+    assert document_key("https://www.t.me/ovdinfolive/5") == document_key(plain)
+    # A path of another site keeps its case: it may be case-sensitive there.
+    assert document_key("https://example.test/News/Item") != document_key(
+        "https://example.test/news/item"
+    )
 
 
 def test_two_articles_of_one_feed_are_two_pages() -> None:

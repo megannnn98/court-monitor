@@ -312,14 +312,16 @@ def document_key(url: str | None) -> str:
 
     What is *not* the same page is another article of one feed:
     `site.ru/news.php?id=1` and `?id=2` are two articles, and the query says which one. Only
-    the parameters that name the campaign or the click are dropped — and on `t.me` nothing
-    is dropped at all, because there a post is `/<channel>/<id>` and every query is one of
-    its views (`embed`, `mode`, `single`). The feed view `/s/<channel>` is a page of posts,
+    the parameters that name the campaign or the click are dropped. On `t.me` the whole
+    query goes, because there a post is `/<channel>/<id>` and every query is one of its
+    views (`embed`, `mode`, `single`). The feed view `/s/<channel>` is a page of posts,
     not a post, and stays a page of its own: it is the address a search is asked at, never
     one that evidence carries.
 
-    The path is left exactly as the site writes it: a path may be case-sensitive, and two
-    addresses differing in the case of a path are two pages however alike they look.
+    The path is left exactly as the site writes it — a path may be case-sensitive, and two
+    addresses differing in the case of a path are two pages however alike they look. The
+    one exception is a channel's name, which Telegram reads without regard to case: the
+    search itself compares a post's channel that way, so the key has to as well.
 
     `investigation.models.canonical` is the other key and stays where it is: it is what the
     embed view of a post and the address of an unnamed publication's own publication are
@@ -332,7 +334,7 @@ def document_key(url: str | None) -> str:
     host = (parts.hostname or "").lower().removeprefix("www.")
     path = parts.path.rstrip("/")
     if host in _PATH_IS_THE_PAGE:
-        return f"{host}{path}"
+        return f"{host}{path.lower()}"
     query = urlencode(
         sorted(
             (key, value)
