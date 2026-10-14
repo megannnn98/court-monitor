@@ -31,6 +31,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from application import build_investigation_retrievers
 from evaluation.investigation.golden import GoldenSet, PersonCase, UnnamedCase
+from ingestion.web_search import SEARCH_DEPTH, SEARCH_DEPTH_ENV
+from investigation import telemetry
 from investigation.models import InvestigationResult
 from investigation.service import InvestigationService
 from investigation.services.external import names
@@ -41,9 +43,24 @@ from investigation.services.model import investigation_model_from_env
 TELEGRAM_ENV = "INVESTIGATION_TELEGRAM_CHANNELS"
 WEB = "web"
 TELEGRAM_PREFIX = "telegram"
-# One credit per basic search; the answer says so too (`usage.credits`), and this is what
-# the count is priced with when the answer is not read.
+# What one search costs, as Tavily prices it: «basic» is one credit, «advanced» is two
+# and buys a slower, longer crawl. The published MCP tool reports no usage of its own, so
+# this is the price the measured run is counted at — and it depends on the depth the run
+# was configured with, not on what the first mode of a comparison happened to use.
+_CREDITS_BY_DEPTH = {"basic": 1, "advanced": 2, "fast": 1, "ultra-fast": 1}
 CREDITS_PER_SEARCH = 1
+
+
+def credits_per_search(depth: str = "basic") -> int:
+    """What one search of this depth costs, in credits."""
+    return _CREDITS_BY_DEPTH.get(depth, CREDITS_PER_SEARCH)
+
+
+def search_depth(env: Mapping[str, str] | None = None) -> str:
+    """The depth the measured run asks Tavily for."""
+    settings = os.environ if env is None else env
+    return (settings.get(SEARCH_DEPTH_ENV) or "").strip() or SEARCH_DEPTH
+
 
 _URLS_OF_ARTICLES = text(
     """
@@ -75,6 +92,9 @@ class CountingSearch:
         # or on the results one may bring, is read back from here rather than paid for
         # twice.
         self.batches: list[dict[str, Any]] = []
+        # What one search of this run costs. The published MCP tool reports no usage, so
+        # the price is Tavily's own and it depends on the depth the run asked for.
+        self.credits = credits_per_search(getattr(search, "search_depth", SEARCH_DEPTH))
 
     @property
     def source(self) -> str:
@@ -98,7 +118,7 @@ class CountingSearch:
         return {
             "tavily_requests": asked,
             "tavily_results": self.results - results,
-            "tavily_credits": asked * CREDITS_PER_SEARCH,
+            "tavily_credits": asked * self.credits,
             "batches": [dict(batch) for batch in self.batches[batches:]],
         }
 
@@ -108,7 +128,11 @@ class CountingSearch:
         self.results += len(found)
         self.batches.append(
             {
-                "query": str(getattr(query, "text", "")),
+                # Never the words themselves: a report is written to disk and read by
+                # people, and a query is a person's name (ADR 0027). What it says is
+                # measured by its hash and its length, exactly as the run measures it.
+                "query_hash": telemetry.query_hash(str(getattr(query, "text", ""))),
+                "query_length": len(str(getattr(query, "text", ""))),
                 "results": len(found),
                 "items": [
                     {

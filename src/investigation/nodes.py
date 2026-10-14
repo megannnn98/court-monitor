@@ -40,6 +40,7 @@ from investigation.scenarios.base import InvestigationScenario, ScenarioView
 from investigation.scenarios.registry import ScenarioRegistry
 from investigation.services import evidence as evidence_rules
 from investigation.services.charges import normalised_charges
+from investigation.services.external import charge_about
 from investigation.services.model import InvestigationModel, ModelReply, prompt
 from investigation.services.retrieval import InvestigationRetriever, RetrieverRegistry
 from investigation.state import InvestigationState, SearchBranch, dump_state
@@ -571,13 +572,22 @@ async def extract_charges(state: InvestigationState, tools: Toolbox) -> dict[str
     cited = [known[ref] for ref in answer.evidence_refs if ref in known]
     values = _normalised_charges(answer.value or "")
     value = next(iter(values), None) if len(values) == 1 else None
+    # Not «is the number somewhere in the text» but «is this number one of the charges
+    # the text lays at this person's door». A page can hold two people's cases; a model
+    # that answers with the other one's article is not to be believed, and the local rule
+    # that says which article is whose is the one that decides.
+    about = (
+        charge_about(subject.name, [item.text[:EVIDENCE_SHOWN] for item in cited])
+        if value is not None
+        else set()
+    )
     if (
         not answer.supported
         or answer.value is None
         or not cited
         or len(cited) != len(answer.evidence_refs)
         or value is None
-        or any(value not in _normalised_charges(item.text[:EVIDENCE_SHOWN]) for item in cited)
+        or value not in about
     ):
         return {"usage": spent, "charges_asked": [item.ref for item in candidates]}
     cited_refs = {item.ref for item in cited}

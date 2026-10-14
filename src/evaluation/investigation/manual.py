@@ -26,7 +26,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from evaluation.investigation.presence import presence
 from evaluation.investigation.web_benchmark import (
-    CREDITS_PER_SEARCH,
     CountingSearch,
     _holds_all,
     batch_texts,
@@ -123,7 +122,7 @@ def _person_report(
         "searches": result.usage.search_calls,
         "tavily_requests": counted[0].requests if counted else 0,
         "tavily_results": counted[0].results if counted else 0,
-        "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
+        "tavily_credits": counted[0].requests * counted[0].credits if counted else 0,
         "llm_calls": result.usage.llm_calls,
         "cost_usd": round(result.usage.cost_usd, 6),
         "elapsed_ms": round(elapsed),
@@ -170,7 +169,7 @@ def _unnamed_report(
         ),
         "web_evidence": sum(1 for item in result.evidence if item.source_id == "web:tavily"),
         "tavily_requests": counted[0].requests if counted else 0,
-        "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
+        "tavily_credits": counted[0].requests * counted[0].credits if counted else 0,
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
         "warnings": result.warnings,
     }
@@ -226,7 +225,7 @@ def _namesake_report(
         "by_surname_summary": by_surname.model_summary,
         "people": per_person,
         "tavily_requests": counted[0].requests if counted else 0,
-        "tavily_credits": (counted[0].requests if counted else 0) * CREDITS_PER_SEARCH,
+        "tavily_credits": counted[0].requests * counted[0].credits if counted else 0,
     }
 
 

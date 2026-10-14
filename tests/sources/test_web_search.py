@@ -193,6 +193,27 @@ def test_the_depth_of_the_search_is_a_setting_and_is_sent_as_it_is() -> None:
 # ── what came back ───────────────────────────────────────────────────────────────
 
 
+@pytest.mark.parametrize(
+    ("url", "one_page"),
+    [
+        # The same page as it is written with a campaign on it.
+        ("https://news.example.test/a?utm_source=telegram&utm_medium=post", "news.example.test/a"),
+        ("https://news.example.test/a?fbclid=abc", "news.example.test/a"),
+        # Two pages of one script are two pages, not one.
+        ("https://news.example.test/news.php?id=1", "news.example.test/news.php?id=1"),
+        ("https://news.example.test/news.php?id=2", "news.example.test/news.php?id=2"),
+        # The case of a host is not the case of a path.
+        ("https://News.Example.Test/News/Item", "news.example.test/News/Item"),
+        ("https://news.example.test/news/item", "news.example.test/news/item"),
+        # A trailing slash and a fragment are the same page.
+        ("https://news.example.test/a/#top", "news.example.test/a"),
+    ],
+)
+def test_one_page_has_one_id_however_its_address_is_written(url: str, one_page: str) -> None:
+    (item,) = run_search(None, results(page(url=url)))
+    assert item.external_id == one_page
+
+
 def test_the_answer_is_read_as_external_evidence_of_the_site_that_published_it() -> None:
     (item,) = run_search(None, results(page(published_date="Tue, 21 Jul 2026 00:00:00 GMT")))
 

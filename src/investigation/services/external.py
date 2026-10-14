@@ -8,6 +8,7 @@ never a fact and never decides who the subject is.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 
@@ -15,7 +16,7 @@ from pymorphy3 import MorphAnalyzer
 
 from ingestion.search import SourceSearch, SourceSearchQuery
 from investigation.models import EvidenceItem, InvestigationQuery, RetrieverCapabilities
-from investigation.services.charges import CHARGE
+from investigation.services.charges import CHARGE, russian_charge
 from investigation.services.retrieval import TEXT_FACTS
 
 EXTERNAL_RESULTS = 10
@@ -189,9 +190,14 @@ def names(text: str, name: str) -> bool:
 _TERM_PREFIX = 5
 _LETTERS_ONLY = re.compile(r"[^\W\d_]+(?:\s+[^\W\d_]+)*", re.UNICODE)
 # A charge has to be part of a claim about this person, rather than a legal reference
-# which happened to be in the same article.  The words before the article matter: they
+# which happened to be in the same article. The words before the citation matter: they
 # cover both «Марию обвинили …» and «Задержана Мария. Ей вменяют …», while refusing an
 # article about Ivan followed by an interview with Maria.
+#
+# One list of accusation words, not two. «Дело возбуждено по …» and «по статье …» on their
+# own are a legal reference, not an assertion about a person, so they are not in it; a
+# second, wider list would have made the first one dead, since every word of the narrow
+# list is also in the wide one.
 _CHARGE_ASSERTION = re.compile(
     r"\b(?:"
     r"обвин\w*|вмен\w*|подозрев\w*|осужд\w*|приговор\w*|фигурант\w*"
@@ -199,14 +205,9 @@ _CHARGE_ASSERTION = re.compile(
     r")",
     re.IGNORECASE,
 )
-_CHARGE_CONTEXT = re.compile(
-    r"\b(?:"
-    r"обвин\w*|вмен\w*|подозрев\w*|осужд\w*|приговор\w*|фигурант\w*"
-    r"|возбуд\w*(?:\s+[^\W\d_]+){0,3}\s+дел\w*"
-    r"|дел\w*\s+по|по\s+(?:стать\w*|ч)"
-    r")",
-    re.IGNORECASE,
-)
+# How many words before a citation may carry the accusation and the name. Wide enough for
+# a sentence («Суд назначил задержание Марии Бонцлер, которой вменяют …»), narrow enough
+# that a person named in one paragraph does not claim the article of another.
 _CHARGE_NAME_WORDS = 25
 
 
@@ -257,34 +258,53 @@ def tells(text: str, terms: tuple[str, ...]) -> bool:
     return False
 
 
-def _charge_lead(text: str, name: str) -> bool:
-    """Whether a Criminal Code article is an accusation about ``name``.
+def charge_about(name: str, texts: Sequence[str]) -> set[str]:
+    """Every charge of the Russian Criminal Code these texts lay at ``name``'s door."""
+    return set().union(*(charges_of(text, name) for text in texts)) if texts else set()
 
-    Deliberately do not split sentences here: abbreviations such as ``ч.`` and ``ст.``
-    and initials contain dots.  For every shared, strict Criminal Code spelling, inspect
-    the preceding 25 words.  A subject normally appears before its accusation; requiring
-    that direction prevents a later, unrelated person in the same sentence from borrowing
-    somebody else's article.
+
+def charges_of(text: str, name: str) -> set[str]:
+    """Every charge of the Russian Criminal Code this text makes an accusation about
+    ``name``, in the one spelling `investigation.services.charges` writes.
+
+    A citation alone says nothing: «ст. 360 УК» in a story about somebody else, or a law
+    quoted in passing, is not a charge of this person. The words before it are what decide
+    — the name and the accusation standing in one local window — and the law has to be the
+    Russian one.
+
+    Deliberately not sentence-based: abbreviations such as ``ч.`` and ``ст.`` and initials
+    carry dots. For every citation the words before it are read — but only back to the
+    citation before it, never across one. That is where one person's case ends and
+    another's begins in a text that speaks of two: «Марию Бонцлер обвинили по ст. 207.3
+    УК РФ. А Иванову вменяют ст. 280 УК РФ» has two cases, and the second article is not
+    the first person's. Where a citation has no predecessor the window is 25 words, and a
+    subject normally appears before its accusation.
     """
     words = list(_WORD.finditer(text))
     if not words:
-        return False
-    for article in CHARGE.finditer(text):
-        article_word = next(
-            (index for index, word in enumerate(words) if word.end() > article.start()),
-            len(words),
-        )
-        start = max(0, article_word - _CHARGE_NAME_WORDS)
-        context = text[words[start].start() : article.start()]
-        # «По статье» alone is a legal reference, not an assertion about a person.
-        # It may support an accusation verb but cannot replace one.
-        if (
-            names(context, name)
-            and _CHARGE_ASSERTION.search(context)
-            and _CHARGE_CONTEXT.search(context)
-        ):
-            return True
-    return False
+        return set()
+    found: set[str] = set()
+    previous = 0
+    for match in CHARGE.finditer(text):
+        spelling = russian_charge(match, text)
+        if spelling is not None:
+            article_word = next(
+                (index for index, word in enumerate(words) if word.end() > match.start()),
+                len(words),
+            )
+            back = max(0, article_word - _CHARGE_NAME_WORDS)
+            floor = next((index for index, word in enumerate(words) if word.start() >= previous), 0)
+            start = words[max(back, floor)].start() if words else 0
+            context = text[start : match.start()]
+            if names(context, name) and _CHARGE_ASSERTION.search(context):
+                found.add(spelling)
+        previous = match.end()
+    return found
+
+
+def _charge_lead(text: str, name: str) -> bool:
+    """Whether a Criminal Code article is an accusation about ``name`` at all."""
+    return bool(charges_of(text, name))
 
 
 class SourceSearchRetriever:

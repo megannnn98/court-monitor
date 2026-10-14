@@ -42,7 +42,7 @@ from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Any, TypeGuard
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit
 
 import httpx2
 
@@ -626,13 +626,36 @@ def _request_id(body: Mapping[str, Any]) -> str | None:
 
 
 def _canonical(url: str) -> str:
-    """The address as one site writes it alike: the id the same page has everywhere."""
+    """The address as one site writes it alike: the id the same page has everywhere.
+
+    Not the address with no query at all. `?utm_source=…` and `?fbclid=…` are the same page
+    as the bare address, and `?id=1` and `?id=2` are two pages of the same script — which
+    is what `site.ru/news.php?id=1` and `site.ru/news.php?id=2` really are. Dropping the
+    whole query would make the second of them disappear into the first, so the tracking is
+    dropped and what is left is kept, in the order the site writes it.
+    """
     parts = urlsplit(url)
     host = (parts.hostname or "").lower().removeprefix("www.")
     # The path is left as the site writes it: it may be case-sensitive, and two addresses
     # that differ in the case of a path are two pages however alike they look.
     path = parts.path.rstrip("/")
-    return f"{host}{path}"
+    kept = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=False)
+        if not _is_tracking(key)
+    ]
+    query = urlencode(sorted(kept))
+    return f"{host}{path}{'?' + query if query else ''}"
+
+
+# Query parameters that name the campaign or the click, not the page. Everything else is
+# part of which page this is.
+_TRACKING = ("utm_", "fbclid", "gclid", "yclid", "mc_cid", "mc_eid", "_openstat", "from")
+
+
+def _is_tracking(key: str) -> bool:
+    lowered = key.lower()
+    return lowered.startswith(_TRACKING) or lowered in {"spm", "ref", "referrer"}
 
 
 # The full text comes as Markdown. A menu of links is a chain of addresses, and those
