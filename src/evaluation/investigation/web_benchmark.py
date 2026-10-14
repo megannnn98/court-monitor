@@ -47,6 +47,8 @@ TELEGRAM_PREFIX = "telegram"
 # and buys a slower, longer crawl. The published MCP tool reports no usage of its own, so
 # this is the price the measured run is counted at — and it depends on the depth the run
 # was configured with, not on what the first mode of a comparison happened to use.
+# The two cheap depths are priced as one each; that is Tavily's documented figure for
+# «basic» and an assumption for «fast»/«ultra-fast», which nothing here has measured.
 _CREDITS_BY_DEPTH = {"basic": 1, "advanced": 2, "fast": 1, "ultra-fast": 1}
 CREDITS_PER_SEARCH = 1
 
