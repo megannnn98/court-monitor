@@ -13,6 +13,8 @@ import asyncio
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
+import pytest
+
 from ingestion.search import ExternalEvidence, SourceSearchQuery
 from investigation.models import (
     EvidenceItem,
@@ -178,6 +180,46 @@ def test_a_post_the_database_does_not_hold_stays_the_channel_own() -> None:
     assert shown.article_id is None
     assert shown.source_id == "telegram:tg-ovdinfolive"
     assert shown.leads == ("charges",)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The name and nothing of the fact: the channel's search matches loosely, and is
+        # sent the first word only.
+        "Мария Бонцлер выступила в суде.",
+        # A word that only begins like the one looked for.
+        "Изменился статус Марии Бонцлер.",
+        # An article of the Criminal Code — of somebody else.
+        "Мария Бонцлер пришла в суд. Иванову вменяют ст. 280 УК РФ.",
+        # Another country's code.
+        "Марию Бонцлер обвинили по ч. 3 ст. 342 УК Беларуси.",
+        # An article without the code it belongs to: which law it is, the post does not
+        # say, so the articles are still looked for.
+        "Марии Бонцлер предъявили обвинение по статье 280.",
+    ],
+)
+def test_a_post_that_says_nothing_of_her_charges_is_no_lead_and_they_are_looked_for_again(
+    text: str,
+) -> None:
+    outside = channel(text)
+
+    result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
+
+    (shown,) = posts(result)
+    assert shown.leads == ()
+    assert f"{NAME} статья" in asked(outside)
+    assert f"{NAME} обвинение" in asked(outside)
+
+
+def test_a_charge_about_her_is_a_lead_and_ends_the_search_for_it() -> None:
+    outside = channel("Марии Бонцлер вменили две статьи, в том числе ч. 3 ст. 280 УК РФ.")
+
+    result = run([people(), outside], DOSSIER_QUESTION, max_followups=2)
+
+    (shown,) = posts(result)
+    assert shown.leads == ("charges",)
+    assert f"{NAME} обвинение" not in asked(outside)
 
 
 def test_a_post_found_by_the_database_and_the_channel_counts_once_in_each_list() -> None:

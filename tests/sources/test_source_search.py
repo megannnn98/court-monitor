@@ -185,7 +185,8 @@ def test_only_channels_of_the_registry_can_be_configured() -> None:
 def test_a_post_found_outside_is_external_evidence_and_a_lead_only() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            200, content=page(("ovdinfolive", 7, "Сидорову предъявили обвинение по статье 280"))
+            200,
+            content=page(("ovdinfolive", 7, "Сидорову предъявили обвинение по статье 280 УК РФ")),
         )
 
     retriever = SourceSearchRetriever(search_over(httpx.MockTransport(handler)), source="telegram")
@@ -200,6 +201,27 @@ def test_a_post_found_outside_is_external_evidence_and_a_lead_only() -> None:
     assert retriever.capabilities.network and not retriever.capabilities.local
     assert (item.source_type, item.fact, item.leads) == ("external", None, ("charges",))
     assert item.retrieved_at is not None and item.external_id == "7"
+
+
+def test_a_post_that_names_the_person_but_not_the_words_looked_for_is_no_lead() -> None:
+    """A post that only names them ends nobody's search for the articles."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, content=page(("ovdinfolive", 7, "Сидоров дал интервью в прямом эфире"))
+        )
+
+    retriever = SourceSearchRetriever(search_over(httpx.MockTransport(handler)), source="telegram")
+
+    (item,) = asyncio.run(
+        retriever.search(
+            InvestigationQuery(kind="keywords", name="Сидоров", terms=("статья",), fact="charges")
+        )
+    )
+
+    assert item.leads == ()
+    # The words of the request still go to the channel's own search, which is loose.
+    assert item.text == "Сидоров дал интервью в прямом эфире"
 
 
 @pytest.mark.skipif(not os.environ.get("INVESTIGATION_LIVE_SEARCH"), reason="live network: opt-in")
