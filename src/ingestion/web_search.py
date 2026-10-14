@@ -27,6 +27,20 @@ answer reports no credits. Nothing here is assumed: the arguments are filtered a
 the schema the server itself published in `list_tools()`, and a parameter it does not
 publish is simply not sent.
 
+**What one search actually exchanges** (the same live session, in order):
+
+    POST 200  mcp-session-id=<issued>     initialize
+    GET  405                             the SSE stream — this server answers in JSON
+    POST 202                             notifications/initialized
+    POST 200                             tools/list
+    POST 200                             tools/call
+    DELETE 405                           terminate_session — this server does not end it
+
+Both the 405 of the stream and the 405 of the DELETE come *after* the call that failed,
+which is why only a failed POST is read as the status of a call. A schema violation comes
+back as a protocol error naming the offending argument (`Unexpected keyword argument`) —
+a refusal, not a failure to be retried.
+
 The words asked are never logged — only the source, how many results came back, and what
 the run's own request id was.
 """

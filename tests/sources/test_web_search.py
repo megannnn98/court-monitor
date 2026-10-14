@@ -24,18 +24,24 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
+import httpx2
 import pytest
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 from sources.mcp_server import ENDPOINT, KEY, fake_tavily_mcp, page, results, served_tavily_mcp
 
 from ingestion.search import SearchAnswerError, SourceSearchQuery
 from ingestion.web_search import (
+    MAX_SSE_EVENT_BYTES,
     TAVILY_API_KEY_ENV,
     TAVILY_MCP_URL,
     TavilyMcpError,
     TavilyMcpSearch,
     _AskedWordsOutOfLogs,
+    _LastStatus,
     tavily_search_from_env,
 )
 from investigation.services.external import names
@@ -839,3 +845,70 @@ def test_the_official_remote_mcp_server_publishes_a_search_tool_and_answers_one(
     assert all(item.text for item in found)
     # The key is nowhere in what the search object says about itself or about an answer.
     assert LIVE_KEY not in repr(search)
+
+
+@pytest.mark.skipif(not LIVE_KEY, reason="live network with a real key: opt-in")
+def test_the_live_server_answers_the_call_and_then_refuses_the_stream_and_the_delete() -> None:
+    """Measured on 2026-10-14: the live server issues a session id, answers in JSON where
+    the transport expects a stream, and refuses to end the session — 405 both times, after
+    the call that succeeded. That is exactly the shape that used to make a rate limit
+    unretryable, so it is asserted against the real server and not assumed."""
+    assert LIVE_KEY is not None
+    statuses = asyncio.run(_live_exchange(LIVE_KEY))
+    assert all(status < 400 for method, status in statuses if method == "POST")
+    # The server that cannot stream and will not be terminated is what the retry rule is
+    # written against. If it ever starts answering these properly, this test says so.
+    assert any(method == "DELETE" for method, _ in statuses)
+
+
+async def _live_exchange(key: str) -> list[tuple[str, int]]:
+    """One real call against the live server, and the exchange it took."""
+    statuses: list[tuple[str, int]] = []
+
+    async def watch(response: Any) -> None:
+        statuses.append((response.request.method, response.status_code))
+
+    async with (
+        httpx2.AsyncClient(
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=60.0,
+            event_hooks={"response": [watch]},
+        ) as client,
+        streamable_http_client(
+            TAVILY_MCP_URL, http_client=client, max_sse_event_size=MAX_SSE_EVENT_BYTES
+        ) as streams,
+        ClientSession(streams[0], streams[1], read_timeout_seconds=60.0) as session,
+    ):
+        await session.initialize()
+        await session.call_tool(
+            "tavily_search", {"query": NAME, "max_results": 1, "search_depth": "basic"}
+        )
+    return statuses
+
+
+def test_only_a_failed_post_is_the_status_of_a_call() -> None:
+    """The rule itself, without a network: the stream and the closing DELETE answer after
+    the call, and neither may stand in for what the call got."""
+    seen = _LastStatus()
+
+    asyncio.run(seen.record(_Response(200)))
+    assert seen.status is None
+    asyncio.run(seen.record(_Response(503)))
+    assert seen.status == 503
+    assert seen.transient is True
+
+    asyncio.run(seen.record(_Response(405, method="DELETE")))
+    assert seen.status == 503
+    asyncio.run(seen.record(_Response(200, method="GET")))
+    assert seen.status == 503
+
+    asyncio.run(seen.record(_Response(401)))
+    assert seen.transient is False
+
+
+class _Response:
+    """The smallest thing the status hook reads: a method and a status."""
+
+    def __init__(self, status: int, method: str = "POST") -> None:
+        self.status_code = status
+        self.request = SimpleNamespace(method=method)
