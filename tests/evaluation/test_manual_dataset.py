@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -18,7 +19,7 @@ VALID_FACTS = {"charges", "role", "politics", "rf_list", "latest_news"}
 
 
 @pytest.fixture(scope="module")
-def document() -> dict[str, object]:
+def document() -> dict[str, Any]:
     return load(DATA)
 
 
@@ -27,14 +28,14 @@ def test_the_shipped_set_is_where_the_command_looks_for_it() -> None:
     assert DATA.name == "manual_golden.json"
 
 
-def test_the_set_holds_the_kinds_the_benchmark_asks_for(document: dict[str, object]) -> None:
+def test_the_set_holds_the_kinds_the_benchmark_asks_for(document: dict[str, Any]) -> None:
     assert len(document["cases"]) >= 20
     assert len(document["unnamed_cases"]) >= 5
     assert len(document["namesake_pairs"]) >= 3
 
 
 def test_every_case_can_be_asked_and_every_expectation_is_one_of_three_shapes(
-    document: dict[str, object],
+    document: dict[str, Any],
 ) -> None:
     for case in document["cases"]:
         assert case["case_id"] and case["query"], case
@@ -50,7 +51,7 @@ def test_every_case_can_be_asked_and_every_expectation_is_one_of_three_shapes(
 
 
 def test_the_person_cases_cover_the_names_the_run_has_to_get_right(
-    document: dict[str, object],
+    document: dict[str, Any],
 ) -> None:
     queries = [str(case["query"]) for case in document["cases"]]
     groups = {str(case["group"]) for case in document["cases"]}
@@ -62,7 +63,7 @@ def test_the_person_cases_cover_the_names_the_run_has_to_get_right(
 
 
 def test_the_unnamed_cases_point_at_a_publication_of_the_database(
-    document: dict[str, object],
+    document: dict[str, Any],
 ) -> None:
     for case in document["unnamed_cases"]:
         assert isinstance(case["article_id"], int), case

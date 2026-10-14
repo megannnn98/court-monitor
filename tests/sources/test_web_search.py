@@ -31,7 +31,7 @@ import httpx2
 import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
-from sources.mcp_server import ENDPOINT, KEY, fake_tavily_mcp, page, results, served_tavily_mcp
+from support.mcp_server import ENDPOINT, KEY, fake_tavily_mcp, page, results, served_tavily_mcp
 
 from ingestion.search import SearchAnswerError, SourceSearchQuery
 from ingestion.web_search import (
@@ -543,7 +543,7 @@ def test_a_cancelled_search_leaves_nothing_behind() -> None:
                 task
                 for task in asyncio.all_tasks() - before
                 # The test server's own SSE writer is the harness, not the client.
-                if "sse_starlette" not in str(task.get_coro().cr_frame.f_globals.get("__name__"))
+                if "sse_starlette" not in _module_of(task)
             ]
             return not left, recorder.terminations
 
@@ -768,6 +768,13 @@ def caplog_handler() -> Iterator[list[str]]:
         logging.getLogger("mcp.client.streamable_http").removeHandler(handler)
 
 
+def _module_of(task: asyncio.Task[Any]) -> str:
+    """The module a task's coroutine runs in, or nothing when it has no frame."""
+    coroutine = task.get_coro()
+    frame = getattr(coroutine, "cr_frame", None) or getattr(coroutine, "ag_frame", None)
+    return str(frame.f_globals.get("__name__", "")) if frame else ""
+
+
 def test_the_key_is_not_in_the_headers_the_transport_logs(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -817,7 +824,8 @@ def test_without_a_key_there_is_no_web_search() -> None:
 
 
 def test_the_depth_of_the_search_is_read_from_the_environment() -> None:
-    assert tavily_search_from_env({"TAVILY_API_KEY": KEY}).search_depth == "basic"
+    plain = tavily_search_from_env({"TAVILY_API_KEY": KEY})
+    assert plain is not None and plain.search_depth == "basic"
     deeper = tavily_search_from_env(
         {"TAVILY_API_KEY": KEY, "INVESTIGATION_WEB_SEARCH_DEPTH": "advanced"}
     )

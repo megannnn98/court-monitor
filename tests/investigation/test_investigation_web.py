@@ -15,8 +15,8 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sources.mcp_server import served_tavily_mcp
 from sqlalchemy.orm import Session, sessionmaker
+from support.mcp_server import served_tavily_mcp
 
 from application import build_investigation_retrievers
 from ingestion.search import ExternalEvidence, SourceSearchQuery

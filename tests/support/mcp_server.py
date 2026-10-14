@@ -122,7 +122,7 @@ async def fake_tavily_mcp(
     async with (
         _lifespan(served),
         httpx2.AsyncClient(
-            transport=httpx2.ASGITransport(app=guarded),  # type: ignore[arg-type]
+            transport=httpx2.ASGITransport(app=guarded),
             base_url=HOST,
             headers={"Authorization": f"Bearer {key}"},
         ) as client,
