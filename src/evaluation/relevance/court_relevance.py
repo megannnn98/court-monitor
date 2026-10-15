@@ -61,6 +61,7 @@ def run_annotator(
     articles: Sequence[Mapping[str, Any]],
     out_dir: Path,
     fixed: Mapping[str, Any],
+    task: Task = TASK,
 ) -> int:
     """One annotator over `articles` into `out_dir`, the run kept in its summary; 0 when
     it ran without a provider error. The same for the holdout and any other corpus."""
@@ -73,8 +74,8 @@ def run_annotator(
             out_dir / FILES[annotator],
             annotator=annotator,
             endpoint=chosen[annotator],
-            transport=openrouter(http, TASK),
-            task=TASK,
+            transport=openrouter(http, task),
+            task=task,
         )
     summary = record_run(
         out_dir / "annotation_run.json",
@@ -82,7 +83,7 @@ def run_annotator(
         {
             "model_a": chosen["a"].model,
             "model_b": chosen["b"].model,
-            "prompt_version": PROMPT_VERSION,
+            "prompt_version": task.prompt_version,
             "article_count": len(articles),
             **fixed,
         },
