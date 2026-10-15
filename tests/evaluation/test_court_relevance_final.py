@@ -176,3 +176,28 @@ def test_an_unfinished_audit_or_disagreement_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="2 disagreements are not decided"):
         freeze(out, tmp_path, created_at=WHEN)
     assert not (out / "final_labels.jsonl").exists()
+
+
+def assistant(article_id: int, consensus: bool, reviewer: bool) -> dict[str, Any]:
+    return {
+        "article_id": article_id,
+        "consensus": consensus,
+        "reviewer": reviewer,
+        "verdict": "agree" if consensus == reviewer else "disagree",
+        "annotation_source": "assistant_audit",
+    }
+
+
+def test_an_assistant_audit_is_refused_unless_allowed_and_keeps_its_name() -> None:
+    articles = [article(1), article(2)]
+    consensus = [label(1, True), label(2, False)]
+    audit = [assistant(1, True, True), assistant(2, False, True)]
+    with pytest.raises(ValueError, match="assistant_audit"):
+        final_labels(articles, consensus, audit)
+    final = final_labels(
+        articles, consensus, audit, audit_sources=("human_audit", "assistant_audit")
+    )
+    assert final == [
+        label(1, True),
+        label(2, True, "assistant_audit_correction"),
+    ]

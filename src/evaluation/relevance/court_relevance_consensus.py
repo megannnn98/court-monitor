@@ -30,6 +30,10 @@ OUT_DIR = HOLDOUT_DIR / "court_monitor_relevance"
 FIELD = "relevant_to_court_monitor"
 CONSENSUS = "llm_consensus"
 ADJUDICATION = "human_adjudication"
+# Allowed only where a dataset says so (the development corpus): a decision of the
+# assistant, kept apart from a person's.
+ASSISTANT_ADJUDICATION = "assistant_adjudication"
+HUMAN_ONLY = (ADJUDICATION,)
 ACCEPTABLE_AGREEMENT = 0.90
 
 
@@ -103,7 +107,7 @@ def build(
         human = adjudications.get(article_id)
         if human is not None:
             counts["adjudicated"] += 1
-            final.append(_label(article_id, bool(human[FIELD]), ADJUDICATION))
+            final.append(_label(article_id, bool(human[FIELD]), human["annotation_source"]))
         elif differs is None and a is not None:
             final.append(_label(article_id, bool(a[FIELD]), CONSENSUS))
         else:
@@ -123,12 +127,17 @@ def _jsonl(rows: Sequence[Mapping[str, Any]]) -> str:
     return "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
 
 
-def rebuild(out_dir: Path, sample_path: Path) -> dict[str, int]:
+def rebuild(
+    out_dir: Path, sample_path: Path, adjudication_sources: Sequence[str] = HUMAN_ONLY
+) -> dict[str, int]:
     """Write `consensus_labels.jsonl` and `disagreements.jsonl`; the counts."""
     adjudications = by_article(_read(out_dir / "adjudications.jsonl"), "adjudications")
     for article_id, row in adjudications.items():
-        if row.get("annotation_source") != ADJUDICATION:
-            raise ValueError(f"adjudications: {article_id} is not a human adjudication")
+        if row.get("annotation_source") not in adjudication_sources:
+            raise ValueError(
+                f"adjudications: {article_id} is {row.get('annotation_source')!r}, "
+                f"allowed {list(adjudication_sources)}"
+            )
     final, disagreements, counts = build(
         read_jsonl(sample_path),
         by_article(_read(out_dir / "labels_a.jsonl"), "labels_a"),
@@ -140,13 +149,15 @@ def rebuild(out_dir: Path, sample_path: Path) -> dict[str, int]:
     return counts
 
 
-def freeze_audit(out_dir: Path, sample_path: Path) -> list[int]:
+def freeze_audit(
+    out_dir: Path, sample_path: Path, adjudication_sources: Sequence[str] = HUMAN_ONLY
+) -> list[int]:
     """Draw the audit once every disagreement is decided; the drawn ids, frozen."""
     path = out_dir / "audit_sample.json"
     if path.exists():
         frozen: list[int] = json.loads(path.read_text(encoding="utf-8"))["article_ids"]
         return frozen
-    counts = rebuild(out_dir, sample_path)
+    counts = rebuild(out_dir, sample_path, adjudication_sources)
     if counts["remaining"]:
         raise ValueError(f"{counts['remaining']} disagreements are not decided yet")
     consensus = [

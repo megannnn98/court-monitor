@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -56,35 +56,35 @@ def parse(content: str) -> list[tuple[int, dict[str, Any]]]:
 TASK = Task(PROMPT_VERSION, SYSTEM, SCHEMA, parse)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    if len(args) != 1 or args[0] not in FILES:
-        print("usage: python -m evaluation.relevance.court_relevance a|b", file=sys.stderr)
-        return 2
-    annotator = args[0]
-    sample = check_frozen(HOLDOUT_DIR)
-    articles = read_jsonl(HOLDOUT_DIR / "sample_articles.jsonl")
+def run_annotator(
+    annotator: str,
+    articles: Sequence[Mapping[str, Any]],
+    out_dir: Path,
+    fixed: Mapping[str, Any],
+) -> int:
+    """One annotator over `articles` into `out_dir`, the run kept in its summary; 0 when
+    it ran without a provider error. The same for the holdout and any other corpus."""
     chosen = endpoints()
-    OUT_DIR.mkdir(exist_ok=True)
+    out_dir.mkdir(exist_ok=True)
     started = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     with httpx.Client() as http:
         run = annotate(
             articles,
-            OUT_DIR / FILES[annotator],
+            out_dir / FILES[annotator],
             annotator=annotator,
             endpoint=chosen[annotator],
             transport=openrouter(http, TASK),
             task=TASK,
         )
     summary = record_run(
-        OUT_DIR / "annotation_run.json",
+        out_dir / "annotation_run.json",
         {**run, "started_at": started},
         {
             "model_a": chosen["a"].model,
             "model_b": chosen["b"].model,
             "prompt_version": PROMPT_VERSION,
             "article_count": len(articles),
-            "sample_sha256": sample["sample_sha256"],
+            **fixed,
         },
     )
     print(json.dumps({**run, f"cost_{annotator}_usd_total": summary[f"cost_{annotator}_usd"]}))
@@ -92,6 +92,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"{annotator}: stopped, nothing falls back: {run['error']}", file=sys.stderr)
         return 1
     return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) != 1 or args[0] not in FILES:
+        print("usage: python -m evaluation.relevance.court_relevance a|b", file=sys.stderr)
+        return 2
+    sample = check_frozen(HOLDOUT_DIR)
+    return run_annotator(
+        args[0],
+        read_jsonl(HOLDOUT_DIR / "sample_articles.jsonl"),
+        OUT_DIR,
+        {"sample_sha256": sample["sample_sha256"]},
+    )
 
 
 if __name__ == "__main__":

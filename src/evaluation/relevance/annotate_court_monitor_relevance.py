@@ -3,6 +3,8 @@ audit 50 of their consensus labels.
 
     python -m evaluation.relevance.annotate_court_monitor_relevance --disagreements
     python -m evaluation.relevance.annotate_court_monitor_relevance --audit
+    python -m evaluation.relevance.annotate_court_monitor_relevance --dev --disagreements
+    python -m evaluation.relevance.annotate_court_monitor_relevance --dev --audit
 
 Keys: y relevant, n not relevant, s skip, q quit, ? the rubric. Each decision is saved at
 once. No model is called, and nothing of `junk-labels-v1` is shown.
@@ -22,9 +24,15 @@ from evaluation.relevance.court_relevance_consensus import (
     CONSENSUS,
     FIELD,
     HOLDOUT_DIR,
+    HUMAN_ONLY,
     audit_agreement,
     freeze_audit,
     rebuild,
+)
+from evaluation.relevance.court_relevance_dev import (
+    DEV_ADJUDICATION_SOURCES,
+    DEV_DIR,
+    checked_articles,
 )
 from evaluation.relevance.court_relevance_rubric import SYSTEM
 from evaluation.relevance.holdout import read_jsonl, write_atomically
@@ -74,11 +82,12 @@ def adjudicate(
     ask: Callable[[str], str] | None = None,
     say: Callable[[str], None] | None = None,
     chars: int = CHARS,
+    adjudication_sources: Sequence[str] = HUMAN_ONLY,
 ) -> int:
     """Decide the disagreements by hand; how many were decided."""
     ask = ask or input
     say = say or print
-    rebuild(out_dir, sample_path)
+    rebuild(out_dir, sample_path, adjudication_sources)
     articles = {int(a["article_id"]): a for a in read_jsonl(sample_path)}
     path = out_dir / "adjudications.jsonl"
     decided = {int(row["article_id"]): row for row in _rows(path)}
@@ -105,7 +114,7 @@ def adjudicate(
         }
         _write(path, decided, sorted(decided))
         done += 1
-    counts = rebuild(out_dir, sample_path)
+    counts = rebuild(out_dir, sample_path, adjudication_sources)
     say(f"{counts['adjudicated']} decided, {counts['remaining']} to go")
     return done
 
@@ -117,12 +126,13 @@ def audit(
     ask: Callable[[str], str] | None = None,
     say: Callable[[str], None] | None = None,
     chars: int = CHARS,
+    adjudication_sources: Sequence[str] = HUMAN_ONLY,
 ) -> int:
     """Check the audit's consensus labels by hand; how many were checked. A verdict is
     kept beside the label, never in place of it."""
     ask = ask or input
     say = say or print
-    ids = freeze_audit(out_dir, sample_path)
+    ids = freeze_audit(out_dir, sample_path, adjudication_sources)
     articles = {int(a["article_id"]): a for a in read_jsonl(sample_path)}
     labels = {int(row["article_id"]): row for row in read_jsonl(out_dir / "consensus_labels.jsonl")}
     path = out_dir / "audit.jsonl"
@@ -161,11 +171,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--disagreements", action="store_true")
     mode.add_argument("--audit", action="store_true")
+    parser.add_argument(
+        "--dev", action="store_true", help="the development corpus instead of the holdout"
+    )
     args = parser.parse_args(argv)
-    check_frozen(args.dir)
-    out_dir, sample_path = args.dir / "court_monitor_relevance", args.dir / "sample_articles.jsonl"
     try:
-        (adjudicate if args.disagreements else audit)(out_dir, sample_path, chars=args.chars)
+        sources: Sequence[str] = HUMAN_ONLY
+        if args.dev:
+            checked_articles(DEV_DIR)
+            out_dir, sample_path = DEV_DIR, DEV_DIR / "articles.jsonl"
+            sources = DEV_ADJUDICATION_SOURCES
+        else:
+            check_frozen(args.dir)
+            out_dir = args.dir / "court_monitor_relevance"
+            sample_path = args.dir / "sample_articles.jsonl"
+    except ValueError as error:
+        print(f"refused: {error}")
+        return 1
+    try:
+        (adjudicate if args.disagreements else audit)(
+            out_dir, sample_path, chars=args.chars, adjudication_sources=sources
+        )
     except (KeyboardInterrupt, EOFError):
         print("\nstopped; every decision given so far is saved")
     except ValueError as error:
