@@ -43,6 +43,12 @@ dev = [
 semantic = [
     "sentence-transformers>=5.0",
 ]
+# The relevance experiment (`evaluation.relevance`). No version of its own: the floor is
+# the API it uses (`get_feature_names_out`), and the lock keeps the one version the
+# `semantic` group already resolves to.
+ml = [
+    "scikit-learn>=1.0",
+]
 
 [tool.uv]
 # Deployment images use --no-default-groups, so API, CLI and Dagster never need dev tools.

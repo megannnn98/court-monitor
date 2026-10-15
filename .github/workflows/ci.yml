@@ -78,8 +78,10 @@ jobs:
           # Same as .python-version; makes the interpreter explicit in the log.
           python-version: "3.13"
 
+      # The `ml` group brings scikit-learn, so the relevance experiment's tests run here
+      # instead of skipping; no other job installs it.
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --group ml
 
       # PostgreSQL tests skip without TEST_DATABASE_URL.
       - name: Pytest

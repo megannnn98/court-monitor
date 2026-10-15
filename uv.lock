@@ -470,6 +470,9 @@ dev = [
     { name = "ruff" },
     { name = "types-openpyxl" },
 ]
+ml = [
+    { name = "scikit-learn" },
+]
 semantic = [
     { name = "sentence-transformers" },
 ]
@@ -505,6 +508,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16.3" },
     { name = "types-openpyxl", specifier = ">=3.1.5.20260827" },
 ]
+ml = [{ name = "scikit-learn", specifier = ">=1.0" }]
 semantic = [{ name = "sentence-transformers", specifier = ">=5.0" }]
 
 [[package]]

@@ -25,3 +25,6 @@ article.html
 # Дампы базы: снимки и резервные копии, которые не должны попасть в репозиторий.
 # 15 МБ дампы одного списка — не то, что хранят в git.
 backups/
+
+# Datasets and results of the ML experiments: article texts, never in the repository.
+/data/ml/
