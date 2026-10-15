@@ -4,6 +4,10 @@ Not «is there a criminal case» (that is `junk-labels-v1`, kept apart) but: doe
 itself report persecution of a person by Russian authorities in a political, repressive or
 human-rights context. Only the text decides — no outside knowledge, and nothing of the
 `kind` / `political` labels of `junk-labels-v1`.
+
+Obsolete as the ground-truth criterion since 2026-10-15: superseded by
+`court-monitor-person-criminal-case-v1` (`person_criminal_case_rubric.py`). Kept unchanged
+because the frozen holdout and dev labels were produced with it.
 """
 
 from __future__ import annotations

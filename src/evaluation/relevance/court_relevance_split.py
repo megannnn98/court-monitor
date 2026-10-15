@@ -134,6 +134,7 @@ def write_split(
     source: Mapping[str, Any],
     *,
     created_at: datetime,
+    dataset: str = "court-monitor-relevance-v1-dev-split",
 ) -> dict[str, Any]:
     """Write train, validation and their metadata once; a second write of the same split
     changes nothing, of another is refused."""
@@ -154,7 +155,7 @@ def write_split(
         write_atomically(out_dir / name, body)
     validation_stats = describe(validation)
     metadata = {
-        "dataset": "court-monitor-relevance-v1-dev-split",
+        "dataset": dataset,
         **decided,
         "train": describe(train),
         "validation": validation_stats,
