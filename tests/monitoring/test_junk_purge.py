@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -365,3 +366,49 @@ def test_the_purge_command_with_a_broken_screen_stops_before_deleting(
         build_processing_service(session_factory).purge_junk()
 
     assert {ids["junk"], ids["fine"], ids["criminal"]} <= _articles(session_factory)
+
+
+class SureScreen(Screen):
+    """The fine scores far under the cutoff."""
+
+    def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:
+        self.judged += [title for title, _body in articles]
+        return [0.9 if title == "Выставка" else 0.01 for title, _body in articles]
+
+
+def _logged(caplog: pytest.LogCaptureFixture, event: str) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if f"event={event} " in r.getMessage()]
+
+
+def test_every_article_the_screen_lets_go_is_logged_with_its_score(
+    session_factory: sessionmaker[Session], caplog: pytest.LogCaptureFixture
+) -> None:
+    """The text of a purged article is wiped: its score is kept only in the log."""
+    ids = _seed(session_factory)
+    caplog.set_level(logging.INFO, logger="monitoring")
+
+    JunkPurge(session_factory, screen=SureScreen()).run()
+
+    passed = _logged(caplog, "junk_screen_passed")
+    assert [r.getMessage() for r in passed] == [
+        (
+            f"event=junk_screen_passed article_id={ids['fine']} score=0.0100 cutoff=0.5000 "
+            "screen=test-screen title='Штраф'"
+        )
+    ]
+    assert _logged(caplog, "junk_screen_borderline") == []
+
+
+def test_a_score_close_under_the_cutoff_is_a_warning(
+    session_factory: sessionmaker[Session], caplog: pytest.LogCaptureFixture
+) -> None:
+    ids = _seed(session_factory)
+    caplog.set_level(logging.INFO, logger="monitoring")
+
+    # 0.1: where a measured miss scored.
+    JunkPurge(session_factory, screen=Screen()).run()
+
+    (warned,) = _logged(caplog, "junk_screen_borderline")
+    assert warned.levelno == logging.WARNING
+    assert f"article_id={ids['fine']} score=0.1000" in warned.getMessage()
+    assert ids["fine"] not in _articles(session_factory)
