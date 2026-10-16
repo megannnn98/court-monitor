@@ -263,25 +263,36 @@ def test_a_name_is_kept_by_its_forms_and_an_older_answer_by_key_still_counts(
     # Kept by the forms it named: a rebuild that changes the entity keys asks nothing.
     assert keys and all(key.startswith("forms:") for key in keys)
 
-    # An older answer kept by the rule key of the entity is still an answer.
+    # An older answer kept by the rule key of the entity is still an answer — of the
+    # same model; another model's is not this model's, and the name is asked again.
     with session_factory.begin() as session:
         session.execute(text("DELETE FROM entity_name_normalizations"))
-        session.add(
-            EntityNameNormalizationRecord(
-                key="александр моор",
-                prompt_version=PROMPT_VERSION,
-                model="old",
-                nominative="Александр Моор",
-                gender="male",
-                is_person=True,
+        for model in (FakeNormalizer.model, "another-model"):
+            session.add(
+                EntityNameNormalizationRecord(
+                    key="александр моор",
+                    prompt_version=PROMPT_VERSION,
+                    model=model,
+                    nominative="Александр Моор",
+                    gender="male",
+                    is_person=True,
+                )
             )
-        )
     again = FakeNormalizer(table)
 
     result = EntityCollector(session_factory, normalizer=again).run()
 
     assert again.asked == [("Александра Моора",)]
     assert result.normalized_cached == 1
+
+    with session_factory.begin() as session:
+        session.execute(
+            text("DELETE FROM entity_name_normalizations WHERE model = :model"),
+            {"model": FakeNormalizer.model},
+        )
+    other = FakeNormalizer(table)
+    EntityCollector(session_factory, normalizer=other).run()
+    assert len(other.asked) == 2, "another model's answer by key does not count"
 
 
 def test_a_single_nominative_form_is_named_without_the_model(

@@ -170,6 +170,10 @@ def probe(
             f"Модель ответила на {len(answers)} из {len(ITEMS)} записей: шаг сочтёт "
             "остальные неотвеченными."
         )
+    # Valid JSON is not enough: each name as expected, the slogan not a person.
+    if error is None and not all(entity.as_expected for entity in entities):
+        wrong = ", ".join(f"«{entity.source}»" for entity in entities if not entity.as_expected)
+        error = f"Модель ответила неверно: {wrong}. Для шага имён она не годится."
     reported = spend.calls > 0 and spend.uncosted_calls == 0
     return ProbeResult(
         ok=error is None,

@@ -48,6 +48,7 @@ _LATEST_RUNS = text(
           ORDER BY i.id LIMIT 1) AS example
     FROM monitoring_runs r
     WHERE r.source IS NOT NULL AND r.finished_at IS NOT NULL AND r.status = ANY(:finished)
+      AND r.started_at >= :since
       AND (CAST(:source AS text) IS NULL OR r.source = :source)
     ORDER BY r.source, r.started_at DESC, r.id DESC
     """
@@ -96,7 +97,11 @@ def layout_suspects(
     """The sources (or the one) that look broken by a change of layout, by source."""
     now = now or datetime.now(UTC)
     found: list[LayoutSuspect] = []
-    for row in session.execute(_LATEST_RUNS, {"finished": list(_FINISHED), "source": source}):
+    since = now - timedelta(days=HISTORY_DAYS)
+    # The latest run of the window: a source not run for a month has no run to tell by.
+    for row in session.execute(
+        _LATEST_RUNS, {"finished": list(_FINISHED), "source": source, "since": since}
+    ):
         fetched = row.documents_ingested + row.documents_failed
         if (
             row.parse_failed >= PARSE_FAILURES_MIN
@@ -118,7 +123,7 @@ def layout_suspects(
         _RECENT_RUNS,
         {
             "finished": list(_FINISHED),
-            "since": now - timedelta(days=HISTORY_DAYS),
+            "since": since,
             "source": source,
         },
     ):

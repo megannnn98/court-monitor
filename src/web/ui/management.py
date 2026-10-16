@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 from application import build_monitoring_runs
 from db.orm_models import MonitoringRunRecord
 from ingestion.sources.source_registry import news_sources
+from llm.chat import Purpose
+from llm.model_choice import chosen_model
 from orchestrator.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
 from orchestrator.operations import (
     OperationConflictError,
@@ -696,6 +698,39 @@ class StepRefused(Exception):
         self.status_code = status_code
 
 
+_MODEL_TITLES: dict[Purpose, str] = {
+    "extraction": "Модель извлечения",
+    "decision": "Модель решений",
+}
+
+
+def shown_models(
+    db: Session, entity_model: str | None, decision_model: str | None
+) -> tuple[str | None, str | None]:
+    """The models a page's warning showed, checked against the choice now. StepRefused
+    (409) when either changed since: the start would ask a model nobody saw. None —
+    the page sent none (an old form): the start reads the choice itself."""
+    shown: tuple[tuple[Purpose, str | None], ...] = (
+        ("extraction", entity_model),
+        ("decision", decision_model),
+    )
+    for kind, model in shown:
+        if model is None:
+            continue
+        chosen = chosen_model(db, kind=kind)
+        if chosen != model:
+            raise StepRefused(
+                f"{_MODEL_TITLES[kind]} сменилась: теперь {chosen}. "
+                "Проверьте её цену и запустите снова.",
+                409,
+            )
+    return entity_model, decision_model
+
+
+def _shown(request: Request, db: Session) -> tuple[str | None, str | None]:
+    return shown_models(db, request.query_params.get("em"), request.query_params.get("dm"))
+
+
 _Mode = Literal["load", "purge", "entities", "rosfin", "figurants", "political"]
 # A step's name as the run records it; a name not here is no step.
 _MODES: dict[str, _Mode] = {
@@ -774,8 +809,14 @@ def _start_whole_database(
     mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
 ) -> HTMLResponse | RedirectResponse:
     try:
+        entity_model, decision_model = _shown(request, db)
         run = start_step(
-            registry, mode, chain=_chained(request), after=request.query_params.get("after")
+            registry,
+            mode,
+            chain=_chained(request),
+            after=request.query_params.get("after"),
+            entity_model=entity_model,
+            decision_model=decision_model,
         )
     except StepRefused as refused:
         return _refused(db, registry, refused.message, refused.status_code)
@@ -797,12 +838,15 @@ async def _start(
     ):
         return _refused(db, registry, "Дата «С» должна быть не позже даты «По».", 400)
     try:
+        entity_model, decision_model = _shown(request, db)
         # The page sends no sources: all of them. The API may still name some.
         run = start_step(
             registry,
             mode,
             chain=_chained(request),
             after=request.query_params.get("after"),
+            entity_model=entity_model,
+            decision_model=decision_model,
             sources=form.get("sources", []),
             published_from=published_from if isinstance(published_from, date) else None,
             published_to=published_to if isinstance(published_to, date) else None,

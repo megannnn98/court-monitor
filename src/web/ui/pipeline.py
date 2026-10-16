@@ -20,8 +20,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from html import escape
+from urllib.parse import urlencode
 
 from orchestrator.operations import OperationRegistry, OperationRun, OperationRunStatus
+from web.entity_model import current_entity_model
 from web.ui import spend
 
 OPERATION = "monitor"
@@ -132,13 +134,27 @@ def out_of_turn(state: PipelineState, stage: str) -> str | None:
     return None
 
 
+def models_query() -> str:
+    """The models the page's warnings name, for the start's address (`em`, `dm`): the
+    server refuses a start when either changed since the page was drawn, so a step never
+    asks a model its warning did not show. Empty without OpenRouter."""
+    if spend.entity_model_notice() is None:
+        return ""
+    return urlencode(
+        {"em": current_entity_model("extraction"), "dm": current_entity_model("decision")}
+    ).replace("&", "&amp;")
+
+
 def chain_action(state: PipelineState) -> str:
     """The address that starts the current step and, after it, every step to the end of
     the cycle. `after` is the latest run the page was drawn for: the server starts a
     chain only while that is still the latest, so the same press cannot start a second
     chain — a form sent again from the browser's history, after the cycle went round,
     would otherwise delete and spend with nobody asked."""
-    return f"{_ACTIONS[state.current]}?chain=1&amp;after={latest_run_id(state)}"
+    models = models_query()
+    return f"{_ACTIONS[state.current]}?chain=1&amp;after={latest_run_id(state)}" + (
+        f"&amp;{models}" if models else ""
+    )
 
 
 def latest_run_id(state: PipelineState) -> int:
@@ -233,6 +249,8 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
     Buttons submit the page's source form (`formaction`), so the step with sources
     carry the selection; the selection script only touches `.run-button`."""
     current = STAGES.index(state.current)
+    models = models_query()
+    query = f"?{models}" if models else ""
     # Step 1 counts the sources it loads; the selection script updates it.
     counts = {"load": f' (<span class="selected-count">{checked_count}</span>)'}
     steps: list[str] = []
@@ -255,7 +273,7 @@ def stepper(state: PipelineState, checked_count: int, *, back: str = "management
             disabled = " disabled" if needs_sources and not checked_count else ""
             button = (
                 f'<button id="step-{stage}" class="{classes}" type="submit" '
-                f'formaction="{_ACTIONS[stage]}" title="{hint}"{confirm}{disabled}>'
+                f'formaction="{_ACTIONS[stage]}{query}" title="{hint}"{confirm}{disabled}>'
                 f"{label}</button>"
             )
         else:
