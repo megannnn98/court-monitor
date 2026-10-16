@@ -101,15 +101,15 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
     assert run.status is OperationRunStatus.PENDING
     assert run.parameters.sources == ["sota-vision", "ovd-info"]
     assert run.parameters.mode == "load"
-    assert run.command[-7:] == [
+    # No --limit: each source pages back to what is stored, up to the monitor's ceiling.
+    assert run.command[-5:] == [
         "--selected-source",
         "sota-vision",
         "--selected-source",
         "ovd-info",
         "--load-only",
-        "--limit",
-        "50",
     ]
+    assert "--limit" not in run.command
     assert len(queued) == 1
     assert "Запуск #" in run_page.text
     assert "Ждут очереди: 2" in run_page.text

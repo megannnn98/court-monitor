@@ -128,12 +128,15 @@ OPERATION_DEFINITIONS: dict[str, OperationDefinition] = {
             "после прошлой загрузки, извлечь людей и события; затем один раз "
             "классифицировать, сверить с перечнем РФМ и обновить находки."
         ),
-        next_action="Оставьте «Все источники» и limit 50, затем подтвердите run.",
+        next_action="Оставьте «Все источники», затем подтвердите run.",
         warning=(
             "Операция ходит в сеть по всем источникам и пишет в живую базу; "
             "первая докачка после перерыва может идти десятки минут."
         ),
-        default_parameters=OperationParameters(limit=50),
+        # No limit: each source pages back to what is stored, at most
+        # MONITORING_DISCOVERY_LIMIT (5000; 500 on a source's first load). A limit of 50
+        # here lost what a busy channel published beyond its newest 50 between two runs.
+        default_parameters=OperationParameters(),
     ),
     "discover-and-ingest": OperationDefinition(
         name="discover-and-ingest",
@@ -726,7 +729,9 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
             command += ["--published-from", parameters.published_from]
         if parameters.published_to is not None:
             command += ["--published-to", parameters.published_to]
-        command += ["--limit", str(_require_limit(parameters.limit))]
+        # Only an explicit limit: unset, the monitor's own ceiling applies.
+        if parameters.limit is not None:
+            command += ["--limit", str(parameters.limit)]
     elif name == "discover-and-ingest":
         source = _require_source(parameters.source)
         command += ["--source", source, "--limit", str(_require_limit(parameters.limit))]
