@@ -7,12 +7,14 @@ logs to stderr. The steps of the operator cycle are `cli.cycle`.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import logging
 import os
 import signal
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -52,8 +54,24 @@ MONITORING_COMMANDS = frozenset(
 ServicesBuilder = Callable[[sessionmaker[Session]], ApplicationServices]
 
 MAIN_SCRIPT = Path(__file__).resolve().parents[1] / "main.py"
-# How long an interrupted lane gets to close its runs before it is killed.
-LANE_STOP_GRACE_SECONDS = 30.0
+# How long interrupted lanes get, together, to close their runs before they are
+# killed: less than the console's own STOP_GRACE (30 s) for the parent, so the
+# parent is still there to kill a lane that stays.
+LANE_STOP_GRACE_SECONDS = 20.0
+_PR_SET_PDEATHSIG = 1
+# Set by the parent of a parallel load: the pid a lane must outlive no longer than.
+LANE_PARENT_ENV = "COURT_MONITOR_LANE_PARENT"
+
+
+def interrupt_when_parent_dies(parent: int) -> bool:
+    """SIGINT for this process when `parent` dies, even of SIGKILL (Linux only);
+    False when it is already gone.
+
+    A lane runs in a session of its own, so nothing else would stop it once its
+    parent is gone; SIGINT lets it close its runs as any interrupted CLI run does."""
+    if sys.platform.startswith("linux"):
+        ctypes.CDLL(None, use_errno=True).prctl(_PR_SET_PDEATHSIG, signal.SIGINT)
+    return os.getppid() == parent
 
 
 class LaneHandle(Protocol):
@@ -63,7 +81,13 @@ class LaneHandle(Protocol):
         """Exit code and the JSON results of the lane."""
         ...
 
-    def interrupt(self) -> None: ...
+    def signal_stop(self) -> None:
+        """Ask the lane to stop; returns at once."""
+        ...
+
+    def finish_stop(self, deadline: float) -> None:
+        """Wait for the lane until `deadline` (time.monotonic()), then kill it."""
+        ...
 
 
 LaneStarter = Callable[[list[str], Mapping[str, str]], LaneHandle]
@@ -96,10 +120,16 @@ class _LaneProcess:
     for any CLI run. Its own session, so a terminal Ctrl+C reaches only the parent,
     which passes it on once."""
 
-    def __init__(self, argv: list[str], env: Mapping[str, str]) -> None:
+    def __init__(
+        self,
+        argv: list[str],
+        env: Mapping[str, str],
+        *,
+        command: Sequence[str] = (sys.executable, str(MAIN_SCRIPT)),
+    ) -> None:
         self._process = subprocess.Popen(
-            [sys.executable, str(MAIN_SCRIPT), *argv],
-            env=os.environ | dict(env),
+            [*command, *argv],
+            env=os.environ | dict(env) | {LANE_PARENT_ENV: str(os.getpid())},
             stdout=subprocess.PIPE,
             text=True,
             start_new_session=True,
@@ -113,14 +143,26 @@ class _LaneProcess:
             results = [{"lane_output_unreadable": output[-2000:]}]
         return self._process.returncode, results if isinstance(results, list) else [results]
 
-    def interrupt(self) -> None:
-        if self._process.poll() is not None:
-            return
-        self._process.send_signal(signal.SIGINT)
+    def signal_stop(self) -> None:
+        if self._process.poll() is None:
+            self._process.send_signal(signal.SIGINT)
+
+    def finish_stop(self, deadline: float) -> None:
         try:
-            self._process.wait(timeout=LANE_STOP_GRACE_SECONDS)
+            self._process.wait(timeout=max(0.0, deadline - time.monotonic()))
         except subprocess.TimeoutExpired:
             self._process.kill()
+            self._process.wait()
+
+
+def _stop_lanes(handles: Sequence[LaneHandle]) -> None:
+    """Every lane gets SIGINT at once, then one shared grace, then SIGKILL: a lane
+    that stays must not hold back the others' signal."""
+    for handle in handles:
+        handle.signal_stop()
+    deadline = time.monotonic() + LANE_STOP_GRACE_SECONDS
+    for handle in handles:
+        handle.finish_stop(deadline)
 
 
 def source_lanes(sources: Sequence[str], limits: FetchLimits) -> list[Lane]:
@@ -182,8 +224,7 @@ def _load_in_lanes(
             handles.append(start_lane(lane_arguments(args, lane.sources), lane.env(os.environ)))
         finished = [handle.wait() for handle in handles]
     except BaseException:
-        for handle in handles:
-            handle.interrupt()
+        _stop_lanes(handles)
         raise
     # As a sequential load would print them: in the order the sources were given.
     position = {source: index for index, source in enumerate(sources)}
@@ -319,6 +360,10 @@ def run_monitoring_command(
     """Handle a monitoring command; False when `args.command` is not one."""
     if args.command not in MONITORING_COMMANDS:
         return False
+    parent = os.environ.get(LANE_PARENT_ENV)
+    if getattr(args, "lane", False) and parent and not interrupt_when_parent_dies(int(parent)):
+        # The parallel load that started this lane is gone: load nothing.
+        raise SystemExit(MONITOR_EXIT_FAILED)
     configure_logging()
     services = build_services(session_factory)
     monitoring = services.monitoring

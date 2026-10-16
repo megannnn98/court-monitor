@@ -7,8 +7,13 @@ import argparse
 import contextlib
 import io
 import json
+import signal
+import subprocess
+import sys
+import time
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -90,7 +95,10 @@ def _run(
         def wait(self) -> tuple[int, list[Any]]:
             return self._exit_code, self._results
 
-        def interrupt(self) -> None:
+        def signal_stop(self) -> None:
+            pass
+
+        def finish_stop(self, deadline: float) -> None:
             pass
 
     assert run_monitoring_command(
@@ -659,7 +667,10 @@ def test_a_parallel_load_reports_its_sources_in_the_order_they_were_given(
         def wait(self) -> tuple[int, list[Any]]:
             return 0, self._results
 
-        def interrupt(self) -> None:
+        def signal_stop(self) -> None:
+            pass
+
+        def finish_stop(self, deadline: float) -> None:
             pass
 
     args = _parse("monitor", "--catch-up", "--load-only")
@@ -667,3 +678,95 @@ def test_a_parallel_load_reports_its_sources_in_the_order_they_were_given(
     monitoring_cli._load_in_lanes(args, sources, lanes, Done)
 
     assert [run["source"] for run in json.loads(capsys.readouterr().out)] == sources
+
+
+MAIN_SRC = Path(__file__).resolve().parents[2] / "src"
+
+_LANE_CHILD = """
+import os, signal, sys, time
+marker, ignore = sys.argv[1], sys.argv[2] == "ignore"
+if len(sys.argv) > 3:
+    sys.path.insert(0, sys.argv[3])
+    from cli.monitoring import LANE_PARENT_ENV, interrupt_when_parent_dies
+    assert interrupt_when_parent_dies(int(os.environ[LANE_PARENT_ENV]))
+def stopped(*_):
+    open(marker, "w").write(str(time.monotonic()))
+    sys.exit(130)
+signal.signal(signal.SIGINT, signal.SIG_IGN if ignore else stopped)
+print("ready", flush=True)
+time.sleep(60)
+"""
+
+
+def _child(marker: Any, mode: str, *, src: Path | None = None) -> list[str]:
+    return [sys.executable, "-c", _LANE_CHILD, str(marker), mode, *([str(src)] if src else [])]
+
+
+def test_stopping_signals_every_lane_at_once_and_kills_one_that_stays(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import cli.monitoring as monitoring_cli
+
+    monkeypatch.setattr(monitoring_cli, "LANE_STOP_GRACE_SECONDS", 2.0)
+    stubborn = monitoring_cli._LaneProcess([], {}, command=_child(tmp_path / "s", "ignore"))
+    others = [
+        monitoring_cli._LaneProcess([], {}, command=_child(tmp_path / f"o{n}", "stop"))
+        for n in range(3)
+    ]
+    handles = [stubborn, *others]
+    for handle in handles:
+        assert handle._process.stdout is not None
+        assert handle._process.stdout.readline().strip() == "ready"
+
+    started = time.monotonic()
+    monitoring_cli._stop_lanes(handles)
+    took = time.monotonic() - started
+
+    # The stubborn lane first in line does not hold the others' signal back.
+    stopped_at = [float((tmp_path / f"o{n}").read_text()) for n in range(3)]
+    assert all(at - started < 1.0 for at in stopped_at)
+    assert stubborn._process.returncode == -signal.SIGKILL
+    assert took < 4.0
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_PDEATHSIG is Linux")
+def test_a_lane_is_interrupted_when_its_parent_is_killed(tmp_path: Any) -> None:
+    marker = tmp_path / "child"
+    parent_code = f"""
+import subprocess, sys, time
+sys.path.insert(0, {str(MAIN_SRC)!r})
+from cli.monitoring import _LaneProcess
+lane = _LaneProcess([], {{}}, command={_child(marker, "stop", src=MAIN_SRC)!r})
+print(lane._process.stdout.readline().strip(), flush=True)
+time.sleep(60)
+"""
+    parent = subprocess.Popen(
+        [sys.executable, "-c", parent_code], stdout=subprocess.PIPE, text=True
+    )
+    assert parent.stdout is not None
+    assert parent.stdout.readline().strip() == "ready"
+
+    parent.kill()
+    parent.wait()
+
+    deadline = time.monotonic() + 5
+    while not marker.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert marker.exists(), "the orphaned lane never got SIGINT"
+
+
+def test_a_lane_whose_parent_is_already_gone_loads_nothing(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import cli.monitoring as monitoring_cli
+
+    monkeypatch.setenv(monitoring_cli.LANE_PARENT_ENV, "999999")
+    monkeypatch.setattr(monitoring_cli, "interrupt_when_parent_dies", lambda parent: False)
+
+    with pytest.raises(SystemExit) as stopped:
+        run_monitoring_command(
+            _parse("monitor", "--catch-up", "--load-only", "--lane", "--source", "ovd-info"),
+            session_factory,
+            build_services=lambda factory: pytest.fail("a lane without a parent built services"),
+        )
+    assert stopped.value.code == MONITOR_EXIT_FAILED
