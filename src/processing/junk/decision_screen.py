@@ -14,10 +14,17 @@ answer that is not an answer, or a service that does not respond after the retri
 
 The endpoint is `api/alpha/decisions`: not a stable API. That is the reason for the strict
 reading of the answer below — a changed shape must stop the purge, not pass as a zero.
+
+The model is pinned (`DECISION_MODEL`), not the «latest» alias the measurement was made
+with: an alias may move to another model without a word, and with it what the purge
+deletes. An answer from any model but the pinned one, or one of its dated snapshots
+(`typesafe/jev-1.13-20260917`), stops the purge the same way; the snapshot that answers is
+logged once (`event=junk_screen_model`).
 """
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -29,7 +36,8 @@ import httpx
 from processing.junk.article_screen import JunkScreenError
 
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
-DECISION_MODEL = "~typesafe/jev-latest"
+# The alias `~typesafe/jev-latest` answered as this model when the screen was measured.
+DECISION_MODEL = "typesafe/jev-1.13"
 VERSION = "jev-screen-v1"
 # The start of an article, as the measurement asked it: the news is in the first paragraphs.
 ARTICLE_CHARS = 1500
@@ -40,6 +48,8 @@ CONCURRENCY = 8
 TIMEOUT_SECONDS = 60.0
 RETRIES = 3
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+logger = logging.getLogger(__name__)
 
 CASE = "case"
 NOT_CASE = "not_case"
@@ -79,6 +89,8 @@ class DecisionScreen:
         # What the answers cost so far, as the service priced each: asked from threads.
         self._cost = 0.0
         self._cost_lock = threading.Lock()
+        # The snapshots that answered so far, each logged once: asked from threads.
+        self._answered_by: set[str] = set()
 
     @property
     def cost_usd(self) -> float:
@@ -123,6 +135,21 @@ class DecisionScreen:
         }
         return _case_probability(self._ask(http, request))
 
+    def _check_model(self, answer: object) -> None:
+        """The pinned model or a dated snapshot of it answered; anything else stops."""
+        answered = answer.get("model") if isinstance(answer, Mapping) else None
+        if not isinstance(answered, str) or not (
+            answered == self._model or answered.startswith(f"{self._model}-")
+        ):
+            raise JunkScreenError(
+                f"The decision model {self._model} was asked, answered by {answered!r}"
+            )
+        with self._cost_lock:
+            first = answered not in self._answered_by
+            self._answered_by.add(answered)
+        if first:
+            logger.info("event=junk_screen_model requested=%s answered=%s", self._model, answered)
+
     def _count(self, answer: object) -> None:
         with self._cost_lock:
             self._cost += _price(answer)
@@ -154,6 +181,7 @@ class DecisionScreen:
                 answer = response.json()
             except ValueError as exc:
                 raise JunkScreenError("The decision model's answer is not JSON") from exc
+            self._check_model(answer)
             self._count(answer)
             return answer
         raise JunkScreenError(f"The decision model did not answer the junk screen: {failure}")

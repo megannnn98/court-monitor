@@ -18,6 +18,11 @@ With an embedding screen (`processing.junk.screen`, off by default) a junk artic
 reads like a criminal case is held back instead (`junk_screen_holds`), for a person to
 look at. A held article is never purged, screen on or off, until a person calls it junk;
 a screen that fails stops the purge before its batch is deleted.
+
+The purge wipes the text of what the screen lets go, so its score is kept only in the log:
+each such article is logged (`event=junk_screen_passed`), and one that scored close under
+the cutoff — at or above `BORDERLINE_SCORE` — as a warning (`event=junk_screen_borderline`),
+where a missed case is likeliest.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
+from typing import Any
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -34,10 +40,15 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import JunkScreenHoldRecord
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
-from processing.junk.article_screen import ArticleScreen
+from processing.junk.article_screen import ArticleScreen, ExplainingScreen
 from processing.junk.screen import HELD, reason
 
 logger = logging.getLogger("monitoring")
+# A score under the cutoff but at least this is logged as a warning. On the 2026-10-01
+# measurement the decision screen's three misses scored 0.04-0.10; from 0.03 up the band
+# holds all three and 47 of the 604 articles it let go.
+BORDERLINE_SCORE = 0.03
+TITLE_CHARS = 120
 
 # The events of a criminal case; `fine` is administrative and does not keep an article.
 CRIMINAL_EVENT_TYPES = ("case_opened", "charge", "arrest", "detention", "sentence", "search")
@@ -191,6 +202,12 @@ class JunkPurge:
         ).all()
         scores = self._screen.scores([(row.title or "", row.text or "") for row in rows])
         cutoff = self._screen.cutoff
+        _log_passed(rows, scores, cutoff, self._screen.name)
+        reasons: Sequence[str | None] = (
+            self._screen.hold_reasons()
+            if isinstance(self._screen, ExplainingScreen)
+            else [None] * len(rows)
+        )
         held = [
             {
                 "article_id": row.id,
@@ -198,9 +215,9 @@ class JunkPurge:
                 "score": score,
                 "cutoff": cutoff,
                 "screen": self._screen.name,
-                "reason": reason(score, cutoff),
+                "reason": told or reason(score, cutoff),
             }
-            for row, score in zip(rows, scores, strict=True)
+            for row, score, told in zip(rows, scores, reasons, strict=True)
             if score >= cutoff
         ]
         if not held:
@@ -305,3 +322,21 @@ class JunkPurge:
             {"subject": REVIEW_SUBJECT_TYPE},
         )
         return int(deleted.rowcount or 0)  # type: ignore[attr-defined]
+
+
+def _log_passed(rows: Sequence[Any], scores: Sequence[float], cutoff: float, screen: str) -> None:
+    """Each article the screen lets go, with its score: its text is about to be wiped."""
+    for row, score in zip(rows, scores, strict=True):
+        if score >= cutoff:
+            continue
+        borderline = score >= BORDERLINE_SCORE
+        logger.log(
+            logging.WARNING if borderline else logging.INFO,
+            "event=%s article_id=%d score=%.4f cutoff=%.4f screen=%s title=%r",
+            "junk_screen_borderline" if borderline else "junk_screen_passed",
+            row.id,
+            score,
+            cutoff,
+            screen,
+            (row.title or "")[:TITLE_CHARS],
+        )

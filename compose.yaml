@@ -85,6 +85,9 @@ services:
       # install; `1`: the embedding screen, needs the semantic image (compose.gpu.yaml);
       # `0` turns it off.
       JUNK_SCREEN: ${JUNK_SCREEN:-jev}
+      # With `jev`, a second decision model is asked before an article goes: it is deleted
+      # only when both agree (processing/junk/drop_verifier.py); `0` lets the first decide.
+      JUNK_SCREEN_VERIFIER: ${JUNK_SCREEN_VERIFIER:-jev}
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
       DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
       DATABASE_POOL_TIMEOUT: ${DATABASE_POOL_TIMEOUT:-30}

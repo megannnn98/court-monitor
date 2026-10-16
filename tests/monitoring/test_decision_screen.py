@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
 import pytest
@@ -11,16 +12,20 @@ from processing.junk.article_screen import JunkScreenError
 from processing.junk.decision_screen import (
     ARTICLE_CHARS,
     CUTOFF,
+    DECISION_MODEL,
     DECISIONS_URL,
     DecisionScreen,
     decision_screen_from_env,
 )
 from processing.junk.screen import screen_from_env
 
+MODEL = "typesafe/jev-1.13"
+
 
 def _answer(case: float) -> dict[str, object]:
     return {
-        "model": "typesafe/jev-1.13",
+        # The service answers with a dated snapshot of the model asked for.
+        "model": f"{MODEL}-20260917",
         "answers": {
             "decision": {
                 "type": "choice",
@@ -54,7 +59,10 @@ def test_the_score_is_the_probability_of_a_case_in_the_order_asked() -> None:
     assert screen.scores([]) == []
     # The cutoff the measurement was made at; moving it changes what is held and deleted.
     assert screen.cutoff == CUTOFF == 0.5
-    assert screen.name == "jev-screen-v1:~typesafe/jev-latest"
+    # A pinned model, not the «latest» alias: a silent swap would change what is deleted.
+    assert DECISION_MODEL == MODEL
+    assert screen.name == "jev-screen-v1:typesafe/jev-1.13"
+    assert [body["model"] for body in asked] == [MODEL] * 15
     question = asked[0]["questions"]["decision"]  # type: ignore[index]
     assert question["type"] == "choice" and set(question["criteria"]) == {"case", "not_case"}
 
@@ -92,17 +100,29 @@ def test_a_service_that_recovers_is_asked_again() -> None:
         (httpx.Response(503), "did not answer"),
         (httpx.Response(401, json={"error": "bad key"}), "refused"),
         (httpx.Response(200, text="<html>"), "not JSON"),
-        (httpx.Response(200, json={"answers": {}}), "no probabilities"),
+        (httpx.Response(200, json={"model": MODEL, "answers": {}}), "no probabilities"),
         (
-            httpx.Response(200, json={"answers": {"decision": {"probabilities": {"case": 1}}}}),
+            httpx.Response(
+                200,
+                json={"model": MODEL, "answers": {"decision": {"probabilities": {"case": 1}}}},
+            ),
             "no probabilities",
         ),
         (
             httpx.Response(
                 200,
-                json={"answers": {"decision": {"probabilities": {"case": 7, "not_case": 0}}}},
+                json={
+                    "model": MODEL,
+                    "answers": {"decision": {"probabilities": {"case": 7, "not_case": 0}}},
+                },
             ),
             "out of range",
+        ),
+        (httpx.Response(200, json=_answer(0.9) | {"model": "deepseek/v4"}), "answered by"),
+        (httpx.Response(200, json=_answer(0.9) | {"model": "typesafe/jev-1.130"}), "answered by"),
+        (
+            httpx.Response(200, json={k: v for k, v in _answer(0.9).items() if k != "model"}),
+            "answered by",
         ),
     ],
 )
@@ -190,3 +210,31 @@ def test_the_screen_counts_what_its_answers_cost() -> None:
     screen.scores([("Суд", "обыск")])
 
     assert screen.cost_usd == pytest.approx(0.0001)
+
+
+def test_an_answer_from_another_model_is_not_asked_again() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json=_answer(0.9) | {"model": "deepseek/v4"})
+
+    screen = _screen(httpx.MockTransport(handler))
+    with pytest.raises(JunkScreenError, match="answered by 'deepseek/v4'"):
+        screen.scores([("Суд", "арест")])
+    # Never priced, never retried: another model's answer is no answer.
+    assert (calls, screen.cost_usd) == (1, 0.0)
+
+
+def test_the_answering_model_is_logged_once(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="processing.junk.decision_screen")
+    screen = _screen(httpx.MockTransport(lambda _request: httpx.Response(200, json=_answer(0.1))))
+
+    screen.scores([("Суд", "арест"), ("Суд", "обыск")])
+    screen.scores([("Суд", "приговор")])
+
+    logged = [r.getMessage() for r in caplog.records if "event=junk_screen_model" in r.getMessage()]
+    assert logged == [
+        "event=junk_screen_model requested=typesafe/jev-1.13 answered=typesafe/jev-1.13-20260917"
+    ]

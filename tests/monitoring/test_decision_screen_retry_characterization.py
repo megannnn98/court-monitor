@@ -18,6 +18,7 @@ from processing.junk.article_screen import JunkScreenError
 from processing.junk.decision_screen import RETRIES, DecisionScreen
 
 ANSWER = {
+    "model": "typesafe/jev-1.13",
     "answers": {"decision": {"probabilities": {"case": 0.8, "not_case": 0.2}}},
     "usage": {"cost": 0.01},
 }
