@@ -27,6 +27,7 @@ from db.database import (
     with_statement_timeout,
 )
 from db.investigation_runs import SqlAlchemyInvestigationRuns
+from ingestion.concurrency import FetchLimits, build_http_client
 from ingestion.search import configured_telegram_channels, telegram_searches
 from ingestion.service import IngestionService
 from ingestion.sources.source_registry import SOURCES, SourceDefinition
@@ -73,17 +74,21 @@ from results.findings import MonitoringFindingService, MonitoringQueryProvider
 from results.service import ResultsService
 from settings import ApplicationSettings
 
-HTTP_TIMEOUT_SECONDS = 5.0
-HTTP_USER_AGENT = "my-app/1.0"
-
 
 def default_http_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS, headers={"User-Agent": HTTP_USER_AGENT})
+    return build_http_client(FetchLimits.from_env())
 
 
 def default_fetcher() -> DocumentFetcher:
     # The only fetch retry layer: Dagster does not add retries on top of it.
-    return RetryingDocumentFetcher(WebsiteAdapter(), max_attempts=3, base_delay_seconds=0.5)
+    limits = FetchLimits.from_env()
+    return RetryingDocumentFetcher(
+        WebsiteAdapter(),
+        max_attempts=limits.max_attempts,
+        base_delay_seconds=limits.base_delay_seconds,
+        max_delay_seconds=limits.max_delay_seconds,
+        jitter_ratio=limits.jitter_ratio,
+    )
 
 
 def default_extraction_pipeline(session_factory: sessionmaker[Session]) -> ExtractionPipeline:
@@ -112,6 +117,7 @@ def build_ingestion_service(
             source_name=source.source_name,
             source_base_url=source.base_url,
         ),
+        download_workers=FetchLimits.from_env().max_concurrency,
     )
 
 

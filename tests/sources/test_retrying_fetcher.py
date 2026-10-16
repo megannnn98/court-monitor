@@ -210,3 +210,22 @@ def test_rejects_negative_base_delay() -> None:
             fetcher,
             base_delay_seconds=-0.1,
         )
+
+
+def test_each_retry_is_reported_but_the_last_failure_is_not() -> None:
+    async def run() -> None:
+        retried: list[SourceReference] = []
+        fetcher = FakeFetcher(
+            [TransientFetchError("a"), TransientFetchError("b"), TransientFetchError("c")]
+        )
+        retrying_fetcher = RetryingDocumentFetcher(
+            fetcher, max_attempts=3, base_delay_seconds=0, on_retry=retried.append
+        )
+
+        with pytest.raises(TransientFetchError):
+            await retrying_fetcher.fetch(REFERENCE)
+
+        assert fetcher.calls == 3
+        assert retried == [REFERENCE, REFERENCE]
+
+    asyncio.run(run())

@@ -14,7 +14,7 @@ import logging
 import time
 from collections import Counter
 from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import aclosing, contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
@@ -478,14 +478,18 @@ class MonitoringService:
     ) -> tuple[list[int], Counter[str]]:
         article_ids: list[int] = []
         outcomes: Counter[str] = Counter()
-        async with self._deps.ingestion.open(
-            source, published_from=handle.published_from, published_to=handle.published_to
-        ) as documents:
-            for reference in references:
+        async with (
+            self._deps.ingestion.open(
+                source, published_from=handle.published_from, published_to=handle.published_to
+            ) as documents,
+            aclosing(
+                documents.read_many(references, workers=self._deps.ingestion.download_workers)
+            ) as results,
+        ):
+            async for reference, result in results:
                 self._repository.heartbeat(handle.run_id)
-                try:
-                    document = await documents.read(reference)
-                except Exception as exc:  # noqa: BLE001 - per-item isolation, recorded on the run
+                if isinstance(result, Exception):
+                    exc = result
                     kind = self._repository.record_failure(
                         handle.run_id,
                         stage=MonitoringStage.INGESTION,
@@ -496,6 +500,7 @@ class MonitoringService:
                     self._repository.add_counters(handle.run_id, {"documents_failed": 1})
                     outcomes[f"failed_{kind.value}"] += 1
                     continue
+                document = result
                 if document.skipped is SkipReason.NO_TEXT:
                     # Nothing to read, nothing broken: a skip, not a failure of the run.
                     logger.info(

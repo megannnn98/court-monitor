@@ -24,7 +24,15 @@ class FetchError(IngestionError):
 
 
 class TransientFetchError(FetchError):
-    """Temporary fetch failure that may succeed on retry."""
+    """Temporary fetch failure that may succeed on retry.
+
+    ``retry_after_seconds`` comes from an upstream ``Retry-After`` header.  It is
+    advisory and never used to evade a refusal (403 remains permanent).
+    """
+
+    def __init__(self, message: str, *, retry_after_seconds: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
 
 
 class PermanentFetchError(FetchError):

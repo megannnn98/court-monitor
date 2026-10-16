@@ -1,0 +1,4502 @@
+[
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 1,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 2.565,
+    "rss_kib": 65028,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 1,
+      "total_seconds": 4.683052962995134,
+      "latency_ms": {
+        "p50": 170.6,
+        "p95": 1014.5,
+        "p99": 1014.5,
+        "mean": 376.5,
+        "max": 1014.5
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 445.4,
+            "p95": 445.4,
+            "p99": 445.4,
+            "mean": 295.8,
+            "max": 445.4
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 819.3,
+            "p95": 819.3,
+            "p99": 819.3,
+            "mean": 528.3,
+            "max": 819.3
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1014.5,
+            "p95": 1014.5,
+            "p99": 1014.5,
+            "mean": 948.2,
+            "max": 1014.5
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 116.2,
+            "p95": 302.9,
+            "p99": 302.9,
+            "mean": 174.1,
+            "max": 302.9
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 170.6,
+            "p95": 170.6,
+            "p99": 170.6,
+            "mean": 138.3,
+            "max": 170.6
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 1,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 2.036,
+    "rss_kib": 65924,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 1,
+      "total_seconds": 5.900960245002352,
+      "latency_ms": {
+        "p50": 290.2,
+        "p95": 764.9,
+        "p99": 764.9,
+        "mean": 358.6,
+        "max": 764.9
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 456.7,
+            "p95": 456.7,
+            "p99": 456.7,
+            "mean": 301.1,
+            "max": 456.7
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 601.7,
+            "p95": 601.7,
+            "p99": 601.7,
+            "mean": 414.4,
+            "max": 601.7
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 764.9,
+            "p95": 764.9,
+            "p99": 764.9,
+            "mean": 633.1,
+            "max": 764.9
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 112.3,
+            "p95": 290.2,
+            "p99": 290.2,
+            "mean": 167.8,
+            "max": 290.2
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 485.1,
+            "p95": 485.1,
+            "p99": 485.1,
+            "mean": 467.6,
+            "max": 485.1
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 2,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 3.376,
+    "rss_kib": 66308,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 2,
+      "total_seconds": 3.5601914700018824,
+      "latency_ms": {
+        "p50": 397.2,
+        "p95": 1494.1,
+        "p99": 1494.1,
+        "mean": 549.4,
+        "max": 1494.1
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 462.0,
+            "p95": 462.0,
+            "p99": 462.0,
+            "mean": 304.8,
+            "max": 462.0
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1494.1,
+            "p95": 1494.1,
+            "p99": 1494.1,
+            "mean": 1311.9,
+            "max": 1494.1
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 728.0,
+            "p95": 728.0,
+            "p99": 728.0,
+            "mean": 677.7,
+            "max": 728.0
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 281.2,
+            "p95": 499.5,
+            "p99": 499.5,
+            "mean": 361.0,
+            "max": 499.5
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 397.2,
+            "p95": 397.2,
+            "p99": 397.2,
+            "mean": 279.8,
+            "max": 397.2
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 2,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 5.188,
+    "rss_kib": 66948,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 2,
+      "total_seconds": 2.318411100000958,
+      "latency_ms": {
+        "p50": 291.3,
+        "p95": 838.8,
+        "p99": 838.8,
+        "mean": 362.6,
+        "max": 838.8
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 422.7,
+            "p95": 422.7,
+            "p99": 422.7,
+            "mean": 420.2,
+            "max": 422.7
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 322.4,
+            "p95": 322.4,
+            "p99": 322.4,
+            "mean": 217.5,
+            "max": 322.4
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 838.8,
+            "p95": 838.8,
+            "p99": 838.8,
+            "mean": 758.7,
+            "max": 838.8
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 146.6,
+            "p95": 291.3,
+            "p99": 291.3,
+            "mean": 217.8,
+            "max": 291.3
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 508.1,
+            "p95": 508.1,
+            "p99": 508.1,
+            "mean": 343.7,
+            "max": 508.1
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 4,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 6.362,
+    "rss_kib": 66948,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 3,
+      "total_seconds": 1.8921706020046258,
+      "latency_ms": {
+        "p50": 438.4,
+        "p95": 1557.0,
+        "p99": 1557.0,
+        "mean": 547.4,
+        "max": 1557.0
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 698.6,
+            "p95": 698.6,
+            "p99": 698.6,
+            "mean": 568.0,
+            "max": 698.6
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 647.3,
+            "p95": 647.3,
+            "p99": 647.3,
+            "mean": 486.0,
+            "max": 647.3
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1557.0,
+            "p95": 1557.0,
+            "p99": 1557.0,
+            "mean": 1118.5,
+            "max": 1557.0
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 438.4,
+            "p95": 542.2,
+            "p99": 542.2,
+            "mean": 431.3,
+            "max": 542.2
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 330.2,
+            "p95": 330.2,
+            "p99": 330.2,
+            "mean": 249.1,
+            "max": 330.2
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 4,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 8.766,
+    "rss_kib": 67332,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 4,
+      "total_seconds": 1.374537044997851,
+      "latency_ms": {
+        "p50": 343.1,
+        "p95": 829.5,
+        "p99": 829.5,
+        "mean": 397.5,
+        "max": 829.5
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 418.7,
+            "p95": 418.7,
+            "p99": 418.7,
+            "mean": 418.2,
+            "max": 418.7
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 599.9,
+            "p95": 599.9,
+            "p99": 599.9,
+            "mean": 461.6,
+            "max": 599.9
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 829.5,
+            "p95": 829.5,
+            "p99": 829.5,
+            "mean": 719.8,
+            "max": 829.5
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 289.5,
+            "p95": 375.7,
+            "p99": 375.7,
+            "mean": 323.1,
+            "max": 375.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 178.3,
+            "p95": 178.3,
+            "p99": 178.3,
+            "mean": 139.3,
+            "max": 178.3
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 6,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 7.88,
+    "rss_kib": 67332,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 4,
+      "total_seconds": 1.528434372994525,
+      "latency_ms": {
+        "p50": 563.6,
+        "p95": 1440.5,
+        "p99": 1440.5,
+        "mean": 625.7,
+        "max": 1440.5
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 621.0,
+            "p95": 621.0,
+            "p99": 621.0,
+            "mean": 517.2,
+            "max": 621.0
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 673.3,
+            "p95": 673.3,
+            "p99": 673.3,
+            "mean": 494.8,
+            "max": 673.3
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1440.5,
+            "p95": 1440.5,
+            "p99": 1440.5,
+            "mean": 1097.6,
+            "max": 1440.5
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 513.2,
+            "p95": 604.5,
+            "p99": 604.5,
+            "mean": 490.1,
+            "max": 604.5
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 893.7,
+            "p95": 893.7,
+            "p99": 893.7,
+            "mean": 664.2,
+            "max": 893.7
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 6,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 10.512,
+    "rss_kib": 67724,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 6,
+      "total_seconds": 1.1469368049947661,
+      "latency_ms": {
+        "p50": 437.5,
+        "p95": 726.4,
+        "p99": 726.4,
+        "mean": 432.3,
+        "max": 726.4
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 457.1,
+            "p95": 457.1,
+            "p99": 457.1,
+            "mean": 442.9,
+            "max": 457.1
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 554.4,
+            "p95": 554.4,
+            "p99": 554.4,
+            "mean": 549.5,
+            "max": 554.4
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 726.4,
+            "p95": 726.4,
+            "p99": 726.4,
+            "mean": 682.2,
+            "max": 726.4
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 310.8,
+            "p95": 578.6,
+            "p99": 578.6,
+            "mean": 405.0,
+            "max": 578.6
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 113.7,
+            "p95": 113.7,
+            "p99": 113.7,
+            "mean": 108.9,
+            "max": 113.7
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 10,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 8.894,
+    "rss_kib": 67724,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 5,
+      "total_seconds": 1.3550485529995058,
+      "latency_ms": {
+        "p50": 602.0,
+        "p95": 1347.7,
+        "p99": 1347.7,
+        "mean": 646.7,
+        "max": 1347.7
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 918.5,
+            "p95": 918.5,
+            "p99": 918.5,
+            "mean": 662.1,
+            "max": 918.5
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 937.2,
+            "p95": 937.2,
+            "p99": 937.2,
+            "mean": 774.9,
+            "max": 937.2
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1347.7,
+            "p95": 1347.7,
+            "p99": 1347.7,
+            "mean": 996.4,
+            "max": 1347.7
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 430.5,
+            "p95": 604.2,
+            "p99": 604.2,
+            "mean": 453.1,
+            "max": 604.2
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 602.0,
+            "p95": 602.0,
+            "p99": 602.0,
+            "mean": 540.8,
+            "max": 602.0
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 10,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 14.89,
+    "rss_kib": 67724,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 10,
+      "total_seconds": 0.8114636249956675,
+      "latency_ms": {
+        "p50": 334.5,
+        "p95": 804.3,
+        "p99": 804.3,
+        "mean": 398.0,
+        "max": 804.3
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 410.2,
+            "p95": 410.2,
+            "p99": 410.2,
+            "mean": 410.1,
+            "max": 410.2
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 587.9,
+            "p95": 587.9,
+            "p99": 587.9,
+            "mean": 461.2,
+            "max": 587.9
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 804.3,
+            "p95": 804.3,
+            "p99": 804.3,
+            "mean": 751.7,
+            "max": 804.3
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 297.1,
+            "p95": 441.7,
+            "p99": 441.7,
+            "mean": 300.9,
+            "max": 441.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 197.3,
+            "p95": 197.3,
+            "p99": 197.3,
+            "mean": 163.1,
+            "max": 197.3
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 2,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 4.004,
+    "rss_kib": 67768,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 2,
+      "total_seconds": 3.0026826719986275,
+      "latency_ms": {
+        "p50": 407.1,
+        "p95": 1017.1,
+        "p99": 1017.1,
+        "mean": 477.9,
+        "max": 1017.1
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 420.7,
+            "p95": 420.7,
+            "p99": 420.7,
+            "mean": 263.0,
+            "max": 420.7
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 593.5,
+            "p95": 593.5,
+            "p99": 593.5,
+            "mean": 579.7,
+            "max": 593.5
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1017.1,
+            "p95": 1017.1,
+            "p99": 1017.1,
+            "mean": 890.7,
+            "max": 1017.1
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 294.5,
+            "p95": 407.1,
+            "p99": 407.1,
+            "mean": 327.5,
+            "max": 407.1
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 730.2,
+            "p95": 730.2,
+            "p99": 730.2,
+            "mean": 479.0,
+            "max": 730.2
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 2,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 4.574,
+    "rss_kib": 68408,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 2,
+      "total_seconds": 2.628932548002922,
+      "latency_ms": {
+        "p50": 295.9,
+        "p95": 659.7,
+        "p99": 659.7,
+        "mean": 358.9,
+        "max": 659.7
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 498.8,
+            "p95": 498.8,
+            "p99": 498.8,
+            "mean": 453.9,
+            "max": 498.8
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 612.4,
+            "p95": 612.4,
+            "p99": 612.4,
+            "mean": 563.6,
+            "max": 612.4
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 659.7,
+            "p95": 659.7,
+            "p99": 659.7,
+            "mean": 556.4,
+            "max": 659.7
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 146.7,
+            "p95": 295.9,
+            "p99": 295.9,
+            "mean": 210.6,
+            "max": 295.9
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 187.3,
+            "p95": 187.3,
+            "p99": 187.3,
+            "mean": 158.4,
+            "max": 187.3
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 4,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 5.16,
+    "rss_kib": 68408,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 3,
+      "total_seconds": 2.330631405005988,
+      "latency_ms": {
+        "p50": 508.1,
+        "p95": 1139.7,
+        "p99": 1139.7,
+        "mean": 649.9,
+        "max": 1139.7
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 757.0,
+            "p95": 757.0,
+            "p99": 757.0,
+            "mean": 583.5,
+            "max": 757.0
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 946.5,
+            "p95": 946.5,
+            "p99": 946.5,
+            "mean": 636.5,
+            "max": 946.5
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1139.7,
+            "p95": 1139.7,
+            "p99": 1139.7,
+            "mean": 984.2,
+            "max": 1139.7
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 403.4,
+            "p95": 508.1,
+            "p99": 508.1,
+            "mean": 425.3,
+            "max": 508.1
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1117.7,
+            "p95": 1117.7,
+            "p99": 1117.7,
+            "mean": 844.5,
+            "max": 1117.7
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 4,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 8.012,
+    "rss_kib": 68408,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 4,
+      "total_seconds": 1.503768107999349,
+      "latency_ms": {
+        "p50": 394.8,
+        "p95": 735.4,
+        "p99": 735.4,
+        "mean": 403.5,
+        "max": 735.4
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 468.6,
+            "p95": 468.6,
+            "p99": 468.6,
+            "mean": 431.7,
+            "max": 468.6
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 561.9,
+            "p95": 561.9,
+            "p99": 561.9,
+            "mean": 444.0,
+            "max": 561.9
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 735.4,
+            "p95": 735.4,
+            "p99": 735.4,
+            "mean": 683.0,
+            "max": 735.4
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 290.8,
+            "p95": 430.0,
+            "p99": 430.0,
+            "mean": 282.8,
+            "max": 430.0
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 483.1,
+            "p95": 483.1,
+            "p99": 483.1,
+            "mean": 296.8,
+            "max": 483.1
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 6,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 8.74,
+    "rss_kib": 68408,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 4,
+      "total_seconds": 1.3784624309992068,
+      "latency_ms": {
+        "p50": 394.1,
+        "p95": 1371.6,
+        "p99": 1371.6,
+        "mean": 528.4,
+        "max": 1371.6
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 685.3,
+            "p95": 685.3,
+            "p99": 685.3,
+            "mean": 539.7,
+            "max": 685.3
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 942.1,
+            "p95": 942.1,
+            "p99": 942.1,
+            "mean": 639.3,
+            "max": 942.1
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1371.6,
+            "p95": 1371.6,
+            "p99": 1371.6,
+            "mean": 1020.5,
+            "max": 1371.6
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 392.9,
+            "p95": 516.5,
+            "p99": 516.5,
+            "mean": 399.5,
+            "max": 516.5
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 232.6,
+            "p95": 232.6,
+            "p99": 232.6,
+            "mean": 172.1,
+            "max": 232.6
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 6,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 10.912,
+    "rss_kib": 68536,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 6,
+      "total_seconds": 1.1054353829968022,
+      "latency_ms": {
+        "p50": 405.1,
+        "p95": 891.5,
+        "p99": 891.5,
+        "mean": 453.7,
+        "max": 891.5
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 408.5,
+            "p95": 408.5,
+            "p99": 408.5,
+            "mean": 406.8,
+            "max": 408.5
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 786.6,
+            "p95": 786.6,
+            "p99": 786.6,
+            "mean": 695.3,
+            "max": 786.6
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 891.5,
+            "p95": 891.5,
+            "p99": 891.5,
+            "mean": 823.5,
+            "max": 891.5
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 286.7,
+            "p95": 455.1,
+            "p99": 455.1,
+            "mean": 330.3,
+            "max": 455.1
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 172.2,
+            "p95": 172.2,
+            "p99": 172.2,
+            "mean": 135.9,
+            "max": 172.2
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 10,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 7.873,
+    "rss_kib": 68536,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 5,
+      "total_seconds": 1.5298464369989233,
+      "latency_ms": {
+        "p50": 583.5,
+        "p95": 1522.9,
+        "p99": 1522.9,
+        "mean": 634.8,
+        "max": 1522.9
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 919.3,
+            "p95": 919.3,
+            "p99": 919.3,
+            "mean": 668.8,
+            "max": 919.3
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 930.3,
+            "p95": 930.3,
+            "p99": 930.3,
+            "mean": 775.1,
+            "max": 930.3
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1522.9,
+            "p95": 1522.9,
+            "p99": 1522.9,
+            "mean": 1179.3,
+            "max": 1522.9
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 571.3,
+            "p95": 586.2,
+            "p99": 586.2,
+            "mean": 508.4,
+            "max": 586.2
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 220.4,
+            "p95": 220.4,
+            "p99": 220.4,
+            "mean": 168.9,
+            "max": 220.4
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 10,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 15.151,
+    "rss_kib": 68664,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 10,
+      "total_seconds": 0.7974104470049497,
+      "latency_ms": {
+        "p50": 321.8,
+        "p95": 790.8,
+        "p99": 790.8,
+        "mean": 375.2,
+        "max": 790.8
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 414.9,
+            "p95": 414.9,
+            "p99": 414.9,
+            "mean": 410.2,
+            "max": 414.9
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 323.9,
+            "p95": 323.9,
+            "p99": 323.9,
+            "mean": 322.9,
+            "max": 323.9
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 790.8,
+            "p95": 790.8,
+            "p99": 790.8,
+            "mean": 735.1,
+            "max": 790.8
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 288.6,
+            "p95": 452.7,
+            "p99": 452.7,
+            "mean": 331.4,
+            "max": 452.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 121.1,
+            "p95": 121.1,
+            "p99": 121.1,
+            "mean": 120.1,
+            "max": 121.1
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 1,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 3.535,
+    "rss_kib": 68664,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 1,
+      "total_seconds": 3.4002888750037528,
+      "latency_ms": {
+        "p50": 125.9,
+        "p95": 819.5,
+        "p99": 819.5,
+        "mean": 278.9,
+        "max": 819.5
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 418.1,
+            "p95": 418.1,
+            "p99": 418.1,
+            "mean": 261.0,
+            "max": 418.1
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 333.6,
+            "p95": 333.6,
+            "p99": 333.6,
+            "mean": 229.7,
+            "max": 333.6
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 819.5,
+            "p95": 819.5,
+            "p99": 819.5,
+            "mean": 752.0,
+            "max": 819.5
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 108.8,
+            "p95": 288.7,
+            "p99": 288.7,
+            "mean": 168.1,
+            "max": 288.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 104.6,
+            "p95": 104.6,
+            "p99": 104.6,
+            "mean": 94.6,
+            "max": 104.6
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 1,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 3.299,
+    "rss_kib": 68920,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 1,
+      "total_seconds": 3.6425566469988553,
+      "latency_ms": {
+        "p50": 149.6,
+        "p95": 752.6,
+        "p99": 752.6,
+        "mean": 298.3,
+        "max": 752.6
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 405.9,
+            "p95": 405.9,
+            "p99": 405.9,
+            "mean": 253.7,
+            "max": 405.9
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 623.7,
+            "p95": 623.7,
+            "p99": 623.7,
+            "mean": 419.8,
+            "max": 623.7
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 752.6,
+            "p95": 752.6,
+            "p99": 752.6,
+            "mean": 693.7,
+            "max": 752.6
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 107.0,
+            "p95": 285.6,
+            "p99": 285.6,
+            "mean": 160.8,
+            "max": 285.6
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 113.8,
+            "p95": 113.8,
+            "p99": 113.8,
+            "mean": 100.8,
+            "max": 113.8
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 1,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 2.978,
+    "rss_kib": 68920,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 1,
+      "total_seconds": 4.034574781995616,
+      "latency_ms": {
+        "p50": 182.1,
+        "p95": 686.7,
+        "p99": 686.7,
+        "mean": 302.3,
+        "max": 686.7
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 406.8,
+            "p95": 406.8,
+            "p99": 406.8,
+            "mean": 254.1,
+            "max": 406.8
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 616.5,
+            "p95": 616.5,
+            "p99": 616.5,
+            "mean": 412.5,
+            "max": 616.5
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 686.7,
+            "p95": 686.7,
+            "p99": 686.7,
+            "mean": 685.9,
+            "max": 686.7
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 109.5,
+            "p95": 296.6,
+            "p99": 296.6,
+            "mean": 162.8,
+            "max": 296.6
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 182.1,
+            "p95": 182.1,
+            "p99": 182.1,
+            "mean": 135.7,
+            "max": 182.1
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 1,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 3.486,
+    "rss_kib": 68920,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 1,
+      "total_seconds": 3.448194021002564,
+      "latency_ms": {
+        "p50": 123.0,
+        "p95": 976.4,
+        "p99": 976.4,
+        "mean": 283.1,
+        "max": 976.4
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 403.1,
+            "p95": 403.1,
+            "p99": 403.1,
+            "mean": 252.6,
+            "max": 403.1
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 352.6,
+            "p95": 352.6,
+            "p99": 352.6,
+            "mean": 237.8,
+            "max": 352.6
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 976.4,
+            "p95": 976.4,
+            "p99": 976.4,
+            "mean": 732.3,
+            "max": 976.4
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 110.5,
+            "p95": 380.1,
+            "p99": 380.1,
+            "mean": 183.9,
+            "max": 380.1
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 110.8,
+            "p95": 110.8,
+            "p99": 110.8,
+            "mean": 108.0,
+            "max": 110.8
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 2,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 3.818,
+    "rss_kib": 69176,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 2,
+      "total_seconds": 3.1490027920008288,
+      "latency_ms": {
+        "p50": 320.7,
+        "p95": 1246.4,
+        "p99": 1246.4,
+        "mean": 503.1,
+        "max": 1246.4
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 408.7,
+            "p95": 408.7,
+            "p99": 408.7,
+            "mean": 254.8,
+            "max": 408.7
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 955.3,
+            "p95": 955.3,
+            "p99": 955.3,
+            "mean": 774.5,
+            "max": 955.3
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1246.4,
+            "p95": 1246.4,
+            "p99": 1246.4,
+            "mean": 1160.0,
+            "max": 1246.4
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 289.2,
+            "p95": 397.7,
+            "p99": 397.7,
+            "mean": 317.9,
+            "max": 397.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 284.6,
+            "p95": 284.6,
+            "p99": 284.6,
+            "mean": 193.8,
+            "max": 284.6
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 2,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 4.831,
+    "rss_kib": 69176,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 2,
+      "total_seconds": 2.48942951799836,
+      "latency_ms": {
+        "p50": 285.3,
+        "p95": 795.4,
+        "p99": 795.4,
+        "mean": 397.6,
+        "max": 795.4
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 494.1,
+            "p95": 494.1,
+            "p99": 494.1,
+            "mean": 450.0,
+            "max": 494.1
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 624.4,
+            "p95": 624.4,
+            "p99": 624.4,
+            "mean": 610.7,
+            "max": 624.4
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 795.4,
+            "p95": 795.4,
+            "p99": 795.4,
+            "mean": 780.0,
+            "max": 795.4
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 143.3,
+            "p95": 285.3,
+            "p99": 285.3,
+            "mean": 204.2,
+            "max": 285.3
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 161.5,
+            "p95": 161.5,
+            "p99": 161.5,
+            "mean": 136.4,
+            "max": 161.5
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 4,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 5.933,
+    "rss_kib": 69176,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 3,
+      "total_seconds": 2.0277743349943194,
+      "latency_ms": {
+        "p50": 369.9,
+        "p95": 1790.8,
+        "p99": 1790.8,
+        "mean": 546.2,
+        "max": 1790.8
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 407.2,
+            "p95": 407.2,
+            "p99": 407.2,
+            "mean": 255.1,
+            "max": 407.2
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1155.8,
+            "p95": 1155.8,
+            "p99": 1155.8,
+            "mean": 741.6,
+            "max": 1155.8
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1790.8,
+            "p95": 1790.8,
+            "p99": 1790.8,
+            "mean": 1336.7,
+            "max": 1790.8
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 369.9,
+            "p95": 509.0,
+            "p99": 509.0,
+            "mean": 391.5,
+            "max": 509.0
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 219.8,
+            "p95": 219.8,
+            "p99": 219.8,
+            "mean": 160.6,
+            "max": 219.8
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 4,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 8.797,
+    "rss_kib": 69176,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 4,
+      "total_seconds": 1.3693132769985823,
+      "latency_ms": {
+        "p50": 342.0,
+        "p95": 899.0,
+        "p99": 899.0,
+        "mean": 409.6,
+        "max": 899.0
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 413.4,
+            "p95": 413.4,
+            "p99": 413.4,
+            "mean": 411.3,
+            "max": 413.4
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 567.1,
+            "p95": 567.1,
+            "p99": 567.1,
+            "mean": 454.5,
+            "max": 567.1
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 899.0,
+            "p95": 899.0,
+            "p99": 899.0,
+            "mean": 841.4,
+            "max": 899.0
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 292.5,
+            "p95": 355.3,
+            "p99": 355.3,
+            "mean": 315.1,
+            "max": 355.3
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 121.5,
+            "p95": 121.5,
+            "p99": 121.5,
+            "mean": 120.0,
+            "max": 121.5
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 6,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 7.017,
+    "rss_kib": 69176,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 4,
+      "total_seconds": 1.7165213480038801,
+      "latency_ms": {
+        "p50": 543.8,
+        "p95": 1708.6,
+        "p99": 1708.6,
+        "mean": 610.7,
+        "max": 1708.6
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 402.2,
+            "p95": 402.2,
+            "p99": 402.2,
+            "mean": 251.2,
+            "max": 402.2
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1147.9,
+            "p95": 1147.9,
+            "p99": 1147.9,
+            "mean": 871.6,
+            "max": 1147.9
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1708.6,
+            "p95": 1708.6,
+            "p99": 1708.6,
+            "mean": 1233.1,
+            "max": 1708.6
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 526.2,
+            "p95": 608.7,
+            "p99": 608.7,
+            "mean": 492.3,
+            "max": 608.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 543.8,
+            "p95": 543.8,
+            "p99": 543.8,
+            "mean": 323.9,
+            "max": 543.8
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 6,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 10.579,
+    "rss_kib": 69304,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 6,
+      "total_seconds": 1.1397556340016308,
+      "latency_ms": {
+        "p50": 406.0,
+        "p95": 1000.0,
+        "p99": 1000.0,
+        "mean": 450.3,
+        "max": 1000.0
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 420.7,
+            "p95": 420.7,
+            "p99": 420.7,
+            "mean": 413.3,
+            "max": 420.7
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 581.8,
+            "p95": 581.8,
+            "p99": 581.8,
+            "mean": 453.4,
+            "max": 581.8
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 1000.0,
+            "p95": 1000.0,
+            "p99": 1000.0,
+            "mean": 854.0,
+            "max": 1000.0
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 284.1,
+            "p95": 543.9,
+            "p99": 543.9,
+            "mean": 349.1,
+            "max": 543.9
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 450.9,
+            "p95": 450.9,
+            "p99": 450.9,
+            "mean": 282.5,
+            "max": 450.9
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 10,
+    "per_domain_concurrency": 1,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 5.059,
+    "rss_kib": 69304,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 5,
+      "total_seconds": 2.3775778359995456,
+      "latency_ms": {
+        "p50": 575.4,
+        "p95": 1594.2,
+        "p99": 1594.2,
+        "mean": 700.3,
+        "max": 1594.2
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 816.3,
+            "p95": 816.3,
+            "p99": 816.3,
+            "mean": 614.3,
+            "max": 816.3
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1440.8,
+            "p95": 1440.8,
+            "p99": 1440.8,
+            "mean": 1022.4,
+            "max": 1440.8
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 1594.2,
+            "p95": 1594.2,
+            "p99": 1594.2,
+            "mean": 1171.6,
+            "max": 1594.2
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 399.5,
+            "p95": 575.4,
+            "p99": 575.4,
+            "mean": 422.3,
+            "max": 575.4
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 1,
+          "latency_ms": {
+            "p50": 600.4,
+            "p95": 600.4,
+            "p99": 600.4,
+            "mean": 549.1,
+            "max": 600.4
+          }
+        }
+      }
+    }
+  },
+  {
+    "sources": "kommersant,ovd-info,sota-vision,sudrf-2zovs,tg-mediazzzona,tg-ovdinfolive",
+    "global_concurrency": 10,
+    "per_domain_concurrency": 2,
+    "articles": 12,
+    "succeeded": 12,
+    "failed": 0,
+    "by_source": {
+      "kommersant": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "ovd-info": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sota-vision": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "sudrf-2zovs": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-ovdinfolive": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      },
+      "tg-mediazzzona": {
+        "articles": 2,
+        "succeeded": 2,
+        "failed": 0
+      }
+    },
+    "throughput_articles_per_second": 13.389,
+    "rss_kib": 69432,
+    "fetch": {
+      "requests": 12,
+      "succeeded": 12,
+      "failed": 0,
+      "retries": 0,
+      "throttled": 0,
+      "refused": 0,
+      "peak_concurrency": 10,
+      "total_seconds": 0.9017657849981333,
+      "latency_ms": {
+        "p50": 355.3,
+        "p95": 894.8,
+        "p99": 894.8,
+        "mean": 422.6,
+        "max": 894.8
+      },
+      "status_counts": {
+        "200": 12
+      },
+      "error_counts": {},
+      "per_domain": {
+        "2zovs.msk.sudrf.ru": {
+          "host": "2zovs.msk.sudrf.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 413.6,
+            "p95": 413.6,
+            "p99": 413.6,
+            "mean": 406.9,
+            "max": 413.6
+          }
+        },
+        "ovd.info": {
+          "host": "ovd.info",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 595.4,
+            "p95": 595.4,
+            "p99": 595.4,
+            "mean": 475.4,
+            "max": 595.4
+          }
+        },
+        "sota.vision": {
+          "host": "sota.vision",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 894.8,
+            "p95": 894.8,
+            "p99": 894.8,
+            "mean": 846.6,
+            "max": 894.8
+          }
+        },
+        "t.me": {
+          "host": "t.me",
+          "requests": 4,
+          "succeeded": 4,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 299.1,
+            "p95": 456.7,
+            "p99": 456.7,
+            "mean": 341.9,
+            "max": 456.7
+          }
+        },
+        "www.kommersant.ru": {
+          "host": "www.kommersant.ru",
+          "requests": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "retries": 0,
+          "throttled": 0,
+          "refused": 0,
+          "peak_concurrency": 2,
+          "latency_ms": {
+            "p50": 125.9,
+            "p95": 125.9,
+            "p99": 125.9,
+            "mean": 123.0,
+            "max": 125.9
+          }
+        }
+      }
+    }
+  }
+]

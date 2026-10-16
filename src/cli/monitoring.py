@@ -7,17 +7,26 @@ logs to stderr. The steps of the operator cycle are `cli.cycle`.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import logging
+import os
+import signal
+import subprocess
 import sys
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
 from application import ApplicationServices, build_application_services
+from ingestion.concurrency import FetchLimits
 from ingestion.sources.source_registry import SOURCES, SourceKind
 from observability import configure_logging
 from orchestrator.models import (
@@ -43,6 +52,200 @@ MONITORING_COMMANDS = frozenset(
 )
 
 ServicesBuilder = Callable[[sessionmaker[Session]], ApplicationServices]
+
+MAIN_SCRIPT = Path(__file__).resolve().parents[1] / "main.py"
+# How long interrupted lanes get, together, to close their runs before they are
+# killed: less than the console's own STOP_GRACE (30 s) for the parent, so the
+# parent is still there to kill a lane that stays.
+LANE_STOP_GRACE_SECONDS = 20.0
+_PR_SET_PDEATHSIG = 1
+# Set by the parent of a parallel load: the pid a lane must outlive no longer than.
+LANE_PARENT_ENV = "COURT_MONITOR_LANE_PARENT"
+
+
+def interrupt_when_parent_dies(parent: int) -> bool:
+    """SIGINT for this process when `parent` dies, even of SIGKILL (Linux only);
+    False when it is already gone, or when the kernel refused the signal (a
+    seccomp filter, a sandbox): then nothing would stop this lane once it is.
+
+    A lane runs in a session of its own, so nothing else would stop it once its
+    parent is gone; SIGINT lets it close its runs as any interrupted CLI run does."""
+    if sys.platform.startswith("linux"):
+        if ctypes.CDLL(None, use_errno=True).prctl(_PR_SET_PDEATHSIG, signal.SIGINT) != 0:
+            error = ctypes.get_errno()
+            logger.error(
+                "event=monitoring_lane_parent_death_signal_refused errno=%d error=%s",
+                error,
+                os.strerror(error),
+            )
+            return False
+    return os.getppid() == parent
+
+
+class LaneHandle(Protocol):
+    """One lane of a parallel load, started and still running."""
+
+    def wait(self) -> tuple[int, list[Any]]:
+        """Exit code and the JSON results of the lane."""
+        ...
+
+    def signal_stop(self) -> None:
+        """Ask the lane to stop; returns at once."""
+        ...
+
+    def finish_stop(self, deadline: float) -> None:
+        """Wait for the lane until `deadline` (time.monotonic()), then kill it."""
+        ...
+
+
+LaneStarter = Callable[[list[str], Mapping[str, str]], LaneHandle]
+
+
+@dataclass(frozen=True)
+class Lane:
+    """Sources loaded one after another in a child of their own."""
+
+    host: str
+    sources: list[str]
+    # One of several lanes of the same host: each may send it one request at a time,
+    # so together they never exceed the host's limit.
+    shared: bool
+
+    def env(self, base: Mapping[str, str]) -> dict[str, str]:
+        """What the child's environment changes from `base`."""
+        if not self.shared:
+            return {}
+        current = (base.get("INGESTION_DOMAIN_CONCURRENCY") or "").strip().strip(",")
+        # A later entry for a host wins over an earlier one.
+        entry = f"{self.host}=1"
+        return {"INGESTION_DOMAIN_CONCURRENCY": f"{current},{entry}" if current else entry}
+
+
+class _LaneProcess:
+    """A lane as a child `python src/main.py monitor ... --lane`.
+
+    A process, not a thread: SIGINT closes a child's monitoring runs the way it does
+    for any CLI run. Its own session, so a terminal Ctrl+C reaches only the parent,
+    which passes it on once."""
+
+    def __init__(
+        self,
+        argv: list[str],
+        env: Mapping[str, str],
+        *,
+        command: Sequence[str] = (sys.executable, str(MAIN_SCRIPT)),
+    ) -> None:
+        self._process = subprocess.Popen(
+            [*command, *argv],
+            env=os.environ | dict(env) | {LANE_PARENT_ENV: str(os.getpid())},
+            stdout=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+
+    def wait(self) -> tuple[int, list[Any]]:
+        output, _ = self._process.communicate()
+        try:
+            results = json.loads(output) if output.strip() else []
+        except json.JSONDecodeError:
+            results = [{"lane_output_unreadable": output[-2000:]}]
+        return self._process.returncode, results if isinstance(results, list) else [results]
+
+    def signal_stop(self) -> None:
+        if self._process.poll() is None:
+            self._process.send_signal(signal.SIGINT)
+
+    def finish_stop(self, deadline: float) -> None:
+        try:
+            self._process.wait(timeout=max(0.0, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            self._process.kill()
+            self._process.wait()
+
+
+def _stop_lanes(handles: Sequence[LaneHandle]) -> None:
+    """Every lane gets SIGINT at once, then one shared grace, then SIGKILL: a lane
+    that stays must not hold back the others' signal."""
+    for handle in handles:
+        handle.signal_stop()
+    deadline = time.monotonic() + LANE_STOP_GRACE_SECONDS
+    for handle in handles:
+        handle.finish_stop(deadline)
+
+
+def source_lanes(sources: Sequence[str], limits: FetchLimits) -> list[Lane]:
+    """Sources grouped by the host they download from, in their given order.
+
+    Every site loads in a lane of its own. A host of many sources (every Telegram
+    channel is on t.me) gets as many lanes as it allows requests at once, each sending
+    one at a time: the waits of one channel's discovery overlap another's work, and
+    the host never sees more requests than its limit."""
+    by_host: dict[str, list[str]] = {}
+    for source in sources:
+        host = urlsplit(SOURCES[source].base_url).hostname or source
+        by_host.setdefault(host, []).append(source)
+    lanes: list[Lane] = []
+    for host, host_sources in by_host.items():
+        count = min(len(host_sources), limits.concurrency_for(host))
+        lanes += [
+            Lane(host=host, sources=host_sources[index::count], shared=count > 1)
+            for index in range(count)
+        ]
+    return lanes
+
+
+def lane_arguments(args: argparse.Namespace, sources: Sequence[str]) -> list[str]:
+    """The command line of a lane: the same load, for its sources only."""
+    argv = ["monitor", "--catch-up", "--load-only", "--lane"]
+    for source in sources:
+        argv += ["--selected-source", source]
+    if args.limit is not None:
+        argv += ["--limit", str(args.limit)]
+    if args.published_from is not None:
+        argv += ["--published-from", args.published_from.isoformat()]
+    if args.published_to is not None:
+        argv += ["--published-to", args.published_to.isoformat()]
+    return argv
+
+
+def merge_lane_exit_codes(codes: Sequence[int]) -> int:
+    """As the sequential load: a failure outweighs a source that was already running."""
+    if MONITOR_EXIT_FAILED in codes:
+        return MONITOR_EXIT_FAILED
+    if MONITOR_EXIT_ALREADY_RUNNING in codes:
+        return MONITOR_EXIT_ALREADY_RUNNING
+    return next((code for code in codes if code), 0)
+
+
+def _load_in_lanes(
+    args: argparse.Namespace, sources: Sequence[str], lanes: list[Lane], start_lane: LaneStarter
+) -> None:
+    logger.info(
+        "event=monitoring_parallel_load lanes=%d sources=%d hosts=%s",
+        len(lanes),
+        sum(len(lane.sources) for lane in lanes),
+        ",".join(f"{lane.host}:{len(lane.sources)}" for lane in lanes),
+    )
+    handles: list[LaneHandle] = []
+    try:
+        for lane in lanes:
+            handles.append(start_lane(lane_arguments(args, lane.sources), lane.env(os.environ)))
+        finished = [handle.wait() for handle in handles]
+    except BaseException:
+        _stop_lanes(handles)
+        raise
+    # As a sequential load would print them: in the order the sources were given.
+    position = {source: index for index, source in enumerate(sources)}
+
+    def order(result: Any) -> int:
+        source = result.get("source") if isinstance(result, dict) else None
+        return position.get(source, len(position)) if isinstance(source, str) else len(position)
+
+    results = sorted((result for _, lane_results in finished for result in lane_results), key=order)
+    _print(results)
+    exit_code = merge_lane_exit_codes([code for code, _ in finished])
+    if exit_code:
+        raise SystemExit(exit_code)
 
 
 def _default_builder(session_factory: sessionmaker[Session]) -> ApplicationServices:
@@ -111,6 +314,8 @@ def add_monitoring_arguments(subparsers: Any) -> None:
         default=None,
         help="Only ingest articles published on or before YYYY-MM-DD",
     )
+    # Set on the children of a parallel load: load these sources here, in one process.
+    monitor.add_argument("--lane", action="store_true", help=argparse.SUPPRESS)
 
     resolve = subparsers.add_parser(
         "monitor-resolve",
@@ -158,10 +363,19 @@ def run_monitoring_command(
     session_factory: sessionmaker[Session],
     *,
     build_services: ServicesBuilder = _default_builder,
+    start_lane: LaneStarter = _LaneProcess,
 ) -> bool:
     """Handle a monitoring command; False when `args.command` is not one."""
     if args.command not in MONITORING_COMMANDS:
         return False
+    parent = os.environ.get(LANE_PARENT_ENV)
+    if getattr(args, "lane", False) and parent and not interrupt_when_parent_dies(int(parent)):
+        # Its parallel load is gone, or this lane could outlive it unseen: load nothing.
+        print(
+            "lane not started: its parent is gone or PR_SET_PDEATHSIG was refused",
+            file=sys.stderr,
+        )
+        raise SystemExit(MONITOR_EXIT_FAILED)
     configure_logging()
     services = build_services(session_factory)
     monitoring = services.monitoring
@@ -234,6 +448,14 @@ def run_monitoring_command(
         except ValueError as exc:
             raise SystemExit(str(exc)) from None
         return True
+
+    # A load downloads every site at once: one child per host. Resolution stays
+    # sequential (it could create a person twice), so only a load-only catch-up splits.
+    if args.catch_up and args.load_only and not args.lane:
+        lanes = source_lanes(sources, FetchLimits.from_env())
+        if len(lanes) > 1:
+            _load_in_lanes(args, sources, lanes, start_lane)
+            return True
 
     trigger = MonitoringTrigger.BACKFILL if args.backfill else MonitoringTrigger.MANUAL
     results: list[dict[str, Any]] = []
