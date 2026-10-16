@@ -38,14 +38,19 @@ def _catalog() -> Catalog:
     return CatalogCache(request=lambda: CATALOG_PAYLOAD).get()
 
 
-def test_the_console_offers_ten_models_with_deepseek_mimo_qwen_and_space_bunny() -> None:
+def test_the_console_offers_deepseek_mimo_qwen_space_bunny_and_a_free_model() -> None:
     ids = [option.id for option in ENTITY_MODELS]
 
-    assert len(ids) == len(set(ids)) == 10
+    assert len(ids) == len(set(ids))
     assert ids[0] == "deepseek/deepseek-v4.1-flash" == model_choice.DEFAULT_MODEL
     for family in ("deepseek/", "xiaomi/mimo", "qwen/", "stealth/space-bunny"):
         assert any(model.startswith(family) for model in ids), family
     assert any(is_free_model(model) for model in ids)
+
+
+def test_no_model_known_broken_for_the_steps_is_offered() -> None:
+    assert not model_choice.MODEL_IDS & set(model_choice.EXCLUDED_MODELS)
+    assert "openai/gpt-oss-120b" in model_choice.EXCLUDED_MODELS
 
 
 def test_prices_are_read_per_million_tokens_from_the_catalog() -> None:

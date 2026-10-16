@@ -183,39 +183,73 @@ def _run_decision(answer: Callable[[httpx.Request], httpx.Response]) -> model_pr
     )
 
 
-def test_the_decision_test_passes_when_only_the_accused_is_a_figurant() -> None:
-    result = _run_decision(
-        _roles(
-            [
-                {"id": 1, "source": "Эрик Ларссон", "kind": "accused", "explanation": "дело"},
-                {
-                    "id": 2,
-                    "source": "Андрей Колесов",
-                    "kind": "other",
-                    "explanation": "комментарий",
-                },
-            ]
-        )
-    )
+RIGHT = {
+    1: ("Эрик Ларссон", "accused"),
+    2: ("Андрей Колесов", "other"),
+    3: ("Павел Рудин", "foreign"),
+    4: ("Ларс Хольм", "accused"),
+}
 
-    assert result.ok and result.expected_matched == 2
-    assert [entity.role for entity in result.entities] == ["accused", "other"]
+
+def _decided(**kinds: str) -> Callable[[httpx.Request], httpx.Response]:
+    """The four answers, right unless `kinds` says otherwise (`item3="detained"`)."""
+    answers = []
+    for item_id, (name, kind) in RIGHT.items():
+        if f"skip{item_id}" in kinds:
+            continue
+        answers.append(
+            {
+                "id": item_id,
+                "source": name,
+                "kind": kinds.get(f"item{item_id}", kind),
+                "explanation": "—",
+            }
+        )
+    return _roles(answers)
+
+
+def test_the_decision_test_passes_when_only_the_accused_are_figurants() -> None:
+    result = _run_decision(_decided())
+
+    assert result.ok and result.expected_matched == 4
+    assert [entity.role for entity in result.entities] == ["accused", "other", "foreign", "accused"]
 
 
 def test_the_decision_test_fails_when_the_commentator_is_made_the_accused() -> None:
-    """The mistake of 16.10.2026: a free model passed the names test and accused the
-    founder of a channel named beside another man's case."""
-    result = _run_decision(
-        _roles(
-            [
-                {"id": 1, "source": "Эрик Ларссон", "kind": "accused", "explanation": "дело"},
-                {"id": 2, "source": "Андрей Колесов", "kind": "accused", "explanation": "дело"},
-            ]
-        )
-    )
+    result = _run_decision(_decided(item2="accused"))
 
     assert not result.ok
-    assert result.error is not None and "не тому человеку" in result.error
+    assert result.error is not None and "«Андрей Колесов»: ждали" in result.error
+
+
+def test_the_decision_test_fails_on_the_man_detained_abroad_made_a_figurant() -> None:
+    """The mistake of 16.10.2026: a man detained abroad, beside another's Russian case,
+    answered «accused» — a figurant, and so a political prisoner one step later."""
+    result = _run_decision(_decided(item3="accused"))
+
+    assert not result.ok and result.error is not None
+    assert "«Павел Рудин»" in result.error and "ответила accused" in result.error
+
+
+def test_the_decision_test_cuts_the_dangerous_class_not_the_taxonomy() -> None:
+    """What the step makes of an answer decides: «detained» is a «possible» (a person's
+    review), «support»/«other» a «mentioned» — no figurant, no politics; they pass."""
+    for kind in ("other", "detained", "support"):
+        assert _run_decision(_decided(item2=kind, item3=kind)).ok, kind
+
+
+def test_the_decision_test_fails_when_the_accused_is_lost() -> None:
+    result = _run_decision(_decided(item4="detained"))
+
+    assert not result.ok and result.error is not None and "«Ларс Хольм»" in result.error
+
+
+def test_a_missing_answer_and_a_wrong_one_are_both_told_in_the_decision_test() -> None:
+    result = _run_decision(_decided(skip1="", item3="accused"))
+
+    assert not result.ok and result.expected_matched == 2
+    assert result.error is not None
+    assert "3 из 4" in result.error and "«Павел Рудин»" in result.error
 
 
 def test_valid_json_with_a_wrong_name_fails_the_test() -> None:
@@ -241,3 +275,31 @@ def test_a_missing_item_and_a_wrong_name_are_both_told() -> None:
 
     assert not result.ok and result.error is not None
     assert "2 из 3" in result.error and "«Александра Моора»" in result.error
+
+
+def test_the_decision_test_asks_three_times_and_one_wrong_round_fails_it() -> None:
+    """A model may answer the same question differently (the free model gave foreign,
+    detained, foreign on the very same quote): every round must be right."""
+    rounds = iter([_decided(), _decided(item3="accused"), _decided()])
+    seen: list[object] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return next(rounds)(request)
+
+    result = _run_decision(answer)
+
+    assert not result.ok and len(seen) == 2, "the failing round ends the test"
+    assert result.error is not None and "В прогоне 2 из 3" in result.error
+    assert len(_calls_of(_decided())) == model_probe.DECISION_ROUNDS
+
+
+def _calls_of(answer: Callable[[httpx.Request], httpx.Response]) -> list[object]:
+    seen: list[object] = []
+
+    def counting(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return answer(request)
+
+    assert _run_decision(counting).ok
+    return seen

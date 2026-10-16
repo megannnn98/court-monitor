@@ -105,7 +105,8 @@ def test_an_old_installation_keeps_deepseek_and_sees_ten_models_with_prices(
 
     assert settings["current"] == DEEPSEEK == settings["default"]
     assert settings["source"] == "environment"
-    assert len(settings["models"]) == 10
+    assert len(settings["models"]) == len(model_choice.ENTITY_MODELS)
+    assert "openai/gpt-oss-120b" not in {model["id"] for model in settings["models"]}
     by_id = {model["id"]: model for model in settings["models"]}
     assert by_id[DEEPSEEK]["prompt_usd_per_million"] == 0.09
     assert by_id[DEEPSEEK]["completion_usd_per_million"] == 0.18
