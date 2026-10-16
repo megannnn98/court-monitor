@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -770,3 +771,26 @@ def test_a_lane_whose_parent_is_already_gone_loads_nothing(
             build_services=lambda factory: pytest.fail("a lane without a parent built services"),
         )
     assert stopped.value.code == MONITOR_EXIT_FAILED
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_PDEATHSIG is Linux")
+def test_a_refused_parent_death_signal_is_no_guarantee(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import ctypes
+
+    import cli.monitoring as monitoring_cli
+
+    class Refusing:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def prctl(self, option: int, value: int) -> int:
+            ctypes.set_errno(1)  # EPERM, as a seccomp filter answers
+            return -1
+
+    monkeypatch.setattr(monitoring_cli.ctypes, "CDLL", Refusing)
+
+    # The parent is alive, but nothing would stop this lane once it is not.
+    assert not monitoring_cli.interrupt_when_parent_dies(os.getppid())
+    assert "monitoring_lane_parent_death_signal_refused" in caplog.text

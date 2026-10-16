@@ -65,12 +65,20 @@ LANE_PARENT_ENV = "COURT_MONITOR_LANE_PARENT"
 
 def interrupt_when_parent_dies(parent: int) -> bool:
     """SIGINT for this process when `parent` dies, even of SIGKILL (Linux only);
-    False when it is already gone.
+    False when it is already gone, or when the kernel refused the signal (a
+    seccomp filter, a sandbox): then nothing would stop this lane once it is.
 
     A lane runs in a session of its own, so nothing else would stop it once its
     parent is gone; SIGINT lets it close its runs as any interrupted CLI run does."""
     if sys.platform.startswith("linux"):
-        ctypes.CDLL(None, use_errno=True).prctl(_PR_SET_PDEATHSIG, signal.SIGINT)
+        if ctypes.CDLL(None, use_errno=True).prctl(_PR_SET_PDEATHSIG, signal.SIGINT) != 0:
+            error = ctypes.get_errno()
+            logger.error(
+                "event=monitoring_lane_parent_death_signal_refused errno=%d error=%s",
+                error,
+                os.strerror(error),
+            )
+            return False
     return os.getppid() == parent
 
 
@@ -362,7 +370,11 @@ def run_monitoring_command(
         return False
     parent = os.environ.get(LANE_PARENT_ENV)
     if getattr(args, "lane", False) and parent and not interrupt_when_parent_dies(int(parent)):
-        # The parallel load that started this lane is gone: load nothing.
+        # Its parallel load is gone, or this lane could outlive it unseen: load nothing.
+        print(
+            "lane not started: its parent is gone or PR_SET_PDEATHSIG was refused",
+            file=sys.stderr,
+        )
         raise SystemExit(MONITOR_EXIT_FAILED)
     configure_logging()
     services = build_services(session_factory)
