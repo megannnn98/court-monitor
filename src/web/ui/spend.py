@@ -1,9 +1,11 @@
 """What the steps that ask a model cost, and what is left to spend.
 
-Four steps of the cycle ask a paid model through OpenRouter: the purge (Jev, per article),
-the entities (names to the nominative), the figurants and the political step (DeepSeek). The
-operator is told so before a step starts, with what the account can still pay for, and again
-on the step's card while it runs.
+Four steps of the cycle ask a model through OpenRouter: the purge (Jev, per article), the
+entities (names to the nominative), the figurants and the political step (the entity model
+chosen on «Модель извлечения», DeepSeek by default, `llm.model_choice`). The operator is
+told so before a step starts — the entity model by its id, its price per million tokens
+and whether it is free — with what the account can still pay for, and again on the step's
+card while it runs.
 
 The balance comes from OpenRouter's `/api/v1/credits` (credits bought minus credits used).
 `/api/v1/key` is not it: that is the key's own limit, which can read «89 left» on an account
@@ -32,9 +34,11 @@ from html import escape
 
 import httpx
 
-from llm.chat import budget_from_env, endpoint_from_env
+from llm.chat import Purpose, budget_from_env, endpoint_from_env
+from llm.model_choice import CATALOG, ModelInfo, model_info, price_text
 from orchestrator.operations import OperationRun, OperationRunStatus
 from processing.junk.screen import DECISION
+from web.entity_model import current_entity_model
 
 CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 CACHE_SECONDS = 60.0
@@ -106,29 +110,73 @@ def balance(
     return found
 
 
-def paid_deepseek(env: Mapping[str, str] | None = None) -> bool:
-    """The steps that use DeepSeek would be paid: OpenRouter, a DeepSeek model, not `:free`."""
-    endpoint = endpoint_from_env(env)
-    return (
-        endpoint is not None
-        and endpoint.provider == "openrouter"
-        and "deepseek" in endpoint.model.lower()
-        and ":free" not in endpoint.model.lower()
-    )
+@dataclass(frozen=True)
+class EntityModelNotice:
+    """The entity model a step would ask now, as its warning shows it."""
+
+    model: str
+    label: str
+    info: ModelInfo
+    price: str
+
+    @property
+    def kind(self) -> str:
+        if self.info.free:
+            return "бесплатная"
+        return "платная" if self.info.price is not None else "цена неизвестна"
+
+
+def entity_model_notice(
+    env: Mapping[str, str] | None = None,
+    *,
+    model: str | None = None,
+    kind: Purpose = "extraction",
+) -> EntityModelNotice | None:
+    """The model of the entity steps and its price — `model`, a run's own, or the one a
+    start would ask now; None without OpenRouter (no model is asked then). Asks no model:
+    the catalog is cached."""
+    if endpoint_from_env(env) is None:
+        return None
+    model = model or current_entity_model(kind)
+    catalog = CATALOG.get()
+    info = model_info(model, catalog)
+    return EntityModelNotice(model, info.label, info, price_text(info, catalog))
 
 
 @dataclass(frozen=True)
 class StageCost:
-    """What a paid step costs: the words for the operator, and what one run may spend at
-    most. No limit for a step whose whole run costs cents — its price is no reason to
-    alarm over the balance."""
+    """What a step that asks a model costs: the words for the operator, what one run may
+    spend at most, and whether it is paid at all (a `:free` model is not). No limit for a
+    step whose whole run costs cents — its price is no reason to alarm over the balance."""
 
     text: str
     limit: float | None = None
+    paid: bool = True
 
 
-def cost(stage: str, env: Mapping[str, str] | None = None) -> StageCost | None:
-    """What this step would spend now; None for a step that is free."""
+# Which of the two models each step asks: the names are extraction; the figurants
+# (who is accused) are a decision; the final step decides the politics and the news and
+# extracts the unnamed figurants, the sentences and the digests.
+STAGE_KINDS: dict[str, tuple[Purpose, ...]] = {
+    "entities": ("extraction",),
+    "figurants": ("decision",),
+    "political": ("decision", "extraction"),
+}
+KIND_TITLES: dict[Purpose, str] = {
+    "extraction": "модель извлечения сущностей",
+    "decision": "модель решений (фигуранты, политичность, новости)",
+}
+
+
+def cost(
+    stage: str,
+    env: Mapping[str, str] | None = None,
+    *,
+    model: str | None = None,
+    decision_model: str | None = None,
+) -> StageCost | None:
+    """What this step would spend now (or a run of it with its own `model` and
+    `decision_model`); None for a step that asks no model."""
     env = os.environ if env is None else env
     if stage == "purge":
         if env.get("JUNK_SCREEN", "").strip().lower() != DECISION or not _api_key(env):
@@ -137,17 +185,30 @@ def cost(stage: str, env: Mapping[str, str] | None = None) -> StageCost | None:
             "Шаг платный: каждую статью на удаление оценивает модель JEV через OpenRouter, "
             f"около ${PURGE_COST_PER_ARTICLE:.5f} за статью."
         )
-    if stage not in AI_STAGES or not paid_deepseek(env):
+    if stage not in AI_STAGES:
         return None
-    limit = budget_from_env(env)
-    return StageCost(
-        f"Шаг платный: DeepSeek через OpenRouter, не более ${limit:.2f} за запуск.", limit
+    given: dict[Purpose, str | None] = {"extraction": model, "decision": decision_model}
+    notices = [
+        (kind, found)
+        for kind in STAGE_KINDS.get(stage, ())
+        if (found := entity_model_notice(env, model=given[kind], kind=kind)) is not None
+    ]
+    if not notices:
+        return None
+    head = " ".join(
+        f"{KIND_TITLES[kind]} {found.model} ({found.label}). {found.price}"
+        for kind, found in notices
     )
+    if all(found.info.free for _, found in notices):
+        return StageCost(f"Шаг бесплатный: {head} С баланса ничего не спишется.", paid=False)
+    limit = budget_from_env(env)
+    return StageCost(f"Шаг платный, не более ${limit:.2f} за запуск: {head}", limit)
 
 
 def paid(stage: str, env: Mapping[str, str] | None = None) -> bool:
     """Whether this step would spend money now."""
-    return cost(stage, env) is not None
+    found = cost(stage, env)
+    return found is not None and found.paid
 
 
 def spend_text(stage: str, env: Mapping[str, str] | None = None) -> str:
@@ -178,7 +239,7 @@ def _is_low(limit: float | None, env: Mapping[str, str] | None) -> bool:
 def chain_shortfall(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
     """«Сделать всё» runs several paid steps: a warning when the account cannot pay for
     every one of them to its limit. Empty when it can, or when the balance is unknown."""
-    costs = [found for stage in stages if (found := cost(stage, env))]
+    costs = [found for stage in stages if (found := cost(stage, env)) and found.paid]
     total = sum(found.limit or 0 for found in costs)
     if not total or not _is_low(total, env):
         return ""
@@ -194,6 +255,27 @@ def chain_shortfall(stages: Sequence[str], env: Mapping[str, str] | None = None)
     )
 
 
+# The steps that ask the entity model; the purge asks Jev.
+ENTITY_STAGES = ("entities", "figurants", "political")
+
+
+def chain_model_text(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
+    """Before «Сделать всё»: each model its steps will ask, with its price; empty when no
+    step left asks one, or without OpenRouter."""
+    order: tuple[Purpose, ...] = ("extraction", "decision")
+    parts = []
+    for kind in order:
+        if not any(kind in STAGE_KINDS.get(stage, ()) for stage in stages):
+            continue
+        notice = entity_model_notice(env, kind=kind)
+        if notice is not None:
+            parts.append(
+                f"{KIND_TITLES[kind].capitalize()}: {notice.model} ({notice.label}). "
+                f"{notice.price} Тип: {notice.kind}."
+            )
+    return " ".join(parts)
+
+
 def chain_cost_text(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
     """The question before «Сделать всё» when a step is paid: the money, and nothing else."""
     found = balance(env)
@@ -206,10 +288,12 @@ def chain_cost_text(stages: Sequence[str], env: Mapping[str, str] | None = None)
 
 
 def confirm_text(stage: str, env: Mapping[str, str] | None = None) -> str:
-    """What the browser's confirmation says of the money: the cost and the balance, only
-    where the step is paid."""
+    """What the browser's confirmation says of the model and the money: the model and its
+    price for every step that asks one, the balance only where the step is paid."""
     found = cost(stage, env)
-    return " ".join(part for part in (found.text, balance_text(env)) if part) if found else ""
+    if found is None:
+        return ""
+    return " ".join(part for part in (found.text, balance_text(env) if found.paid else "") if part)
 
 
 def run_cost(run: OperationRun) -> float | None:
@@ -292,13 +376,22 @@ def run_spent(run: OperationRun, runs: Sequence[OperationRun]) -> str:
     return f'<p class="muted run-spent">{escape(" ".join(parts))}</p>' if parts else ""
 
 
-def notice(stage: str, env: Mapping[str, str] | None = None, *, last: str = "") -> str:
+def notice(
+    stage: str,
+    env: Mapping[str, str] | None = None,
+    *,
+    last: str = "",
+    model: str | None = None,
+    decision_model: str | None = None,
+) -> str:
     """The visible warning of a paid step: the cost, the balance, what the step spent the
     time before (`last`), and a red word when the balance is under the step's limit. Empty
     for a step that is free."""
-    found = cost(stage, env)
+    found = cost(stage, env, model=model, decision_model=decision_model)
     if found is None:
         return ""
+    if not found.paid:
+        return f'<p class="muted ai-note">{escape(found.text)}</p>'
     low = _is_low(found.limit, env)
     extra = " Остатка меньше лимита запуска: шаг может остановиться, не закончив." if low else ""
     css = "warning" if low else "muted"

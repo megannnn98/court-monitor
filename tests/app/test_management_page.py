@@ -16,6 +16,7 @@ from support.pipeline_runs import finish_steps
 
 from db.orm_models import JunkScreenHoldRecord, OperatorOperationRunRecord
 from ingestion.sources.source_registry import news_sources
+from monitor_core.errors import ParseError
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.operations import OperationParameters, OperationRegistry, OperationRunStatus
 from orchestrator.repository import SqlAlchemyMonitoringRepository
@@ -101,15 +102,15 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
     assert run.status is OperationRunStatus.PENDING
     assert run.parameters.sources == ["sota-vision", "ovd-info"]
     assert run.parameters.mode == "load"
-    assert run.command[-7:] == [
+    # No --limit: each source pages back to what is stored, up to the monitor's ceiling.
+    assert run.command[-5:] == [
         "--selected-source",
         "sota-vision",
         "--selected-source",
         "ovd-info",
         "--load-only",
-        "--limit",
-        "50",
     ]
+    assert "--limit" not in run.command
     assert len(queued) == 1
     assert "Запуск #" in run_page.text
     assert "Ждут очереди: 2" in run_page.text
@@ -644,7 +645,16 @@ def test_the_entities_step_starts_from_management(
         page = client.get(response.headers["location"]).text
 
     run = registry.runs_of("monitor")[0]
-    assert (run.parameters.mode, run.command[2:]) == ("entities", ["collect-entities"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "entities",
+        [
+            "collect-entities",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
+    )
     assert "Сборка сущностей" in page and "Готовлюсь" in page
 
 
@@ -676,7 +686,16 @@ def test_the_final_step_includes_rosfinmonitoring_check(
 
     assert 'id="step-political" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "political",
+        [
+            "find-political",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
+    )
     assert "Политические дела и сверка с РФМ" in page
     assert "Сверено по снимку перечня РФМ #2 от 2026-09-25" in page
     assert "В перечне (ФИО с отчеством): 3605" in page
@@ -718,7 +737,16 @@ def test_step_four_finds_the_figurants_from_management(
 
     assert 'id="step-figurants" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("figurants", ["find-figurants"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "figurants",
+        [
+            "find-figurants",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
+    )
     assert '<progress class="overall" value="50" max="3200">' in running
     assert "Фигуранты по статье УК без ответа модели: 3650" in done
     assert "Фигуранты по ответу модели: 1200" in done
@@ -754,7 +782,16 @@ def test_step_six_finds_the_political_cases_from_management(
 
     assert 'id="step-political" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "political",
+        [
+            "find-political",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
+    )
     assert "Политические по статье УК: 1378" in done
     assert "Политические по ответу модели: 1500" in done
     assert "Политические по базе оператора: 7" in done
@@ -1078,13 +1115,51 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
     assert 'href="/ui/runs#source-errors"' in home
 
 
+def test_the_runs_journal_marks_a_suspected_layout_change(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    run = monitoring.start_run(
+        scope="source:kommersant",
+        source="kommersant",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=1),
+    )
+    monitoring.add_counters(run, {"documents_discovered": 3, "documents_failed": 3})
+    for _ in range(3):
+        monitoring.record_failure(
+            run,
+            stage=MonitoringStage.INGESTION,
+            entity_type="source_document",
+            error=ParseError("Article text not found"),
+        )
+    monitoring.finish_run(run)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    warning = page[page.index('id="layout-suspects"') :]
+    assert "Возможное изменение вёрстки источника" in warning
+    assert "kommersant" in warning and f"запуске №{run}" in warning
+
+
 @pytest.mark.parametrize(
     ("mode", "done_steps", "words"),
     [
         ("purge", ("load",), "каждую статью на удаление оценивает модель JEV"),
-        ("entities", ("load", "purge"), "DeepSeek через OpenRouter, не более $2.00 за запуск"),
-        ("figurants", ("load", "purge", "entities"), "DeepSeek через OpenRouter"),
-        ("political", ("load", "purge", "entities", "figurants"), "DeepSeek через OpenRouter"),
+        (
+            "entities",
+            ("load", "purge"),
+            "deepseek/deepseek-v4.1-flash (DeepSeek V4.1 Flash (текущая))",
+        ),
+        ("figurants", ("load", "purge", "entities"), "Шаг платный, не более $2.00 за запуск"),
+        (
+            "political",
+            ("load", "purge", "entities", "figurants"),
+            "модель извлечения сущностей deepseek",
+        ),
     ],
 )
 def test_a_live_step_that_asks_a_paid_model_says_so_on_its_card_and_an_ended_one_does_not(

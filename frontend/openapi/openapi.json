@@ -3080,6 +3080,120 @@
           }
         }
       }
+    },
+    "/api/v1/entity-model": {
+      "get": {
+        "summary": "Get Entity Model",
+        "description": "The models, their prices (the catalog is cached for an hour), the choice and the\nentity model's spend today and in all; asks no model.",
+        "operationId": "get_entity_model_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityModelSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Choose Entity Model",
+        "description": "Keep the model for the next runs; a run already started keeps its own. 400 for a\nmodel not offered, not in the catalog, without structured outputs, or not tested.",
+        "operationId": "choose_entity_model_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityModelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityModelSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entity-model/catalog/refresh": {
+      "post": {
+        "summary": "Refresh Catalog",
+        "description": "Read OpenRouter's prices again now; a failure keeps the old ones, marked stale.",
+        "operationId": "refresh_catalog_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityModelSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entity-model/test": {
+      "post": {
+        "summary": "Test Entity Model",
+        "description": "One real call of the model through the step it would serve — the names step for\nthe extraction model, the figurants' for the decision model; nothing is saved to the\nentities. 409 while another test runs; 503 without OpenRouter.",
+        "operationId": "test_entity_model_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityModelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityModelTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4235,6 +4349,26 @@
           "chain_stopped": {
             "type": "string",
             "title": "Chain Stopped"
+          },
+          "entity_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntityModelNoticeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decision_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntityModelNoticeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -4258,6 +4392,28 @@
           "after": {
             "type": "integer",
             "title": "After"
+          },
+          "entity_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Model"
+          },
+          "decision_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Model"
           }
         },
         "type": "object",
@@ -4922,6 +5078,479 @@
         ],
         "title": "EntityListResponse",
         "description": "One page of «Все люди» under the filters, with the counts the legacy page shows."
+      },
+      "EntityModelEntityResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "nominative": {
+            "type": "string",
+            "title": "Nominative"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender"
+          },
+          "is_person": {
+            "type": "boolean",
+            "title": "Is Person"
+          },
+          "as_expected": {
+            "type": "boolean",
+            "title": "As Expected"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": ""
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "nominative",
+          "gender",
+          "is_person",
+          "as_expected"
+        ],
+        "title": "EntityModelEntityResponse"
+      },
+      "EntityModelNoticeResponse": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "free": {
+            "type": "boolean",
+            "title": "Free"
+          },
+          "prompt_usd_per_million": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Usd Per Million"
+          },
+          "completion_usd_per_million": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Usd Per Million"
+          },
+          "price_stale": {
+            "type": "boolean",
+            "title": "Price Stale"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "price_text": {
+            "type": "string",
+            "title": "Price Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "label",
+          "free",
+          "prompt_usd_per_million",
+          "completion_usd_per_million",
+          "price_stale",
+          "kind",
+          "price_text"
+        ],
+        "title": "EntityModelNoticeResponse",
+        "description": "The entity model before a start: its id, price per million tokens, and kind."
+      },
+      "EntityModelOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "listed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listed"
+          },
+          "free": {
+            "type": "boolean",
+            "title": "Free"
+          },
+          "prompt_usd_per_million": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Usd Per Million"
+          },
+          "completion_usd_per_million": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Usd Per Million"
+          },
+          "price_stale": {
+            "type": "boolean",
+            "title": "Price Stale"
+          },
+          "structured_outputs": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structured Outputs"
+          },
+          "price_text": {
+            "type": "string",
+            "title": "Price Text"
+          },
+          "tested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tested At"
+          },
+          "decision_tested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Tested At"
+          },
+          "usable": {
+            "type": "boolean",
+            "title": "Usable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "listed",
+          "free",
+          "prompt_usd_per_million",
+          "completion_usd_per_million",
+          "price_stale",
+          "structured_outputs",
+          "price_text",
+          "tested_at",
+          "usable"
+        ],
+        "title": "EntityModelOptionResponse"
+      },
+      "EntityModelRequest": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Model"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "extraction",
+              "decision"
+            ],
+            "title": "Kind",
+            "default": "extraction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "title": "EntityModelRequest"
+      },
+      "EntityModelSettingsResponse": {
+        "properties": {
+          "current": {
+            "type": "string",
+            "title": "Current"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "decision_current": {
+            "type": "string",
+            "title": "Decision Current"
+          },
+          "decision_source": {
+            "type": "string",
+            "title": "Decision Source"
+          },
+          "default": {
+            "type": "string",
+            "title": "Default"
+          },
+          "catalog_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Fetched At"
+          },
+          "catalog_stale": {
+            "type": "boolean",
+            "title": "Catalog Stale"
+          },
+          "catalog_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Error"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/EntityModelOptionResponse"
+            },
+            "type": "array",
+            "title": "Models"
+          },
+          "spend_today": {
+            "items": {
+              "$ref": "#/components/schemas/EntityModelSpendLineResponse"
+            },
+            "type": "array",
+            "title": "Spend Today"
+          },
+          "spend_total": {
+            "items": {
+              "$ref": "#/components/schemas/EntityModelSpendLineResponse"
+            },
+            "type": "array",
+            "title": "Spend Total"
+          },
+          "openrouter_configured": {
+            "type": "boolean",
+            "title": "Openrouter Configured"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "source",
+          "decision_current",
+          "decision_source",
+          "default",
+          "catalog_fetched_at",
+          "catalog_stale",
+          "catalog_error",
+          "models",
+          "spend_today",
+          "spend_total",
+          "openrouter_configured"
+        ],
+        "title": "EntityModelSettingsResponse",
+        "description": "«Модель извлечения»: the models, their prices, the choice and what it spent."
+      },
+      "EntityModelSpendLineResponse": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "title": "Completion Tokens"
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd"
+          },
+          "estimated_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Usd"
+          },
+          "uncosted_calls": {
+            "type": "integer",
+            "title": "Uncosted Calls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "calls",
+          "prompt_tokens",
+          "completion_tokens",
+          "cost_usd",
+          "estimated_usd",
+          "uncosted_calls"
+        ],
+        "title": "EntityModelSpendLineResponse"
+      },
+      "EntityModelTestResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "title": "Completion Tokens"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityModelEntityResponse"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "expected_matched": {
+            "type": "integer",
+            "title": "Expected Matched"
+          },
+          "expected_total": {
+            "type": "integer",
+            "title": "Expected Total"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "extraction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "model",
+          "seconds",
+          "prompt_tokens",
+          "completion_tokens",
+          "cost_usd",
+          "estimated_cost_usd",
+          "entities",
+          "expected_matched",
+          "expected_total",
+          "error"
+        ],
+        "title": "EntityModelTestResponse"
       },
       "EntityRowResponse": {
         "properties": {
@@ -6454,6 +7083,51 @@
           "reasons"
         ],
         "title": "LatestRosfinMatchResponse"
+      },
+      "LayoutSuspectResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "signal": {
+            "type": "string",
+            "title": "Signal"
+          },
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Since"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "signal",
+          "run_id",
+          "since",
+          "count",
+          "total",
+          "text"
+        ],
+        "title": "LayoutSuspectResponse",
+        "description": "A source whose latest runs suggest that its page layout changed."
       },
       "LiveOperationResponse": {
         "properties": {
@@ -9770,6 +10444,14 @@
                 "type": "null"
               }
             ]
+          },
+          "layout_suspects": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutSuspectResponse"
+            },
+            "type": "array",
+            "title": "Layout Suspects",
+            "default": []
           }
         },
         "type": "object",

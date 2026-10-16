@@ -774,6 +774,8 @@ export type CycleResponse = {
      * Chain Stopped
      */
     chain_stopped: string;
+    entity_model?: EntityModelNoticeResponse | null;
+    decision_model?: EntityModelNoticeResponse | null;
 };
 
 /**
@@ -786,6 +788,14 @@ export type CycleStartRequest = {
      * After
      */
     after: number;
+    /**
+     * Entity Model
+     */
+    entity_model?: string | null;
+    /**
+     * Decision Model
+     */
+    decision_model?: string | null;
 };
 
 /**
@@ -1172,6 +1182,292 @@ export type EntityListResponse = {
      * Regions
      */
     regions: Array<string>;
+};
+
+/**
+ * EntityModelEntityResponse
+ */
+export type EntityModelEntityResponse = {
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Nominative
+     */
+    nominative: string;
+    /**
+     * Gender
+     */
+    gender: string;
+    /**
+     * Is Person
+     */
+    is_person: boolean;
+    /**
+     * As Expected
+     */
+    as_expected: boolean;
+    /**
+     * Role
+     */
+    role?: string;
+    /**
+     * Note
+     */
+    note?: string;
+};
+
+/**
+ * EntityModelNoticeResponse
+ *
+ * The entity model before a start: its id, price per million tokens, and kind.
+ */
+export type EntityModelNoticeResponse = {
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Free
+     */
+    free: boolean;
+    /**
+     * Prompt Usd Per Million
+     */
+    prompt_usd_per_million: number | null;
+    /**
+     * Completion Usd Per Million
+     */
+    completion_usd_per_million: number | null;
+    /**
+     * Price Stale
+     */
+    price_stale: boolean;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Price Text
+     */
+    price_text: string;
+};
+
+/**
+ * EntityModelOptionResponse
+ */
+export type EntityModelOptionResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Listed
+     */
+    listed: boolean | null;
+    /**
+     * Free
+     */
+    free: boolean;
+    /**
+     * Prompt Usd Per Million
+     */
+    prompt_usd_per_million: number | null;
+    /**
+     * Completion Usd Per Million
+     */
+    completion_usd_per_million: number | null;
+    /**
+     * Price Stale
+     */
+    price_stale: boolean;
+    /**
+     * Structured Outputs
+     */
+    structured_outputs: boolean | null;
+    /**
+     * Price Text
+     */
+    price_text: string;
+    /**
+     * Tested At
+     */
+    tested_at: string | null;
+    /**
+     * Decision Tested At
+     */
+    decision_tested_at?: string | null;
+    /**
+     * Usable
+     */
+    usable: boolean;
+};
+
+/**
+ * EntityModelRequest
+ */
+export type EntityModelRequest = {
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Kind
+     */
+    kind?: 'extraction' | 'decision';
+};
+
+/**
+ * EntityModelSettingsResponse
+ *
+ * «Модель извлечения»: the models, their prices, the choice and what it spent.
+ */
+export type EntityModelSettingsResponse = {
+    /**
+     * Current
+     */
+    current: string;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Decision Current
+     */
+    decision_current: string;
+    /**
+     * Decision Source
+     */
+    decision_source: string;
+    /**
+     * Default
+     */
+    default: string;
+    /**
+     * Catalog Fetched At
+     */
+    catalog_fetched_at: string | null;
+    /**
+     * Catalog Stale
+     */
+    catalog_stale: boolean;
+    /**
+     * Catalog Error
+     */
+    catalog_error: string | null;
+    /**
+     * Models
+     */
+    models: Array<EntityModelOptionResponse>;
+    /**
+     * Spend Today
+     */
+    spend_today: Array<EntityModelSpendLineResponse>;
+    /**
+     * Spend Total
+     */
+    spend_total: Array<EntityModelSpendLineResponse>;
+    /**
+     * Openrouter Configured
+     */
+    openrouter_configured: boolean;
+};
+
+/**
+ * EntityModelSpendLineResponse
+ */
+export type EntityModelSpendLineResponse = {
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Calls
+     */
+    calls: number;
+    /**
+     * Prompt Tokens
+     */
+    prompt_tokens: number;
+    /**
+     * Completion Tokens
+     */
+    completion_tokens: number;
+    /**
+     * Cost Usd
+     */
+    cost_usd: number;
+    /**
+     * Estimated Usd
+     */
+    estimated_usd: number | null;
+    /**
+     * Uncosted Calls
+     */
+    uncosted_calls: number;
+};
+
+/**
+ * EntityModelTestResponse
+ */
+export type EntityModelTestResponse = {
+    /**
+     * Ok
+     */
+    ok: boolean;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Seconds
+     */
+    seconds: number;
+    /**
+     * Prompt Tokens
+     */
+    prompt_tokens: number;
+    /**
+     * Completion Tokens
+     */
+    completion_tokens: number;
+    /**
+     * Cost Usd
+     */
+    cost_usd: number | null;
+    /**
+     * Estimated Cost Usd
+     */
+    estimated_cost_usd: number | null;
+    /**
+     * Entities
+     */
+    entities: Array<EntityModelEntityResponse>;
+    /**
+     * Expected Matched
+     */
+    expected_matched: number;
+    /**
+     * Expected Total
+     */
+    expected_total: number;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Kind
+     */
+    kind?: string;
 };
 
 /**
@@ -1995,6 +2291,42 @@ export type LatestRosfinMatchResponse = {
      * Reasons
      */
     reasons: Array<string>;
+};
+
+/**
+ * LayoutSuspectResponse
+ *
+ * A source whose latest runs suggest that its page layout changed.
+ */
+export type LayoutSuspectResponse = {
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Signal
+     */
+    signal: string;
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Since
+     */
+    since: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Text
+     */
+    text: string;
 };
 
 /**
@@ -4062,6 +4394,10 @@ export type StatusResponse = {
      */
     next_action: string;
     balance?: BalanceResponse | null;
+    /**
+     * Layout Suspects
+     */
+    layout_suspects?: Array<LayoutSuspectResponse>;
 };
 
 /**
@@ -6911,3 +7247,85 @@ export type GetInvestigationV1Responses = {
 };
 
 export type GetInvestigationV1Response = GetInvestigationV1Responses[keyof GetInvestigationV1Responses];
+
+export type GetEntityModelV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entity-model';
+};
+
+export type GetEntityModelV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: EntityModelSettingsResponse;
+};
+
+export type GetEntityModelV1Response = GetEntityModelV1Responses[keyof GetEntityModelV1Responses];
+
+export type ChooseEntityModelV1Data = {
+    body: EntityModelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entity-model';
+};
+
+export type ChooseEntityModelV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChooseEntityModelV1Error = ChooseEntityModelV1Errors[keyof ChooseEntityModelV1Errors];
+
+export type ChooseEntityModelV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: EntityModelSettingsResponse;
+};
+
+export type ChooseEntityModelV1Response = ChooseEntityModelV1Responses[keyof ChooseEntityModelV1Responses];
+
+export type RefreshCatalogV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entity-model/catalog/refresh';
+};
+
+export type RefreshCatalogV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: EntityModelSettingsResponse;
+};
+
+export type RefreshCatalogV1Response = RefreshCatalogV1Responses[keyof RefreshCatalogV1Responses];
+
+export type TestEntityModelV1Data = {
+    body: EntityModelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entity-model/test';
+};
+
+export type TestEntityModelV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestEntityModelV1Error = TestEntityModelV1Errors[keyof TestEntityModelV1Errors];
+
+export type TestEntityModelV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: EntityModelTestResponse;
+};
+
+export type TestEntityModelV1Response = TestEntityModelV1Responses[keyof TestEntityModelV1Responses];

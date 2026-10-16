@@ -286,7 +286,30 @@ class MonitoringService:
             run.findings_created,
             run.error_count,
         )
+        if handle.source is not None:
+            self._warn_of_layout(handle.source)
         return run
+
+    def _warn_of_layout(self, source: str) -> None:
+        """A run that looks like the site changed its layout says so in the log, for a
+        scheduled run too; the console shows the same (`orchestrator.source_health`)."""
+        try:
+            suspects = self._repository.layout_suspects(source)
+        except Exception:
+            # The check is a warning; it must never fail the run it follows.
+            logger.exception("event=source_layout_check_failed source=%s", source)
+            return
+        for suspect in suspects:
+            logger.warning(
+                "event=source_layout_suspect source=%s signal=%s run_id=%s count=%d total=%d "
+                "example=%s",
+                suspect.source,
+                suspect.signal,
+                suspect.run_id,
+                suspect.count,
+                suspect.total,
+                suspect.example or "-",
+            )
 
     def run_source(
         self,

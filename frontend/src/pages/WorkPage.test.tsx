@@ -53,7 +53,7 @@ it("asks before «Сделать всё» and names the latest run it was read f
   expect(await screen.findByText(/спишутся деньги/)).toBeTruthy();
   expect(start).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
-  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41 } }));
+  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: null, decision_model: null } }));
 });
 
 it("stops a live run and shows a refusal", async () => {
@@ -70,4 +70,71 @@ it("stops a live run and shows a refusal", async () => {
 
   await waitFor(() => expect(stop).toHaveBeenCalledWith({ path: { run_id: 42 } }));
   expect(await screen.findByText("Запуск не найден")).toBeTruthy();
+});
+
+const NOTICE = {
+  model: "qwen/qwen3.8-flash",
+  label: "Qwen 3.8 Flash",
+  free: false,
+  prompt_usd_per_million: 0.15,
+  completion_usd_per_million: 0.47,
+  price_stale: false,
+  kind: "платная",
+  price_text: "Вход $0.15 / 1 млн токенов, выход $0.47 / 1 млн токенов. Платная."
+};
+
+it("shows the entity model and its price before «Запустить» and starts with that model", async () => {
+  cycle.mockReturnValue(ok({ ...IDLE, entity_model: NOTICE }) as never);
+  start.mockReturnValue(ok({ run_id: 42, stage: "load" }) as never);
+  renderPage(<WorkPage />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Сделать всё" }));
+
+  const notice = screen.getByLabelText("Модель извлечения сущностей");
+  expect(notice.textContent).toContain("qwen/qwen3.8-flash");
+  expect(notice.textContent).toContain("Входные токены: $0.15 / 1 млн");
+  expect(notice.textContent).toContain("Выходные токены: $0.47 / 1 млн");
+  expect(notice.textContent).toContain("Тип: платная");
+  fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
+  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: "qwen/qwen3.8-flash", decision_model: null } }));
+});
+
+it("says FREE and $0 for a free model, and that an unknown price is unknown", async () => {
+  cycle.mockReturnValue(
+    ok({ ...IDLE, entity_model: { ...NOTICE, model: "nvidia/nemotron-3.5-super-vl:free", free: true, prompt_usd_per_million: 0, completion_usd_per_million: 0, kind: "бесплатная" } }) as never
+  );
+  const { unmount } = renderPage(<WorkPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Сделать всё" }));
+  const free = screen.getByLabelText("Модель извлечения сущностей").textContent ?? "";
+  expect(free).toContain("FREE");
+  expect(free).toContain("Стоимость: $0");
+  unmount();
+
+  cycle.mockReturnValue(
+    ok({ ...IDLE, entity_model: { ...NOTICE, prompt_usd_per_million: null, completion_usd_per_million: null, kind: "цена неизвестна" } }) as never
+  );
+  renderPage(<WorkPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Сделать всё" }));
+  const unknown = screen.getByLabelText("Модель извлечения сущностей").textContent ?? "";
+  expect(unknown).toContain("Текущие цены неизвестны");
+  expect(unknown).not.toContain("$0");
+});
+
+it("shows the decision model apart and starts with both", async () => {
+  cycle.mockReturnValue(
+    ok({ ...IDLE, entity_model: { ...NOTICE, model: "nvidia/nemotron-3.5-super-vl:free", free: true, kind: "бесплатная" }, decision_model: NOTICE }) as never
+  );
+  start.mockReturnValue(ok({ run_id: 42, stage: "load" }) as never);
+  renderPage(<WorkPage />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Сделать всё" }));
+
+  expect(screen.getByLabelText("Модель извлечения сущностей").textContent).toContain("FREE");
+  expect(screen.getByLabelText("Модель решений (фигуранты, политичность)").textContent).toContain("qwen/qwen3.8-flash");
+  fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
+  await waitFor(() =>
+    expect(start).toHaveBeenCalledWith({
+      body: { after: 41, entity_model: "nvidia/nemotron-3.5-super-vl:free", decision_model: "qwen/qwen3.8-flash" }
+    })
+  );
 });

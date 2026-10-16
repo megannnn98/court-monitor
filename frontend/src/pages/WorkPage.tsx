@@ -2,7 +2,14 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import { getCycleV1, startCycleV1, stopCycleRunV1, type CycleResponse, type CycleTaskResponse } from "@/api/generated";
+import {
+  getCycleV1,
+  startCycleV1,
+  stopCycleRunV1,
+  type CycleResponse,
+  type CycleTaskResponse,
+  type EntityModelNoticeResponse
+} from "@/api/generated";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
@@ -38,6 +45,35 @@ function TaskLink({ task, children, className }: { task: CycleTaskResponse; chil
   );
 }
 
+function money(value: number | null | undefined): string {
+  return value === null || value === undefined ? "неизвестна" : `$${value.toFixed(2)}`;
+}
+
+/** The entity model the round will ask, before «Запустить»: its id and price, or why the price is not known. */
+export function EntityModelNotice({ notice, title = "Модель извлечения сущностей" }: { notice: EntityModelNoticeResponse; title?: string }) {
+  const known = notice.prompt_usd_per_million !== null && notice.prompt_usd_per_million !== undefined;
+  return (
+    <div className="space-y-1 rounded-md border p-3 text-sm" aria-label={title}>
+      <p className="font-medium">{title}</p>
+      <p>
+        Модель: <code>{notice.model}</code> {notice.free ? <strong>FREE</strong> : null}
+      </p>
+      {notice.free ? (
+        <p>Стоимость: $0</p>
+      ) : known ? (
+        <>
+          <p>Входные токены: {money(notice.prompt_usd_per_million)} / 1 млн</p>
+          <p>Выходные токены: {money(notice.completion_usd_per_million)} / 1 млн</p>
+        </>
+      ) : (
+        <p className="text-amber-700">Текущие цены неизвестны: каталог OpenRouter не ответил.</p>
+      )}
+      {notice.price_stale ? <p className="text-amber-700">{notice.price_text}</p> : null}
+      <p>Тип: {notice.kind}</p>
+    </div>
+  );
+}
+
 const MARKS: Record<string, [string, string]> = {
   done: ["✓", "готово"],
   running: ["●", "выполняется"],
@@ -50,7 +86,15 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
   const refresh = async () => {
     await readAgainAfterDecision(client);
   };
-  const start = useMutation({ mutationFn: () => unwrap(startCycleV1({ body: { after: cycle.latest_run_id } })), onSettled: refresh });
+  const start = useMutation({
+    mutationFn: () =>
+      unwrap(
+        startCycleV1({
+          body: { after: cycle.latest_run_id, entity_model: cycle.entity_model?.model ?? null, decision_model: cycle.decision_model?.model ?? null }
+        })
+      ),
+    onSettled: refresh
+  });
   const stop = useMutation({
     mutationFn: (runId: number) => unwrap(stopCycleRunV1({ path: { run_id: runId } })),
     onSettled: refresh
@@ -100,6 +144,14 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
               <ConfirmButton
                 title="Сделать всё?"
                 question={cycle.chain_question}
+                details={
+                  cycle.entity_model || cycle.decision_model ? (
+                    <div className="space-y-2">
+                      {cycle.entity_model ? <EntityModelNotice notice={cycle.entity_model} /> : null}
+                      {cycle.decision_model ? <EntityModelNotice notice={cycle.decision_model} title="Модель решений (фигуранты, политичность)" /> : null}
+                    </div>
+                  ) : null
+                }
                 confirm="Запустить"
                 disabled={start.isPending}
                 onConfirm={() => start.mutate()}

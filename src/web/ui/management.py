@@ -26,6 +26,7 @@ from orchestrator.operations import (
     OperationRun,
     OperationRunStatus,
 )
+from orchestrator.source_health import layout_suspects
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
@@ -515,6 +516,21 @@ def _source_errors(db: Session) -> str:
 </section>"""
 
 
+def _layout_suspects(db: Session) -> str:
+    """One warning per source, separate from ordinary individual load errors."""
+    suspects = layout_suspects(db)
+    if not suspects:
+        return ""
+    rows = "".join(
+        f"<li><b>{escape(suspect.source)}</b>: {escape(suspect.text)}</li>" for suspect in suspects
+    )
+    return f"""<section class="band warning" id="layout-suspects" aria-labelledby="layout-title">
+  <h2 id="layout-title">Возможное изменение вёрстки источника</h2>
+  <p>Проверьте страницу источника и парсер: это сигнал, а не автоматическое отключение.</p>
+  <ul>{rows}</ul>
+</section>"""
+
+
 def _management_page(
     db: Session,
     *,
@@ -552,6 +568,7 @@ def _management_page(
 {run_html}
 {_history(history[:HISTORY_SIZE], run)}
 {_spending(history)}
+{_layout_suspects(db)}
 {_source_errors(db)}
 {funnel_html(funnel(db))}"""
     page = _page(
@@ -705,6 +722,8 @@ def start_step(
     sources: list[str] | None = None,
     published_from: date | None = None,
     published_to: date | None = None,
+    entity_model: str | None = None,
+    decision_model: str | None = None,
 ) -> OperationRun:
     """Start a step of the cycle, or the steps from it to the end (`chain`). Read by the
     legacy forms and `POST /api/v1/cycle/start`. StepRefused when it is not its turn,
@@ -724,7 +743,9 @@ def start_step(
     stage = _MODES.get(mode)
     if stage is None:
         raise StepRefused(f"Неизвестный шаг: {mode}.", 400)
-    parameters = OperationParameters(mode=stage, chain=chain)
+    parameters = OperationParameters(
+        mode=stage, chain=chain, entity_model=entity_model, decision_model=decision_model
+    )
     if stage == "load":
         everything = [item.name for item in news_sources()]
         selected = list(dict.fromkeys(sources or [])) or everything
@@ -736,6 +757,8 @@ def start_step(
             chain=chain,
             published_from=published_from.isoformat() if published_from else None,
             published_to=published_to.isoformat() if published_to else None,
+            entity_model=entity_model,
+            decision_model=decision_model,
         )
     try:
         return registry.start(_OPERATION, parameters)

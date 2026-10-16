@@ -151,7 +151,16 @@ def test_the_button_rebuilds_in_the_background_and_can_be_stopped(
     assert refused.status_code == 303
     assert 'id="collect-button"' in idle
     assert started.status_code == 303
-    assert (run.parameters.mode, run.command[2:]) == ("entities", ["collect-entities"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "entities",
+        [
+            "collect-entities",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
+    )
     assert f"Остановить сборку #{run.id}" in busy
     assert stopped.headers["location"] == f"/ui/entities?run_id={run.id}"
     assert registry.get(run.id).status is OperationRunStatus.INTERRUPTED

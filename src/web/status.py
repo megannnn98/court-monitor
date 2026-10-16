@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from orchestrator.source_health import layout_suspects
 from web.response_models import (
     BalanceResponse,
+    LayoutSuspectResponse,
     LiveOperationResponse,
     QueueResponse,
     StatusResponse,
@@ -45,6 +47,18 @@ def read_status(db: Session) -> StatusResponse:
         live_operation=live,
         next_action=live_next_action(db, work),
         balance=_balance(),
+        layout_suspects=[
+            LayoutSuspectResponse(
+                source=suspect.source,
+                signal=suspect.signal,
+                run_id=suspect.run_id,
+                since=suspect.since,
+                count=suspect.count,
+                total=suspect.total,
+                text=suspect.text,
+            )
+            for suspect in layout_suspects(db)
+        ],
     )
 
 

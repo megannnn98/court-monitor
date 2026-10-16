@@ -67,6 +67,8 @@ it("has the legacy menu's items and no other", () => {
     "Перечень РФМ",
     "База Airtable",
     "Журнал запусков",
+    // The one item the legacy menu has not: the entity model's choice lives in React only.
+    "Модель извлечения",
     "Логи",
     "Вики",
     "О системе"

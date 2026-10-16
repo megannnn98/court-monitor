@@ -19,6 +19,8 @@ type Props = {
   title: string;
   /** What the action does and costs, as the server words it. */
   question: string;
+  /** Shown under the question: what the action will ask and at what price. */
+  details?: ReactNode;
   confirm: string;
   onConfirm: () => void;
   disabled?: boolean;
@@ -26,7 +28,7 @@ type Props = {
 };
 
 /** An action that asks first, as the legacy page's confirm() did. */
-export function ConfirmButton({ children, title, question, confirm, onConfirm, disabled, variant = "default" }: Props) {
+export function ConfirmButton({ children, title, question, details, confirm, onConfirm, disabled, variant = "default" }: Props) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -39,6 +41,7 @@ export function ConfirmButton({ children, title, question, confirm, onConfirm, d
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription className="whitespace-pre-line">{question}</AlertDialogDescription>
         </AlertDialogHeader>
+        {details}
         <AlertDialogFooter>
           <AlertDialogCancel>Отмена</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>{confirm}</AlertDialogAction>

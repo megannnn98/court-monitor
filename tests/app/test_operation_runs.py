@@ -305,7 +305,9 @@ def test_the_command_is_an_argv_from_the_allowlist(session_factory: sessionmaker
 @pytest.mark.parametrize(
     ("parameters", "arguments"),
     [
-        (OperationParameters(), ["--catch-up", "--limit", "50"]),
+        # No limit unless one is given: the monitor's ceiling (5000) and its stop at
+        # what is stored apply, not the newest 50 of every source.
+        (OperationParameters(), ["--catch-up"]),
         (
             OperationParameters(source="ovd-info", limit=20),
             ["--catch-up", "--source", "ovd-info", "--limit", "20"],

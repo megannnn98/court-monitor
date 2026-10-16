@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
 from ingestion.sources.source_registry import SOURCES, SourceKind
+from llm.model_choice import chosen_model
 
 logger = logging.getLogger("operator_console")
 
@@ -77,6 +78,14 @@ class OperationParameters(BaseModel):
     # started by the same word, and so on to the last. A step stopped, lost or crashed
     # ends the chain: the operator looks, and presses again from where it stands.
     chain: bool = False
+    # monitor only, the steps that ask the entity model (`ENTITY_MODEL_MODES`): the model
+    # the run asks, fixed when it starts — the one its warning showed. A chain carries
+    # it to every step, so a choice saved meanwhile changes no step of it.
+    entity_model: str | None = Field(default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$")
+    # The same for the decision model: who is accused, which case is political, the news.
+    decision_model: str | None = Field(
+        default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$"
+    )
 
 
 @dataclass(frozen=True)
@@ -123,12 +132,15 @@ OPERATION_DEFINITIONS: dict[str, OperationDefinition] = {
             "после прошлой загрузки, извлечь людей и события; затем один раз "
             "классифицировать, сверить с перечнем РФМ и обновить находки."
         ),
-        next_action="Оставьте «Все источники» и limit 50, затем подтвердите run.",
+        next_action="Оставьте «Все источники», затем подтвердите run.",
         warning=(
             "Операция ходит в сеть по всем источникам и пишет в живую базу; "
             "первая докачка после перерыва может идти десятки минут."
         ),
-        default_parameters=OperationParameters(limit=50),
+        # No limit: each source pages back to what is stored, at most
+        # MONITORING_DISCOVERY_LIMIT (5000; 500 on a source's first load). A limit of 50
+        # here lost what a busy channel published beyond its newest 50 between two runs.
+        default_parameters=OperationParameters(),
     ),
     "discover-and-ingest": OperationDefinition(
         name="discover-and-ingest",
@@ -330,6 +342,19 @@ class OperationRegistry:
             or parameters.mode is not None
         ) and name != "monitor":
             raise ValueError("sources, published dates and mode are only supported for monitor")
+        if (
+            name == "monitor"
+            and (parameters.entity_model is None or parameters.decision_model is None)
+            and (parameters.chain or parameters.mode in ENTITY_MODEL_MODES)
+        ):
+            with self._session_factory() as session:
+                parameters = parameters.model_copy(
+                    update={
+                        "entity_model": parameters.entity_model or chosen_model(session),
+                        "decision_model": parameters.decision_model
+                        or chosen_model(session, kind="decision"),
+                    }
+                )
         command = _command_for(definition.name, parameters)
         self.interrupt_stale_runs()
         try:
@@ -487,7 +512,15 @@ class OperationRegistry:
             )
             if following is None:
                 return
-            started = self.start("monitor", OperationParameters(mode=following, chain=True))
+            started = self.start(
+                "monitor",
+                OperationParameters(
+                    mode=following,
+                    chain=True,
+                    entity_model=parameters.entity_model,
+                    decision_model=parameters.decision_model,
+                ),
+            )
             logger.info(
                 "event=operation_chain_continued after_run=%s mode=%s run_id=%s",
                 run_id,
@@ -665,6 +698,9 @@ def next_in_chain(
     return MONITOR_CYCLE[index + 1] if done and index + 1 < len(MONITOR_CYCLE) else None
 
 
+# The steps that ask the entity model; the purge's Jev and the list check are not.
+ENTITY_MODEL_MODES = frozenset({"entities", "figurants", "political"})
+
 _WHOLE_DATABASE_COMMANDS = {
     "purge": "purge-junk",
     "entities": "collect-entities",
@@ -679,7 +715,12 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
     if name == "monitor" and parameters.mode in _WHOLE_DATABASE_COMMANDS:
         if parameters.source is not None or parameters.sources is not None:
             raise ValueError(f"{parameters.mode} takes no sources: it covers the whole database")
-        return [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
+        command = [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
+        if parameters.mode in ENTITY_MODEL_MODES and parameters.entity_model:
+            command += ["--entity-model", parameters.entity_model]
+        if parameters.mode in ENTITY_MODEL_MODES and parameters.decision_model:
+            command += ["--decision-model", parameters.decision_model]
+        return command
     if name == "monitor" and parameters.mode == "resolve":
         if parameters.source is not None:
             raise ValueError("resolution takes sources, not source")
@@ -703,7 +744,9 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
             command += ["--published-from", parameters.published_from]
         if parameters.published_to is not None:
             command += ["--published-to", parameters.published_to]
-        command += ["--limit", str(_require_limit(parameters.limit))]
+        # Only an explicit limit: unset, the monitor's own ceiling applies.
+        if parameters.limit is not None:
+            command += ["--limit", str(parameters.limit)]
     elif name == "discover-and-ingest":
         source = _require_source(parameters.source)
         command += ["--source", source, "--limit", str(_require_limit(parameters.limit))]

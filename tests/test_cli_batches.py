@@ -35,8 +35,11 @@ from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 TEXTS = [SIDOROV, PETROV, IVANOV]
 
 
-def test_worker_count_is_capped_by_items_and_cores() -> None:
+def test_worker_count_is_capped_by_items_and_cores(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The cores of the machine, fixed: a CI runner may have two (a private repository's do).
+    monkeypatch.setattr(cli_batches, "MAX_WORKERS", 4)
     assert worker_count(8, 3) == 3
+    assert worker_count(8, 6) == 4
     assert worker_count(64, 10_000) == cli_batches.MAX_WORKERS
     assert worker_count(8, 0) == 1
     with pytest.raises(ValueError, match="greater than zero"):

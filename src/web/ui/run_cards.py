@@ -84,7 +84,7 @@ def card(
   <h2>Запуск #{run.id} · {MODE_TITLES[mode]} {badge(label, css)}</h2>
   <p class="muted">Начат {escape(local_time(run.created_at))} · {"шаг цепочки «Сделать всё» · " if run.parameters.chain else ""}{where + " · " if where else ""}<a href="/ui/logs?run_id={run.id}">Лог запуска</a></p>
   {progress if live else ""}
-  {spend.notice(mode) if live and mode else ""}
+  {spend.notice(mode, model=run.parameters.entity_model, decision_model=run.parameters.decision_model) if live and mode else ""}
   {body}
   {tail_html(run)}
   {"<script>setTimeout(() => window.location.reload(), 5000);</script>" if live else ""}

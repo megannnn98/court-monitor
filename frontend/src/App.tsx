@@ -9,6 +9,7 @@ import { BaseUnnamedPage } from "@/pages/BaseUnnamedPage";
 import { CandidatesPage } from "@/pages/CandidatesPage";
 import { DossierPage } from "@/pages/DossierPage";
 import { EntitiesPage } from "@/pages/EntitiesPage";
+import { EntityModelPage } from "@/pages/EntityModelPage";
 import { InvestigationsPage } from "@/pages/InvestigationsPage";
 import { JunkHoldsPage } from "@/pages/JunkHoldsPage";
 import { LogsPage } from "@/pages/LogsPage";
@@ -44,6 +45,7 @@ export function App() {
         <Route path="persons/:personId" element={<PersonPage />} />
         <Route path="articles/:articleId" element={<ArticlePage />} />
         <Route path="runs" element={<RunsPage />} />
+        <Route path="entity-model" element={<EntityModelPage />} />
         <Route path="logs" element={<LogsPage />} />
         <Route path="work" element={<WorkPage />} />
         <Route path="review/roles" element={<ReviewPage kind="roles" />} />

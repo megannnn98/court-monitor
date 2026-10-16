@@ -112,6 +112,26 @@ def test_the_article_page_names_the_defendant() -> None:
     assert "<" not in article.text
 
 
+def test_the_redesigned_page_of_october_2026_is_read() -> None:
+    """The site moved its text from `p.doc__text` to `div.doc-text-block__paragraph` on
+    16.10.2026: every page then failed with «Article text not found»."""
+    article = KommersantArticleParser().parse(
+        RawDocument(
+            external_id="9027465",
+            url="https://www.kommersant.ru/doc/9027465",
+            fetched_at=datetime(2026, 10, 16, tzinfo=UTC),
+            content_type="text/html",
+            content=(FIXTURES / "doc_9027465.html").read_bytes(),
+        )
+    )
+
+    assert article.title == "Рэпера Navai отправили в СИЗО за контрабанду наркотиков"
+    assert article.published_at is not None
+    assert article.published_at.date().isoformat() == "2026-10-15"
+    assert article.text.startswith("Кордайский районный суд Жамбылской области")
+    assert "<" not in article.text
+
+
 def test_a_page_without_article_text_is_rejected() -> None:
     with pytest.raises(ParseError):
         KommersantArticleParser().parse(

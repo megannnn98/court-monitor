@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import logging
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -16,8 +18,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.service import RfCheckResult
 from application import build_operator_cycle
+from llm.chat import DECISION_MODEL_ENV, EXTRACTION_MODEL_ENV, LEDGER, Purpose
+from llm.model_choice import book_ledger, log_selected, model_for_step
 from observability import configure_logging
 from orchestrator.cycle import OperatorCycle
+
+logger = logging.getLogger("entities")
 
 CYCLE_COMMANDS = frozenset(
     {
@@ -30,6 +36,18 @@ CYCLE_COMMANDS = frozenset(
         "find-news",
         "find-sentences",
         "compare-entity-models",
+    }
+)
+
+# The commands that ask the entity model (`llm.model_choice`): not the purge's Jev.
+ENTITY_MODEL_COMMANDS = frozenset(
+    {
+        "collect-entities",
+        "find-figurants",
+        "find-political",
+        "find-unnamed",
+        "find-news",
+        "find-sentences",
     }
 )
 
@@ -98,6 +116,22 @@ def add_cycle_arguments(subparsers: Any) -> None:
         ),
     )
 
+    for name in ENTITY_MODEL_COMMANDS:
+        subparsers.choices[name].add_argument(
+            "--entity-model",
+            help=(
+                "The extraction model the step asks (the console passes the one its "
+                "warning showed); unset, the one chosen on «Модель извлечения»"
+            ),
+        )
+        subparsers.choices[name].add_argument(
+            "--decision-model",
+            help=(
+                "The decision model (figurants, politics, news); unset, the one chosen on "
+                "«Модель извлечения»"
+            ),
+        )
+
     compare = subparsers.add_parser(
         "compare-entity-models",
         help=(
@@ -148,7 +182,56 @@ def run_cycle_command(
 
         _print(run_comparison(session_factory, args.step, size=args.sample, seed=args.seed))
         return True
-    cycle = build_cycle(session_factory)
+    if args.command in ENTITY_MODEL_COMMANDS:
+        # Both chosen before either is set: the decision model falls back to the
+        # extraction's variable, which would by then name the extraction's choice.
+        model = _select_entity_model(args, session_factory)
+        decision = _select_entity_model(args, session_factory, kind="decision")
+        if os.environ.get("OPENROUTER_API_KEY", "").strip():
+            os.environ[EXTRACTION_MODEL_ENV] = model
+            os.environ[DECISION_MODEL_ENV] = decision
+        LEDGER.reset()
+        LEDGER.active = True
+        try:
+            return _run_step(
+                args, build_cycle(session_factory), entity_model=model, decision_model=decision
+            )
+        finally:
+            LEDGER.active = False
+            try:
+                book_ledger(session_factory, args.command, LEDGER.tallies())
+            except Exception:
+                # What the step did stays; only its line in the ledger is lost, and said so.
+                logger.exception("event=entity_model_spend_not_booked command=%s", args.command)
+    return _run_step(args, build_cycle(session_factory))
+
+
+def _select_entity_model(
+    args: argparse.Namespace,
+    session_factory: sessionmaker[Session],
+    *,
+    kind: Purpose = "extraction",
+) -> str:
+    """The run's model of `kind`, fixed for the whole process: the one passed, else the
+    stored choice. Logged with its price — a run started by a schedule asks nobody."""
+    given = getattr(args, "decision_model" if kind == "decision" else "entity_model", None)
+    model = given or model_for_step(session_factory, kind=kind)
+    log_selected(model, source="run" if given else "stored-choice", kind=kind)
+    return model
+
+
+def _run_step(
+    args: argparse.Namespace,
+    cycle: OperatorCycle,
+    *,
+    entity_model: str | None = None,
+    decision_model: str | None = None,
+) -> bool:
+    model = {
+        key: value
+        for key, value in (("entity_model", entity_model), ("decision_model", decision_model))
+        if value
+    }
     if args.command == "purge-junk":
         purged = cycle.purge()
         _print(
@@ -182,6 +265,7 @@ def run_cycle_command(
                 "model_cost_usd": collected.model_cost_usd,
                 "charges": collected.charges,
                 "charged_entities": collected.charged_entities,
+                **model,
             }
         )
         return True
@@ -190,7 +274,7 @@ def run_cycle_command(
         _print(_rf_totals(checked))
         return checked.snapshot_id is not None
     if args.command == "find-figurants":
-        _print(dataclasses.asdict(cycle.figurants()))
+        _print({**dataclasses.asdict(cycle.figurants()), **model})
         return True
     if args.command == "find-political":
         step = cycle.political()
@@ -218,14 +302,15 @@ def run_cycle_command(
                 "sentences_failures": step.sentences.failures,
                 "sentences_unasked": step.sentences.unasked,
                 "sentences_cost_usd": step.sentences.cost_usd,
+                **model,
             }
         )
         return True
     if args.command == "find-news":
-        _print(dataclasses.asdict(cycle.news()))
+        _print({**dataclasses.asdict(cycle.news()), **model})
         return True
     if args.command == "find-sentences":
-        _print(dataclasses.asdict(cycle.sentences()))
+        _print({**dataclasses.asdict(cycle.sentences()), **model})
         return True
-    _print(dataclasses.asdict(cycle.unnamed()))
+    _print({**dataclasses.asdict(cycle.unnamed()), **model})
     return True
