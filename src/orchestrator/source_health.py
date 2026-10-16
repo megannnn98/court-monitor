@@ -3,9 +3,10 @@
 A site that changes its markup does not fail loudly: on 16.10.2026 every Kommersant page
 failed with «Article text not found» among the ordinary errors of the console, and a
 listing that no longer parses would find nothing at all — which looks like a quiet day.
-Two signals, read from `monitoring_runs` and `monitoring_run_items`, asking no site:
+Two signals, read from `monitoring_runs` and `monitoring_run_items` of the last
+`HISTORY_DAYS` (both), asking no site:
 
-- `parse` — the articles do not parse: the source's latest run has at least
+- `parse` — the articles do not parse: the source's latest run of the window has at least
   `PARSE_FAILURES_MIN` documents failed with `ParseError` (a parser's own failure, not a
   network one; `NoTextError`, a post without text, is not counted), and they are at least
   `PARSE_FAILURE_SHARE` of what it fetched.
@@ -15,6 +16,10 @@ Two signals, read from `monitoring_runs` and `monitoring_run_items`, asking no s
   last 30 days, a site's first page), so a working source of any pace finds something;
   a channel quiet for more than its window is the one honest false alarm, and it ends
   once its last find is older than `HISTORY_DAYS`.
+
+A source not run for `HISTORY_DAYS` has no run to tell by and is not reported, failing or
+not. The window bounds the scan (an index on a source's latest runs, newest first); it is
+not one lookup per source.
 """
 
 from __future__ import annotations

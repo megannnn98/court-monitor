@@ -99,6 +99,10 @@ def cached[Answer](
     )
     if model is not None:
         query = query.where(cache.record.model == model)
+    else:
+        # No model to ask: any model's answer will do, but the same one every time —
+        # two models' answers live side by side; oldest first, so the newest wins below.
+        query = query.order_by(cache.record.created_at.asc(), cache.record.model.asc())
     records = session.scalars(query)
     for record in records:
         value = getattr(record, cache.field)

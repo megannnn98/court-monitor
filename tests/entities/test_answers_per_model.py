@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.models.entities import EntityRoleAnswerRecord
@@ -93,3 +93,45 @@ def test_a_positive_answer_sticks_only_within_its_model(
     assert _ask(session_factory, _Classifier(FREE, "other"), newer) == "accused"
     assert _ask(session_factory, deepseek, newer) == "foreign"
     assert deepseek.asked == [1]
+
+
+def test_without_a_model_the_newest_answer_wins_every_time(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """No OpenRouter key: any model's answer will do, but the same one each run — the
+    newest — not whichever row the database returns last."""
+    # Written DeepSeek first, the free model second, but the free one dated older: the
+    # table's order and the answers' age disagree, and the age must decide.
+    _ask(session_factory, _Classifier(DEEPSEEK, "foreign"), ITEM.quotes)
+    _ask(session_factory, _Classifier(FREE, "accused"), ITEM.quotes)
+    with session_factory.begin() as session:
+        session.execute(
+            text(
+                "UPDATE entity_role_answers SET created_at = created_at - interval '1 day' "
+                "WHERE model = :model"
+            ),
+            {"model": FREE},
+        )
+
+    found = [
+        ask_missing(
+            session_factory,
+            ROLE_CACHE,
+            None,
+            {ITEM.id: ITEM},
+            {ITEM.id: KEY},
+            {ITEM.id: input_hash(ITEM.name, *ITEM.quotes)},
+            batch_size=10,
+            concurrency=1,
+            value_of=lambda answer: answer.kind,
+            explanation_of=lambda answer: answer.explanation,
+            on_stage=lambda _stage: None,
+            event="test_roles",
+            errors=(RoleClassifierError,),
+        )
+        .answers[ITEM.id]
+        .kind
+        for _ in range(3)
+    ]
+
+    assert found == ["foreign", "foreign", "foreign"]

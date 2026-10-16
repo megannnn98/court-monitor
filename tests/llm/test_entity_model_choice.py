@@ -259,3 +259,11 @@ def test_the_ledger_counts_tokens_and_cost_per_model_only_while_on() -> None:
     # The call without a reported cost is counted apart, for an estimate.
     assert (tally.uncosted_calls, tally.uncosted_prompt_tokens) == (1, 120)
     assert spend.calls == 3 and spend.uncosted_calls == 1
+
+
+def test_the_dated_and_free_shapes_openrouter_answers_are_the_model_asked() -> None:
+    assert served_by_asked("x/y", "x/y:free")
+    assert served_by_asked("x/y:free", "x/y-20260101:free")
+    assert served_by_asked("x/y", "x/y-20260101")
+    # A snapshot of the snapshot is no answer of the model asked: one date only.
+    assert not served_by_asked("x/y", "x/y-20260101-20260102")

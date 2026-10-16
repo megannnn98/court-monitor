@@ -301,7 +301,7 @@ def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
     refusal = out_of_turn(state, "entities")
     if refusal is None:
         warning = step_confirmation("entities")
-        models = models_query()
+        models = models_query(("entities",))
         query = f"?{models}" if models else ""
         confirm = (
             f" onsubmit=\"return confirm('{escape(warning, quote=True)}')\"" if warning else ""
@@ -516,6 +516,8 @@ def ui_entities(
     region: str = Query(default="", max_length=200),
     sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
     page: int = Query(default=1, ge=1),
+    # Why «Собрать сущности» did not start (`collect_entities`): said on the page.
+    refused: str = Query(default="", max_length=300),
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse:
@@ -598,7 +600,8 @@ def ui_entities(
         if rows
         else '<p class="empty">Никого не найдено: ослабьте фильтры.</p>'
     )
-    body = f"""{_collect_bar(current_state(registry), _last_collect(registry))}
+    refusal = f'<p class="warning collect-refused">{escape(refused)}</p>' if refused else ""
+    body = f"""{refusal}{_collect_bar(current_state(registry), _last_collect(registry))}
 <form method="get" class="toolbar filters" role="search">
   <input type="hidden" name="sort" value="{sort}">
   <label class="field">Имя <input type="search" name="q" value="{
@@ -676,7 +679,8 @@ def collect_entities(
             db, request.query_params.get("em"), request.query_params.get("dm")
         )
     except StepRefused as refused:
-        raise HTTPException(status_code=refused.status_code, detail=refused.message) from None
+        # Back to the page, which says why: the other starts answer with a page too.
+        return RedirectResponse(f"/ui/entities?refused={quote(refused.message)}", status_code=303)
     # Out of turn or raced by another start: the page shows why nothing started.
     if out_of_turn(current_state(registry), "entities") is None:
         with suppress(OperationConflictError):

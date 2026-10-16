@@ -435,6 +435,12 @@ class EntityCollector:
         # The asking model's own answers only (`processing.answers`); with no model, any.
         if self._normalizer is not None:
             query = query.where(EntityNameNormalizationRecord.model == self._normalizer.model)
+        else:
+            # Any model's answer, the newest winning the same way every time.
+            query = query.order_by(
+                EntityNameNormalizationRecord.created_at.asc(),
+                EntityNameNormalizationRecord.model.asc(),
+            )
         with self._session_factory() as session:
             records = {
                 record.key: GivenName(record.nominative, record.gender, record.is_person)

@@ -232,3 +232,12 @@ def test_valid_json_with_a_wrong_name_fails_the_test() -> None:
 
     assert not result.ok and result.expected_matched == 1
     assert result.error is not None and "«Александра Моора»" in result.error
+
+
+def test_a_missing_item_and_a_wrong_name_are_both_told() -> None:
+    both = {"names": [{**GOOD["names"][0], "nominative": "Александра Моора"}, GOOD["names"][1]]}
+
+    result = _run(lambda _: _completion(both))
+
+    assert not result.ok and result.error is not None
+    assert "2 из 3" in result.error and "«Александра Моора»" in result.error

@@ -478,3 +478,30 @@ def test_a_legacy_step_button_starts_only_with_the_models_it_showed(
     assert started.status_code == 303
     run = registry.runs_of("monitor")[0]
     assert run.parameters.entity_model == FREE and run.parameters.mode == "entities"
+
+
+def test_collect_entities_starts_only_with_the_model_its_warning_showed(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale press is sent back to the page, which says why; nothing starts."""
+    _choose(session_factory, QWEN)
+    _pages_read(monkeypatch, session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge")
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/entities").text
+        found = re.search(r'action="(/ui/entities/collect[^"]*)"', page)
+        assert found is not None
+        action = html.unescape(found[1])
+        _choose(session_factory, FREE)
+        entity_model.forget()
+        before = len(registry.runs_of("monitor"))
+        stale = client.post(action, follow_redirects=False)
+        told = client.get(stale.headers["location"]).text
+
+    # The step asks the extraction model alone: its address names no decision model.
+    assert "em=" in action and "dm=" not in action
+    assert stale.status_code == 303 and "refused=" in stale.headers["location"]
+    assert f"теперь {FREE}" in told
+    assert len(registry.runs_of("monitor")) == before, "the stale press started nothing"
