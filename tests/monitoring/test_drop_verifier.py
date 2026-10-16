@@ -177,6 +177,16 @@ def test_a_failing_jev2_is_counted_and_logged(caplog: pytest.LogCaptureFixture) 
     assert "jev2_decision=ERROR" in line.getMessage() and "TimeoutException" in line.getMessage()
 
 
+def test_a_client_that_cannot_be_made_keeps_every_article() -> None:
+    def broken() -> httpx.Client:
+        raise OSError("no sockets")
+
+    cascade = CascadeScreen(FixedScreen({"А": 0.1, "Б": 0.2}), DropVerifier(broken, "key", sleep=0))
+
+    assert cascade.scores([("А", "x"), ("Б", "y")]) == [CUTOFF, CUTOFF]
+    assert cascade.counts["jev2_error"] == 2
+
+
 def test_a_failing_jev1_stops_the_purge_before_jev2_is_asked() -> None:
     class Broken(FixedScreen):
         def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:

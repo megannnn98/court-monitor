@@ -149,7 +149,11 @@ class DropVerifier:
         """A verdict per (title, text), in order; a failure is an `ERROR` verdict."""
         if not articles:
             return []
-        with self._connect() as http, ThreadPoolExecutor(CONCURRENCY) as pool:
+        try:
+            http = self._connect()
+        except Exception as exc:  # noqa: BLE001 - no client, no answer: every article is kept
+            return [Verdict(decision=ERROR, error=f"{type(exc).__name__}: {exc}")] * len(articles)
+        with http, ThreadPoolExecutor(CONCURRENCY) as pool:
             return list(pool.map(partial(self._verdict, http), articles))
 
     def _verdict(self, http: httpx.Client, article: tuple[str, str]) -> Verdict:
