@@ -190,13 +190,15 @@ def chain_stopped_text(state: PipelineState) -> str:
     )
 
 
-def chain_confirmation(stage: str) -> str:
+def chain_confirmation(stage: str, *, with_model: bool = True) -> str:
     """What the browser asks before «Сделать всё»: only the money, when a step left is
     paid. Each step's own warnings stay on its single start in the journal of runs."""
     steps = STAGES[STAGES.index(stage) :]
+    # The React console shows the model as a block of its own (`CycleResponse.entity_model`).
+    model = spend.chain_model_text(steps) if with_model else ""
     if not any(spend.paid(step) for step in steps):
-        return f"Выполнить {chain_span(stage)}?"
-    return spend.chain_cost_text(steps)
+        return " ".join(part for part in (model, f"Выполнить {chain_span(stage)}?") if part)
+    return " ".join(part for part in (model, spend.chain_cost_text(steps)) if part)
 
 
 def chain_note(state: PipelineState) -> str:

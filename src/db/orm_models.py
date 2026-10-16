@@ -71,6 +71,7 @@ from db.models.rosfinmonitoring import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from db.models.settings import AppSettingRecord, EntityModelSpendRecord
 from db.models.sources import (
     ArticleDigestAnswerRecord,
     ArticleSentenceReadingRecord,
@@ -83,6 +84,7 @@ from db.models.sources import (
 
 __all__ = [
     "AirtableKnownPersonRecord",
+    "AppSettingRecord",
     "ArticleDigestAnswerRecord",
     "ArticleExtractionRunRecord",
     "ArticleSentenceReadingRecord",
@@ -100,6 +102,7 @@ __all__ = [
     "EntityGroupRoleRecord",
     "EntityGroupUnnamedMentionRecord",
     "EntityMentionRecord",
+    "EntityModelSpendRecord",
     "EntityNameNormalizationRecord",
     "EntityNameOverrideRecord",
     "EntityNewsAnswerRecord",

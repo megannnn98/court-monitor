@@ -38,17 +38,25 @@ def test_entities_page_warns_before_paid_deepseek(monkeypatch: pytest.MonkeyPatc
     assert "return confirm" in page
 
 
-def test_custom_non_deepseek_openrouter_model_has_no_deepseek_warning(
+def test_another_openrouter_model_is_warned_of_by_its_own_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "qwen/qwen3-8b")
+    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "xiaomi/mimo-v2.6-flash")
 
-    assert step_confirmation("political") == ""
+    text = step_confirmation("political")
+
+    assert "xiaomi/mimo-v2.6-flash" in text and "Шаг платный" in text
+    assert "DeepSeek" not in text
 
 
-def test_free_deepseek_model_has_no_paid_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_free_model_is_warned_of_as_free_with_no_balance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "deepseek/deepseek-v4.1-flash:free")
+    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "nvidia/nemotron-3.5-super-vl:free")
 
-    assert step_confirmation("entities") == ""
+    text = step_confirmation("entities")
+
+    assert "FREE" in text and "Шаг бесплатный" in text
+    assert "Шаг платный" not in text and "Остаток" not in text

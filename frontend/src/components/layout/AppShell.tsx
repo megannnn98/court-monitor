@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   BookOpen,
+  Cpu,
   ExternalLink,
   FileText,
   Info,
@@ -39,6 +40,8 @@ const ICONS: Record<string, LucideIcon> = {
   rfm: Rows3,
   airtable: Table,
   management: SlidersHorizontal,
+  // New in React: no legacy icon to follow.
+  "entity-model": Cpu,
   logs: FileText,
   wiki: BookOpen,
   about: Info

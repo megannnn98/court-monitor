@@ -6,6 +6,7 @@ other origins (`web.csrf`, ADR 0022); starting a single step stays on the legacy
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from llm.model_choice import chosen_model
 from orchestrator.operations import OperationNotFoundError, OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.response_models import (
@@ -14,9 +15,11 @@ from web.response_models import (
     CycleStartResponse,
     CycleStepResponse,
     CycleTaskResponse,
+    EntityModelNoticeResponse,
     LiveRunResponse,
     StopResponse,
 )
+from web.ui import spend
 from web.ui.cycle import PROCESSING_LABELS, chain_question, step_statuses
 from web.ui.management import StepRefused, start_step
 from web.ui.pipeline import (
@@ -73,23 +76,61 @@ def get_cycle(
         ),
         latest_run_id=latest_run_id(state),
         chain_span=chain_span(state.current),
-        chain_question=chain_question(state),
+        chain_question=chain_question(state, with_model=False),
         chain_note=chain_note_text(state),
         chain_stopped=chain_stopped_text(state),
+        entity_model=_entity_model(state.current) if state.live is None else None,
+    )
+
+
+def _entity_model(stage: str) -> EntityModelNoticeResponse | None:
+    """The entity model the round from `stage` would ask; None when no step left asks it."""
+    if not any(step in spend.ENTITY_STAGES for step in STAGES[STAGES.index(stage) :]):
+        return None
+    notice = spend.entity_model_notice()
+    if notice is None:
+        return None
+    price = notice.info.price
+    return EntityModelNoticeResponse(
+        model=notice.model,
+        label=notice.label,
+        free=notice.info.free,
+        prompt_usd_per_million=price.prompt if price else None,
+        completion_usd_per_million=price.completion if price else None,
+        price_stale=notice.info.price_stale,
+        kind=notice.kind,
+        price_text=notice.price,
     )
 
 
 @router.post("/cycle/start", response_model=CycleStartResponse)
 def start_cycle(
     body: CycleStartRequest,
+    db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> CycleStartResponse:
     """«Сделать всё»: the current step and, after it, every step to the end of the round.
     409 when a run is live, when `after` is not the latest run any more (an old press),
     or when another worker started first."""
     state = current_state(registry)
+    if body.entity_model is not None:
+        chosen = chosen_model(db)
+        if chosen != body.entity_model:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Модель извлечения сменилась: теперь {chosen}. Проверьте её цену и "
+                    "запустите снова."
+                ),
+            )
     try:
-        run = start_step(registry, state.current, chain=True, after=str(body.after))
+        run = start_step(
+            registry,
+            state.current,
+            chain=True,
+            after=str(body.after),
+            entity_model=body.entity_model,
+        )
     except StepRefused as refused:
         raise HTTPException(status_code=refused.status_code, detail=refused.message) from None
     return CycleStartResponse(run_id=run.id, stage=state.current)

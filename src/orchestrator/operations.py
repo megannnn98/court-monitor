@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import OperatorOperationRunRecord
 from ingestion.sources.source_registry import SOURCES, SourceKind
+from llm.model_choice import chosen_model
 
 logger = logging.getLogger("operator_console")
 
@@ -77,6 +78,10 @@ class OperationParameters(BaseModel):
     # started by the same word, and so on to the last. A step stopped, lost or crashed
     # ends the chain: the operator looks, and presses again from where it stands.
     chain: bool = False
+    # monitor only, the steps that ask the entity model (`ENTITY_MODEL_MODES`): the model
+    # the run asks, fixed when it starts — the one its warning showed. A chain carries
+    # it to every step, so a choice saved meanwhile changes no step of it.
+    entity_model: str | None = Field(default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$")
 
 
 @dataclass(frozen=True)
@@ -330,6 +335,13 @@ class OperationRegistry:
             or parameters.mode is not None
         ) and name != "monitor":
             raise ValueError("sources, published dates and mode are only supported for monitor")
+        if (
+            name == "monitor"
+            and parameters.entity_model is None
+            and (parameters.chain or parameters.mode in ENTITY_MODEL_MODES)
+        ):
+            with self._session_factory() as session:
+                parameters = parameters.model_copy(update={"entity_model": chosen_model(session)})
         command = _command_for(definition.name, parameters)
         self.interrupt_stale_runs()
         try:
@@ -487,7 +499,12 @@ class OperationRegistry:
             )
             if following is None:
                 return
-            started = self.start("monitor", OperationParameters(mode=following, chain=True))
+            started = self.start(
+                "monitor",
+                OperationParameters(
+                    mode=following, chain=True, entity_model=parameters.entity_model
+                ),
+            )
             logger.info(
                 "event=operation_chain_continued after_run=%s mode=%s run_id=%s",
                 run_id,
@@ -665,6 +682,9 @@ def next_in_chain(
     return MONITOR_CYCLE[index + 1] if done and index + 1 < len(MONITOR_CYCLE) else None
 
 
+# The steps that ask the entity model; the purge's Jev and the list check are not.
+ENTITY_MODEL_MODES = frozenset({"entities", "figurants", "political"})
+
 _WHOLE_DATABASE_COMMANDS = {
     "purge": "purge-junk",
     "entities": "collect-entities",
@@ -679,7 +699,10 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
     if name == "monitor" and parameters.mode in _WHOLE_DATABASE_COMMANDS:
         if parameters.source is not None or parameters.sources is not None:
             raise ValueError(f"{parameters.mode} takes no sources: it covers the whole database")
-        return [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
+        command = [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
+        if parameters.mode in ENTITY_MODEL_MODES and parameters.entity_model:
+            command += ["--entity-model", parameters.entity_model]
+        return command
     if name == "monitor" and parameters.mode == "resolve":
         if parameters.source is not None:
             raise ValueError("resolution takes sources, not source")

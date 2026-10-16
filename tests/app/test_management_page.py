@@ -644,7 +644,10 @@ def test_the_entities_step_starts_from_management(
         page = client.get(response.headers["location"]).text
 
     run = registry.runs_of("monitor")[0]
-    assert (run.parameters.mode, run.command[2:]) == ("entities", ["collect-entities"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "entities",
+        ["collect-entities", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+    )
     assert "Сборка сущностей" in page and "Готовлюсь" in page
 
 
@@ -676,7 +679,10 @@ def test_the_final_step_includes_rosfinmonitoring_check(
 
     assert 'id="step-political" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "political",
+        ["find-political", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+    )
     assert "Политические дела и сверка с РФМ" in page
     assert "Сверено по снимку перечня РФМ #2 от 2026-09-25" in page
     assert "В перечне (ФИО с отчеством): 3605" in page
@@ -718,7 +724,10 @@ def test_step_four_finds_the_figurants_from_management(
 
     assert 'id="step-figurants" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("figurants", ["find-figurants"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "figurants",
+        ["find-figurants", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+    )
     assert '<progress class="overall" value="50" max="3200">' in running
     assert "Фигуранты по статье УК без ответа модели: 3650" in done
     assert "Фигуранты по ответу модели: 1200" in done
@@ -754,7 +763,10 @@ def test_step_six_finds_the_political_cases_from_management(
 
     assert 'id="step-political" class="step current" type="submit"' in bar
     run = registry.get(run_id)
-    assert (run.parameters.mode, run.command[2:]) == ("political", ["find-political"])
+    assert (run.parameters.mode, run.command[2:]) == (
+        "political",
+        ["find-political", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+    )
     assert "Политические по статье УК: 1378" in done
     assert "Политические по ответу модели: 1500" in done
     assert "Политические по базе оператора: 7" in done
@@ -1082,9 +1094,17 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
     ("mode", "done_steps", "words"),
     [
         ("purge", ("load",), "каждую статью на удаление оценивает модель JEV"),
-        ("entities", ("load", "purge"), "DeepSeek через OpenRouter, не более $2.00 за запуск"),
-        ("figurants", ("load", "purge", "entities"), "DeepSeek через OpenRouter"),
-        ("political", ("load", "purge", "entities", "figurants"), "DeepSeek через OpenRouter"),
+        (
+            "entities",
+            ("load", "purge"),
+            "deepseek/deepseek-v4.1-flash (DeepSeek V4.1 Flash (текущая))",
+        ),
+        ("figurants", ("load", "purge", "entities"), "Шаг платный, не более $2.00 за запуск"),
+        (
+            "political",
+            ("load", "purge", "entities", "figurants"),
+            "модель извлечения сущностей deepseek",
+        ),
     ],
 )
 def test_a_live_step_that_asks_a_paid_model_says_so_on_its_card_and_an_ended_one_does_not(

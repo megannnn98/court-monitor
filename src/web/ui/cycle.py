@@ -72,10 +72,10 @@ def _next_tasks(work: Workload, current: OperatorTask | None) -> str:
 </section>"""
 
 
-def chain_question(state: PipelineState) -> str:
-    """What is asked before «Сделать всё» on «Работа»: only what it costs. Read by the
-    legacy page and `GET /api/v1/cycle`."""
-    return chain_confirmation(state.current)
+def chain_question(state: PipelineState, *, with_model: bool = True) -> str:
+    """What is asked before «Сделать всё» on «Работа»: the entity model and what it costs.
+    Read by the legacy page and `GET /api/v1/cycle` (which sends the model apart)."""
+    return chain_confirmation(state.current, with_model=with_model)
 
 
 def step_statuses(state: PipelineState) -> list[tuple[str, str]]:

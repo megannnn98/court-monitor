@@ -750,6 +750,21 @@ class LiveRunResponse(BaseModel):
     title: str
 
 
+class EntityModelNoticeResponse(BaseModel):
+    """The entity model before a start: its id, price per million tokens, and kind."""
+
+    model: str
+    label: str
+    free: bool
+    # USD per million tokens; None when the price is not known now.
+    prompt_usd_per_million: float | None
+    completion_usd_per_million: float | None
+    price_stale: bool
+    # «платная», «бесплатная» or «цена неизвестна».
+    kind: str
+    price_text: str
+
+
 class CycleResponse(BaseModel):
     """«Работа»: the one review to do first, the other queues, and the automatic steps
     with the one press that runs what is left of the round."""
@@ -767,12 +782,18 @@ class CycleResponse(BaseModel):
     chain_question: str
     chain_note: str
     chain_stopped: str
+    # The entity model the round's steps would ask, as the warning shows it; None when no
+    # step left asks it, or without OpenRouter.
+    entity_model: EntityModelNoticeResponse | None = None
 
 
 class CycleStartRequest(BaseModel):
     """«Сделать всё»: the steps from the current one to the end of the round."""
 
     after: int
+    # The entity model the warning showed: the start is refused (409) when the choice
+    # changed since, so the round never asks a model nobody saw.
+    entity_model: str | None = None
 
 
 class CycleStartResponse(BaseModel):
@@ -1229,3 +1250,72 @@ class OverviewResponse(BaseModel):
     pairs: int
     unclear_roles: int
     unclear_verdicts: int
+
+
+class EntityModelOptionResponse(BaseModel):
+    id: str
+    label: str
+    # In OpenRouter's catalog now; None when the catalog could not be read.
+    listed: bool | None
+    free: bool
+    prompt_usd_per_million: float | None
+    completion_usd_per_million: float | None
+    price_stale: bool
+    structured_outputs: bool | None
+    price_text: str
+    # When it last passed «Тест»; the choice of any but the default needs one.
+    tested_at: str | None
+    usable: bool
+
+
+class EntityModelSpendLineResponse(BaseModel):
+    model: str
+    calls: int
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+    # Of the calls OpenRouter told no cost for, by the price list: an estimate.
+    estimated_usd: float | None
+    uncosted_calls: int
+
+
+class EntityModelSettingsResponse(BaseModel):
+    """«Модель извлечения»: the models, their prices, the choice and what it spent."""
+
+    current: str
+    # «stored» — chosen here; «environment» — no choice yet, the environment's model.
+    source: str
+    default: str
+    catalog_fetched_at: datetime | None
+    catalog_stale: bool
+    catalog_error: str | None
+    models: list[EntityModelOptionResponse]
+    spend_today: list[EntityModelSpendLineResponse]
+    spend_total: list[EntityModelSpendLineResponse]
+    openrouter_configured: bool
+
+
+class EntityModelRequest(BaseModel):
+    model: str = Field(max_length=200)
+
+
+class EntityModelEntityResponse(BaseModel):
+    source: str
+    nominative: str
+    gender: str
+    is_person: bool
+    as_expected: bool
+
+
+class EntityModelTestResponse(BaseModel):
+    ok: bool
+    model: str
+    seconds: float
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float | None
+    estimated_cost_usd: float | None
+    entities: list[EntityModelEntityResponse]
+    expected_matched: int
+    expected_total: int
+    error: str | None

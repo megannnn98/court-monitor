@@ -104,3 +104,20 @@ def _no_openrouter_balance_request(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(spend, "_request", lambda _key: None)
     spend.reset_cache()
+
+
+@pytest.fixture(autouse=True)
+def _no_openrouter_catalog_or_stored_choice(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The model catalog is a fixed fake, never OpenRouter's; a page's warning reads no
+    stored choice of a real database: a test that needs one sets `read_stored`."""
+    from support.openrouter_catalog import CATALOG_PAYLOAD
+
+    from llm import model_choice
+    from web import entity_model
+
+    fake = model_choice.CatalogCache(request=lambda: CATALOG_PAYLOAD)
+    monkeypatch.setattr(model_choice, "CATALOG", fake)
+    for module in ("web.ui.spend", "web.routers.entity_model", "processing.identity.model_probe"):
+        monkeypatch.setattr(f"{module}.CATALOG", fake)
+    monkeypatch.setattr(entity_model, "read_stored", lambda: None)
+    entity_model.forget()

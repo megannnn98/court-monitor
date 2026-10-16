@@ -164,6 +164,8 @@ CONSOLE_READ_MODELS = frozenset(
         # the services
         "analysis.service",
         "processing.identity.service",
+        # «Тест модели» of «Модель извлечения»: one call of the names step's extractor
+        "processing.identity.model_probe",
         "results.candidates.service",
         "airtable.service",
         # vocabularies and read models

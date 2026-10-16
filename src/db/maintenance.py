@@ -6,6 +6,8 @@ from sqlalchemy import Engine, text
 
 # Tables written by current domains plus retained legacy-schema tables.
 DISPOSABLE_TABLES = (
+    "app_settings",
+    "entity_model_spend",
     "investigation_runs",
     "chat_questions",
     "article_sentences",

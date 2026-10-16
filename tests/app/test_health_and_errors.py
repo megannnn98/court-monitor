@@ -203,6 +203,9 @@ def test_openapi_lists_versioned_reads_and_only_the_known_actions(client: TestCl
         ("post", "/api/v1/officials/add"),
         ("post", "/api/v1/officials/add-suggested"),
         ("post", "/api/v1/officials/deactivate"),
+        ("post", "/api/v1/entity-model"),
+        ("post", "/api/v1/entity-model/test"),
+        ("post", "/api/v1/entity-model/catalog/refresh"),
     }
 
 

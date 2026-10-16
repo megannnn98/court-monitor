@@ -205,8 +205,10 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-n
 
 ## Модель и расходы
 
-Шаги 3, 4 и 5 спрашивают модель через OpenRouter (`OPENROUTER_API_KEY`, по
-умолчанию `deepseek/deepseek-v4.1-flash`, другая — `ENTITY_NORMALIZE_MODEL`).
+Шаги 3, 4 и 5 спрашивают модель через OpenRouter (`OPENROUTER_API_KEY`). Какую — выбирает
+оператор на странице «Модель извлечения» ([Entity Model](Entity-Model.md)); пока не выбрана —
+`ENTITY_NORMALIZE_MODEL`, по умолчанию `deepseek/deepseek-v4.1-flash`. Модель фиксируется
+в запуске при старте, перед запуском показаны её цены.
 
 - Ответы кэшируются по вопросу (`processing/answers.py`): повторный прогон спрашивает
   только новое.

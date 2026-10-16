@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
+from web import entity_model
 from web.app import app
 from web.dependencies import get_db
 from web.ui import spend
@@ -147,12 +148,22 @@ def test_a_balance_under_the_limit_of_a_run_is_said_in_red(
     assert 'class="muted ai-note"' in spend.notice("purge")
 
 
-def test_a_free_or_other_model_has_no_paid_notice(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_free_model_is_named_free_and_any_other_model_is_named_with_its_price(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every entity model is told before a start, not DeepSeek alone: a free one as FREE,
+    with no balance and no alarm; any other one as paid, by its price per million."""
     _paid(monkeypatch)
-    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "deepseek/deepseek-v4.1-flash:free")
-    assert spend.notice("entities") == ""
-    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "qwen/qwen3-8b")
-    assert spend.notice("political") == ""
+    _credits(monkeypatch)
+    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "nvidia/nemotron-3.5-super-vl:free")
+    free = spend.notice("entities")
+    assert "FREE" in free and "Шаг бесплатный" in free and "Остаток" not in free
+    assert not spend.paid("entities")
+    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "qwen/qwen3.8-flash")
+    entity_model.forget()
+    paid = spend.notice("political")
+    assert "qwen/qwen3.8-flash" in paid and "Вход $0.15 / 1 млн токенов" in paid
+    assert "Шаг платный" in paid and spend.paid("political")
 
 
 def test_the_page_of_the_cycle_shows_the_balance(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -163,7 +174,10 @@ def test_the_page_of_the_cycle_shows_the_balance(monkeypatch: pytest.MonkeyPatch
     page = _processing(PipelineState("figurants"), work)
 
     assert "Остаток на OpenRouter: $4.26" in page
-    assert "Шаг платный: DeepSeek через OpenRouter" in page
+    assert (
+        "Шаг платный, не более $2.00 за запуск: модель извлечения сущностей "
+        "deepseek/deepseek-v4.1-flash"
+    ) in page
 
 
 def _strip(session_factory: sessionmaker[Session]) -> str:
@@ -219,21 +233,27 @@ def test_the_strip_says_a_dash_when_openrouter_does_not_answer_and_nothing_witho
     assert "<small>Публикации</small>" in _strip(session_factory)
 
 
-def test_do_all_asks_only_of_the_money(monkeypatch: pytest.MonkeyPatch) -> None:
-    """$4.26 on the account; three steps of $2 each may spend $6. The question says what
-    a day of news costs and what is left — no steps, no deletion, no limits."""
+def test_do_all_asks_only_of_the_model_and_the_money(monkeypatch: pytest.MonkeyPatch) -> None:
+    """$4.26 on the account; three steps of $2 each may spend $6. The question names the
+    entity model and its price, what a day of news costs and what is left — no steps, no
+    deletion, no limits."""
     _paid(monkeypatch)
     _credits(monkeypatch)
+    model = (
+        "Модель извлечения сущностей: deepseek/deepseek-v4.1-flash (DeepSeek V4.1 Flash "
+        "(текущая)). Вход $0.09 / 1 млн токенов, выход $0.18 / 1 млн токенов. Платная. "
+        "Тип: платная. "
+    )
 
     whole = chain_confirmation("load")
     two = chain_confirmation("figurants")
 
-    assert whole == (
+    assert whole == model + (
         "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. "
         "Остаток: $4.26. Остатка может не хватить на все шаги. Запустить?"
     )
     # Two steps of $2 are within $4.26: nothing is said of a shortfall.
-    assert two == (
+    assert two == model + (
         "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. "
         "Остаток: $4.26. Запустить?"
     )

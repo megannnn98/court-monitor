@@ -43,6 +43,8 @@ export const NAV: NavGroup[] = [
     title: "Система",
     items: [
       { key: "management", label: "Журнал запусков", legacy: "/ui/runs", path: "/runs" },
+      // New in React: the legacy menu has no such page.
+      { key: "entity-model", label: "Модель извлечения", legacy: null, path: "/entity-model" },
       // «Мониторинг» (/monitoring) is no item of the legacy menu either.
       { key: "logs", label: "Логи", legacy: "/ui/logs", path: "/logs" },
       { key: "wiki", label: "Вики", legacy: "/ui/wiki", path: "/wiki" },

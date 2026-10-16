@@ -16,7 +16,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from llm.chat import Endpoint, ModelError, Spend
+from llm.chat import Endpoint, ModelError, ModelHttpError, ModelTimeoutError, Spend
 from processing.evidence.digest import (
     _RESPONSE_SCHEMA,
     MAX_TOKENS,
@@ -115,8 +115,8 @@ def test_request_and_structured_answer(caplog: pytest.LogCaptureFixture) -> None
     assert (spend.calls, round(spend.cost_usd, 6)) == (1, 0.0015)
     assert [record.getMessage() for record in caplog.records if record.name == "entities"] == [
         (
-            "event=entity_model_call provider=openrouter model=deepseek/test prompt_tokens=120 "
-            "completion_tokens=30 cost_usd=0.001500"
+            "event=entity_model_call provider=openrouter model=deepseek/test served_model=None "
+            "prompt_tokens=120 completion_tokens=30 cost_usd=0.001500"
         ),
         "event=article_digest_classified model=deepseek/test asked=2 answered=2",
     ]
@@ -159,7 +159,9 @@ def test_an_http_error_is_one_call_with_the_provider_message(status: int, body: 
     error, requests, spend = _failure(lambda _: httpx.Response(status, text=body))
 
     assert str(error) == f"HTTP {status}: {body[:300]}"
-    assert type(error.__cause__) is ModelError
+    # A ModelError still; its kind tells a rate limit (429) by its status.
+    assert type(error.__cause__) is ModelHttpError
+    assert error.__cause__.status_code == status
     assert error.__cause__.__cause__ is None
     assert len(requests) == 1
     assert spend.calls == 0
@@ -179,7 +181,7 @@ def test_a_transport_failure_is_one_call(exception: Exception, kind: str) -> Non
     error, requests, spend = _failure(handler)
 
     assert str(error).startswith(f"{kind}: ")
-    assert type(error.__cause__) is ModelError
+    assert type(error.__cause__) is (ModelTimeoutError if kind == "ReadTimeout" else ModelError)
     assert type(error.__cause__.__cause__) is type(exception)
     assert len(requests) == 1
     assert spend.calls == 0

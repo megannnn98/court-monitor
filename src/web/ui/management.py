@@ -705,6 +705,7 @@ def start_step(
     sources: list[str] | None = None,
     published_from: date | None = None,
     published_to: date | None = None,
+    entity_model: str | None = None,
 ) -> OperationRun:
     """Start a step of the cycle, or the steps from it to the end (`chain`). Read by the
     legacy forms and `POST /api/v1/cycle/start`. StepRefused when it is not its turn,
@@ -724,7 +725,7 @@ def start_step(
     stage = _MODES.get(mode)
     if stage is None:
         raise StepRefused(f"Неизвестный шаг: {mode}.", 400)
-    parameters = OperationParameters(mode=stage, chain=chain)
+    parameters = OperationParameters(mode=stage, chain=chain, entity_model=entity_model)
     if stage == "load":
         everything = [item.name for item in news_sources()]
         selected = list(dict.fromkeys(sources or [])) or everything
@@ -736,6 +737,7 @@ def start_step(
             chain=chain,
             published_from=published_from.isoformat() if published_from else None,
             published_to=published_to.isoformat() if published_to else None,
+            entity_model=entity_model,
         )
     try:
         return registry.start(_OPERATION, parameters)

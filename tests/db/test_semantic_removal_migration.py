@@ -12,6 +12,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from web.health import expected_schema_revision
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GONE = (
     "publication_vectors",
@@ -181,7 +183,9 @@ def test_whatever_else_depends_on_pgvector_keeps_it_and_the_migration_still_ends
     assert upgraded.returncode == 0, upgraded.stderr
     assert "The vector extension is kept: something outside" in upgraded.stderr
     with migration_session_factory() as session:
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "m4n5o6p7q8r9"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+            expected_schema_revision()
+        )
         assert _has_extension(session)
         assert not session.scalar(
             text("SELECT count(*) FROM pg_tables WHERE tablename = 'semantic_vectors'")

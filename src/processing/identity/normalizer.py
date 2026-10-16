@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field, ValidationError
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
+    TIMEOUT_SECONDS,
     Endpoint,
     ModelError,
     Spend,
@@ -186,10 +187,12 @@ class OpenRouterNameNormalizer:
         http_client: httpx.Client,
         endpoint: Endpoint | None = None,
         spend: Spend | None = None,
+        timeout_seconds: float = TIMEOUT_SECONDS,
     ) -> None:
         self._endpoint = endpoint or Endpoint("openrouter", OPENROUTER_URL, model, api_key)
         self._http = http_client
         self.spend = spend or Spend()
+        self._timeout_seconds = timeout_seconds
 
     @property
     def model(self) -> str:
@@ -206,6 +209,7 @@ class OpenRouterNameNormalizer:
                 schema=_RESPONSE_SCHEMA,
                 max_tokens=MAX_TOKENS,
                 spend=self.spend,
+                timeout_seconds=self._timeout_seconds,
             )
         except ModelError as exc:
             raise NameNormalizerError(str(exc)) from exc
