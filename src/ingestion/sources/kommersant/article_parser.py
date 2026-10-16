@@ -27,6 +27,8 @@ _CASE_WORDS = re.compile(
     re.IGNORECASE,
 )
 _DOC_ID = re.compile(r"/doc/(\d+)")
+# The article's paragraphs: the redesigned page (16.10.2026), then the old one.
+_TEXT = "div.doc-text-block__paragraph, p.doc__text"
 
 
 def is_case_news(item: RssItem) -> bool:
@@ -44,7 +46,8 @@ class KommersantArticleParser:
     def parse(self, raw: RawDocument) -> ParsedArticle:
         tree = HTMLParser(raw.content)
         title_node = tree.css_first("h1")
-        paragraphs = [" ".join(node.text().split()) for node in tree.css("p.doc__text")]
+        # The page as of October 2026 (`div.doc-text-block__paragraph`), or as before.
+        paragraphs = [" ".join(node.text().split()) for node in tree.css(_TEXT)]
         paragraphs = [paragraph for paragraph in paragraphs if paragraph]
         if title_node is None:
             raise ParseError("Title not found")
