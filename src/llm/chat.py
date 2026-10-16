@@ -20,7 +20,7 @@ import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -63,18 +63,32 @@ class Endpoint:
     api_key: str | None = None
 
 
-def endpoint_from_env(env: Mapping[str, str] | None = None) -> Endpoint | None:
+# The two models the entity steps ask (`llm.model_choice`): the one that extracts (names,
+# unnamed figurants, sentences, digests) and the one that decides (who is accused, which
+# case is political, what a case's news is). Each falls back to the extraction's variable.
+EXTRACTION_MODEL_ENV = "ENTITY_NORMALIZE_MODEL"
+DECISION_MODEL_ENV = "ENTITY_DECISION_MODEL"
+Purpose = Literal["extraction", "decision"]
+
+
+def model_from_env(env: Mapping[str, str], purpose: Purpose = "extraction") -> str:
+    """The model of `purpose`: its variable, else the extraction's, else DeepSeek."""
+    decision = env.get(DECISION_MODEL_ENV, "").strip() if purpose == "decision" else ""
+    return decision or env.get(EXTRACTION_MODEL_ENV, "").strip() or OPENROUTER_MODEL
+
+
+def endpoint_from_env(
+    env: Mapping[str, str] | None = None, *, purpose: Purpose = "extraction"
+) -> Endpoint | None:
     """OpenRouter when its key is set; else None: the steps then keep what the rules
     give. (A local qwen2.5-7b was tried: it called 63 of 108 political cases «unclear»;
     the user dropped it.)"""
     env = os.environ if env is None else env
-    model = env.get("ENTITY_NORMALIZE_MODEL", "").strip()
+    model = model_from_env(env, purpose)
     key = env.get("OPENROUTER_API_KEY", "").strip()
     if not key:
         return None
-    return Endpoint(
-        provider="openrouter", url=OPENROUTER_URL, model=model or OPENROUTER_MODEL, api_key=key
-    )
+    return Endpoint(provider="openrouter", url=OPENROUTER_URL, model=model, api_key=key)
 
 
 def budget_from_env(env: Mapping[str, str] | None = None) -> float:

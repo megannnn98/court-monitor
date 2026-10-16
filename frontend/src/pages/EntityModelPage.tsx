@@ -42,7 +42,7 @@ function Structured({ value }: { value: boolean | null }) {
   return value ? <span>да</span> : <span className="text-destructive">нет</span>;
 }
 
-function ModelDetails({ option }: { option: EntityModelOptionResponse }) {
+function ModelDetails({ option, tested }: { option: EntityModelOptionResponse; tested: string | null }) {
   return (
     <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
       <dt className="text-muted-foreground">Model ID</dt>
@@ -60,7 +60,7 @@ function ModelDetails({ option }: { option: EntityModelOptionResponse }) {
       <dt className="text-muted-foreground">В каталоге OpenRouter</dt>
       <dd>{option.listed === null ? "неизвестно" : option.listed ? "да" : <span className="text-destructive">нет — сейчас недоступна</span>}</dd>
       <dt className="text-muted-foreground">Тест пройден</dt>
-      <dd>{option.tested_at ? new Date(option.tested_at).toLocaleString("ru-RU") : "нет"}</dd>
+      <dd>{tested ? new Date(tested).toLocaleString("ru-RU") : "нет"}</dd>
       {option.price_stale ? (
         <>
           <dt className="text-muted-foreground">Цена</dt>
@@ -94,7 +94,8 @@ function TestResult({ result }: { result: EntityModelTestResponse }) {
           <ul className="list-disc pl-5">
             {result.entities.map((entity) => (
               <li key={entity.source}>
-                «{entity.source}» → {entity.is_person ? `${entity.nominative} (${entity.gender})` : "не человек"}
+                «{entity.source}» →{" "}
+                {entity.role ? `${entity.role}: ${entity.note}` : entity.is_person ? `${entity.nominative} (${entity.gender})` : "не человек"}
                 {entity.as_expected ? "" : " — не как ожидалось"}
               </li>
             ))}
@@ -151,72 +152,104 @@ function SpendTable({ title, lines }: { title: string; lines: EntityModelSpendLi
   );
 }
 
-function Settings({ data }: { data: EntityModelSettingsResponse }) {
+type Kind = "extraction" | "decision";
+
+const KINDS: Record<Kind, { title: string; steps: string }> = {
+  extraction: {
+    title: "Модель извлечения сущностей",
+    steps: "имена людей (шаг «Собрать сущности»), безымянные фигуранты, приговоры и дайджесты"
+  },
+  decision: {
+    title: "Модель решений",
+    steps: "кто обвиняемый (шаг «Найти фигурантов»), политическое ли дело и что за новость по делу"
+  }
+};
+
+function Chooser({ data, kind }: { data: EntityModelSettingsResponse; kind: Kind }) {
   const client = useQueryClient();
-  const [selected, setSelected] = useState(data.current);
+  const current = kind === "decision" ? data.decision_current : data.current;
+  const source = kind === "decision" ? data.decision_source : data.source;
+  const [selected, setSelected] = useState(current);
   const [result, setResult] = useState<EntityModelTestResponse | null>(null);
-  useEffect(() => setSelected(data.current), [data.current]);
+  useEffect(() => setSelected(current), [current]);
   const option = data.models.find((model) => model.id === selected) ?? data.models[0];
+  const tested = kind === "decision" ? option?.decision_tested_at : option?.tested_at;
   const update = (fresh: EntityModelSettingsResponse) => client.setQueryData(QUERY_KEY, fresh);
 
   const test = useMutation({
-    mutationFn: () => unwrap(testEntityModelV1({ body: { model: selected } })),
+    mutationFn: () => unwrap(testEntityModelV1({ body: { model: selected, kind } })),
     onSuccess: async (fresh) => {
       setResult(fresh);
       await client.invalidateQueries({ queryKey: QUERY_KEY });
     }
   });
-  const save = useMutation({ mutationFn: () => unwrap(chooseEntityModelV1({ body: { model: selected } })), onSuccess: update });
+  const save = useMutation({ mutationFn: () => unwrap(chooseEntityModelV1({ body: { model: selected, kind } })), onSuccess: update });
+  const failure = test.error ?? save.error;
+  const needsTest = selected !== data.default && !tested;
+  const id = `${kind}-model-select`;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{KINDS[kind].title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p>
+          Сейчас: <code>{current}</code>
+          {source === "environment" ? " (не выбрана в консоли: модель из окружения)" : ""}. Отвечает за: {KINDS[kind].steps}. Применяется к новым запускам; уже
+          идущий запуск сохраняет свою модель. Отсев мусора (JEV) не меняется.
+        </p>
+        {kind === "decision" ? (
+          <p className="text-muted-foreground">
+            Тест модели решений — задача шага фигурантов: человек упомянут рядом с чужим делом. Модель, которая припишет ему дело, тест не пройдёт.
+          </p>
+        ) : null}
+        {!data.openrouter_configured ? <p className="text-destructive">OPENROUTER_API_KEY не задан: шаги модель не спрашивают, тест невозможен.</p> : null}
+        <div className="space-y-1">
+          <Label htmlFor={id}>{kind === "decision" ? "Модель решений" : "Модель"}</Label>
+          <select
+            id={id}
+            className="h-9 w-full max-w-xl rounded-md border bg-background px-2"
+            value={selected}
+            onChange={(event) => {
+              setSelected(event.target.value);
+              setResult(null);
+            }}
+          >
+            {data.models.map((model) => (
+              <option key={model.id} value={model.id} disabled={!model.usable}>
+                {model.label} — {model.id} — {model.free ? "FREE" : `${usd(model.prompt_usd_per_million)} / ${usd(model.completion_usd_per_million)}`}
+                {model.usable ? "" : " (недоступна)"}
+              </option>
+            ))}
+          </select>
+        </div>
+        {option ? <ModelDetails option={option} tested={tested ?? null} /> : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" disabled={test.isPending || !data.openrouter_configured || !option?.usable} onClick={() => test.mutate()}>
+            {test.isPending ? "Тест идёт…" : "Тест"}
+          </Button>
+          <Button disabled={save.isPending || selected === current || needsTest || !option?.usable} onClick={() => save.mutate()}>
+            Сохранить выбор
+          </Button>
+          {needsTest ? <span className="text-muted-foreground">Сохранить можно после успешного теста.</span> : null}
+        </div>
+        {result ? <TestResult result={result} /> : null}
+        {failure ? <p className="text-destructive">{failure.message}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Settings({ data }: { data: EntityModelSettingsResponse }) {
+  const client = useQueryClient();
+  const update = (fresh: EntityModelSettingsResponse) => client.setQueryData(QUERY_KEY, fresh);
   const refresh = useMutation({ mutationFn: () => unwrap(refreshCatalogV1()), onSuccess: update });
-  const failure = test.error ?? save.error ?? refresh.error;
-  const needsTest = selected !== data.default && !option?.tested_at;
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Модель извлечения сущностей</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <p>
-            Сейчас: <code>{data.current}</code>
-            {data.source === "environment" ? " (не выбрана в консоли: модель из окружения)" : ""}. Применяется к новым запускам шагов «Собрать сущности», «Найти
-            фигурантов», «Отобрать политические дела»; уже идущий запуск сохраняет свою модель. Отсев мусора (JEV) не меняется.
-          </p>
-          {!data.openrouter_configured ? <p className="text-destructive">OPENROUTER_API_KEY не задан: шаги модель не спрашивают, тест невозможен.</p> : null}
-          <div className="space-y-1">
-            <Label htmlFor="entity-model-select">Модель</Label>
-            <select
-              id="entity-model-select"
-              className="h-9 w-full max-w-xl rounded-md border bg-background px-2"
-              value={selected}
-              onChange={(event) => {
-                setSelected(event.target.value);
-                setResult(null);
-              }}
-            >
-              {data.models.map((model) => (
-                <option key={model.id} value={model.id} disabled={!model.usable}>
-                  {model.label} — {model.id} — {model.free ? "FREE" : `${usd(model.prompt_usd_per_million)} / ${usd(model.completion_usd_per_million)}`}
-                  {model.usable ? "" : " (недоступна)"}
-                </option>
-              ))}
-            </select>
-          </div>
-          {option ? <ModelDetails option={option} /> : null}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" disabled={test.isPending || !data.openrouter_configured || !option?.usable} onClick={() => test.mutate()}>
-              {test.isPending ? "Тест идёт…" : "Тест"}
-            </Button>
-            <Button disabled={save.isPending || selected === data.current || needsTest || !option?.usable} onClick={() => save.mutate()}>
-              Сохранить выбор
-            </Button>
-            {needsTest ? <span className="text-muted-foreground">Сохранить можно после успешного теста.</span> : null}
-          </div>
-          {result ? <TestResult result={result} /> : null}
-          {failure ? <p className="text-destructive">{failure.message}</p> : null}
-        </CardContent>
-      </Card>
+      <Chooser data={data} kind="extraction" />
+      <Chooser data={data} kind="decision" />
       <Card>
         <CardHeader>
           <CardTitle>Цены OpenRouter</CardTitle>
@@ -231,11 +264,12 @@ function Settings({ data }: { data: EntityModelSettingsResponse }) {
           <Button variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
             Обновить цены
           </Button>
+          {refresh.error ? <p className="text-destructive">{refresh.error.message}</p> : null}
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Расходы на модель извлечения</CardTitle>
+          <CardTitle>Расходы на модели извлечения и решений</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">Фактическая стоимость от OpenRouter; без неё — оценка по тарифу. Расходы JEV сюда не входят.</p>

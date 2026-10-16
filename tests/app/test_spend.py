@@ -175,8 +175,8 @@ def test_the_page_of_the_cycle_shows_the_balance(monkeypatch: pytest.MonkeyPatch
 
     assert "Остаток на OpenRouter: $4.26" in page
     assert (
-        "Шаг платный, не более $2.00 за запуск: модель извлечения сущностей "
-        "deepseek/deepseek-v4.1-flash"
+        "Шаг платный, не более $2.00 за запуск: модель решений (фигуранты, политичность, "
+        "новости) deepseek/deepseek-v4.1-flash"
     ) in page
 
 
@@ -244,16 +244,22 @@ def test_do_all_asks_only_of_the_model_and_the_money(monkeypatch: pytest.MonkeyP
         "(текущая)). Вход $0.09 / 1 млн токенов, выход $0.18 / 1 млн токенов. Платная. "
         "Тип: платная. "
     )
+    decision = (
+        "Модель решений (фигуранты, политичность, новости): deepseek/deepseek-v4.1-flash "
+        "(DeepSeek V4.1 Flash (текущая)). Вход $0.09 / 1 млн токенов, выход $0.18 / 1 млн "
+        "токенов. Платная. Тип: платная. "
+    )
 
     whole = chain_confirmation("load")
     two = chain_confirmation("figurants")
 
-    assert whole == model + (
+    assert whole == model + decision + (
         "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. "
         "Остаток: $4.26. Остатка может не хватить на все шаги. Запустить?"
     )
     # Two steps of $2 are within $4.26: nothing is said of a shortfall.
-    assert two == model + (
+    # From step 4 both are still asked: step 5 extracts the unnamed, the sentences, the digests.
+    assert two == model + decision + (
         "С баланса OpenRouter спишутся деньги: примерно $0.07 за один день новостей. "
         "Остаток: $4.26. Запустить?"
     )

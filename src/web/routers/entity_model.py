@@ -28,7 +28,7 @@ from llm.model_choice import (
 from llm.model_choice import (
     chosen_model as read_chosen_model,
 )
-from processing.identity.model_probe import EXPECTED, ProbeBusy, run_probe
+from processing.identity.model_probe import DECISION_EXPECTED, EXPECTED, ProbeBusy, run_probe
 from web.dependencies import get_db, session_factory_for
 from web.entity_model import forget
 from web.response_models import (
@@ -55,12 +55,13 @@ def _settings(db: Session) -> EntityModelSettingsResponse:
     catalog = CATALOG.get()
     stored = stored_model(db)
     current = read_chosen_model(db)
+    decision_stored = stored_model(db, "decision")
+    decision = read_chosen_model(db, kind="decision")
     models = []
     ids = [option.id for option in ENTITY_MODELS]
     # A model the environment names that the list does not offer is still shown: it is
     # the one the steps ask until another is chosen.
-    if current not in OFFERED:
-        ids.append(current)
+    ids += [model for model in dict.fromkeys((current, decision)) if model not in OFFERED]
     for model in ids:
         info = model_info(model, catalog)
         models.append(
@@ -75,6 +76,7 @@ def _settings(db: Session) -> EntityModelSettingsResponse:
                 structured_outputs=info.structured_outputs,
                 price_text=price_text(info, catalog),
                 tested_at=tested_at(db, model),
+                decision_tested_at=tested_at(db, model, "decision"),
                 usable=info.usable and model in OFFERED,
             )
         )
@@ -82,6 +84,8 @@ def _settings(db: Session) -> EntityModelSettingsResponse:
     return EntityModelSettingsResponse(
         current=current,
         source="stored" if stored else "environment",
+        decision_current=decision,
+        decision_source="stored" if decision_stored else "environment",
         default=DEFAULT_MODEL,
         catalog_fetched_at=catalog.fetched_at,
         catalog_stale=catalog.stale,
@@ -115,7 +119,7 @@ def choose_entity_model(
     """Keep the model for the next runs; a run already started keeps its own. 400 for a
     model not offered, not in the catalog, without structured outputs, or not tested."""
     try:
-        save_choice(db, body.model, CATALOG.get())
+        save_choice(db, body.model, CATALOG.get(), body.kind)
         db.commit()
     except ChoiceRefused as refused:
         db.rollback()
@@ -129,8 +133,9 @@ def test_entity_model(
     body: EntityModelRequest,
     db: Session = Depends(get_db),  # noqa: B008
 ) -> EntityModelTestResponse:
-    """One real call of the model through the names step's extractor; nothing is saved
-    to the entities. 409 while another test runs; 503 without OpenRouter."""
+    """One real call of the model through the step it would serve — the names step for
+    the extraction model, the figurants' for the decision model; nothing is saved to the
+    entities. 409 while another test runs; 503 without OpenRouter."""
     if body.model not in OFFERED:
         raise HTTPException(status_code=400, detail=f"Модели {body.model} нет в списке.")
     key = _api_key()
@@ -142,7 +147,7 @@ def test_entity_model(
     # The request's own transaction ends here: the test books its cost in its own.
     db.rollback()
     try:
-        result = run_probe(engine, factory, body.model, key)
+        result = run_probe(engine, factory, body.model, key, kind=body.kind)
     except ProbeBusy:
         raise HTTPException(
             status_code=409, detail="Уже идёт тест модели: дождитесь его результата."
@@ -157,6 +162,7 @@ def test_entity_model(
         estimated_cost_usd=result.estimated_cost_usd,
         entities=[EntityModelEntityResponse(**vars(entity)) for entity in result.entities],
         expected_matched=result.expected_matched,
-        expected_total=len(EXPECTED),
+        expected_total=len(EXPECTED if body.kind == "extraction" else DECISION_EXPECTED),
+        kind=body.kind,
         error=result.error,
     )

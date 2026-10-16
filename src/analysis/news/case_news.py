@@ -248,7 +248,7 @@ class OpenRouterNewsReader:
 def news_reader_from_env(env: Mapping[str, str] | None = None) -> NewsReader | None:
     """OpenRouter when its key is set; None otherwise: every kind is then «unknown»."""
     env = os.environ if env is None else env
-    endpoint = endpoint_from_env(env)
+    endpoint = endpoint_from_env(env, purpose="decision")
     if endpoint is None:
         return None
     return OpenRouterNewsReader(

@@ -50,11 +50,11 @@ function money(value: number | null | undefined): string {
 }
 
 /** The entity model the round will ask, before «Запустить»: its id and price, or why the price is not known. */
-export function EntityModelNotice({ notice }: { notice: EntityModelNoticeResponse }) {
+export function EntityModelNotice({ notice, title = "Модель извлечения сущностей" }: { notice: EntityModelNoticeResponse; title?: string }) {
   const known = notice.prompt_usd_per_million !== null && notice.prompt_usd_per_million !== undefined;
   return (
-    <div className="space-y-1 rounded-md border p-3 text-sm" aria-label="Модель извлечения сущностей">
-      <p className="font-medium">Модель извлечения сущностей</p>
+    <div className="space-y-1 rounded-md border p-3 text-sm" aria-label={title}>
+      <p className="font-medium">{title}</p>
       <p>
         Модель: <code>{notice.model}</code> {notice.free ? <strong>FREE</strong> : null}
       </p>
@@ -87,7 +87,12 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
     await readAgainAfterDecision(client);
   };
   const start = useMutation({
-    mutationFn: () => unwrap(startCycleV1({ body: { after: cycle.latest_run_id, entity_model: cycle.entity_model?.model ?? null } })),
+    mutationFn: () =>
+      unwrap(
+        startCycleV1({
+          body: { after: cycle.latest_run_id, entity_model: cycle.entity_model?.model ?? null, decision_model: cycle.decision_model?.model ?? null }
+        })
+      ),
     onSettled: refresh
   });
   const stop = useMutation({
@@ -139,7 +144,14 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
               <ConfirmButton
                 title="Сделать всё?"
                 question={cycle.chain_question}
-                details={cycle.entity_model ? <EntityModelNotice notice={cycle.entity_model} /> : null}
+                details={
+                  cycle.entity_model || cycle.decision_model ? (
+                    <div className="space-y-2">
+                      {cycle.entity_model ? <EntityModelNotice notice={cycle.entity_model} /> : null}
+                      {cycle.decision_model ? <EntityModelNotice notice={cycle.decision_model} title="Модель решений (фигуранты, политичность)" /> : null}
+                    </div>
+                  ) : null
+                }
                 confirm="Запустить"
                 disabled={start.isPending}
                 onConfirm={() => start.mutate()}

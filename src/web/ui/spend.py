@@ -34,7 +34,7 @@ from html import escape
 
 import httpx
 
-from llm.chat import budget_from_env, endpoint_from_env
+from llm.chat import Purpose, budget_from_env, endpoint_from_env
 from llm.model_choice import CATALOG, ModelInfo, model_info, price_text
 from orchestrator.operations import OperationRun, OperationRunStatus
 from processing.junk.screen import DECISION
@@ -127,14 +127,17 @@ class EntityModelNotice:
 
 
 def entity_model_notice(
-    env: Mapping[str, str] | None = None, *, model: str | None = None
+    env: Mapping[str, str] | None = None,
+    *,
+    model: str | None = None,
+    kind: Purpose = "extraction",
 ) -> EntityModelNotice | None:
     """The model of the entity steps and its price — `model`, a run's own, or the one a
     start would ask now; None without OpenRouter (no model is asked then). Asks no model:
     the catalog is cached."""
     if endpoint_from_env(env) is None:
         return None
-    model = model or current_entity_model()
+    model = model or current_entity_model(kind)
     catalog = CATALOG.get()
     info = model_info(model, catalog)
     return EntityModelNotice(model, info.label, info, price_text(info, catalog))
@@ -151,11 +154,29 @@ class StageCost:
     paid: bool = True
 
 
+# Which of the two models each step asks: the names are extraction; the figurants
+# (who is accused) are a decision; the final step decides the politics and the news and
+# extracts the unnamed figurants, the sentences and the digests.
+STAGE_KINDS: dict[str, tuple[Purpose, ...]] = {
+    "entities": ("extraction",),
+    "figurants": ("decision",),
+    "political": ("decision", "extraction"),
+}
+KIND_TITLES: dict[Purpose, str] = {
+    "extraction": "модель извлечения сущностей",
+    "decision": "модель решений (фигуранты, политичность, новости)",
+}
+
+
 def cost(
-    stage: str, env: Mapping[str, str] | None = None, *, model: str | None = None
+    stage: str,
+    env: Mapping[str, str] | None = None,
+    *,
+    model: str | None = None,
+    decision_model: str | None = None,
 ) -> StageCost | None:
-    """What this step would spend now (or a run of it with `model`); None for a step that
-    asks no model."""
+    """What this step would spend now (or a run of it with its own `model` and
+    `decision_model`); None for a step that asks no model."""
     env = os.environ if env is None else env
     if stage == "purge":
         if env.get("JUNK_SCREEN", "").strip().lower() != DECISION or not _api_key(env):
@@ -166,11 +187,19 @@ def cost(
         )
     if stage not in AI_STAGES:
         return None
-    notice = entity_model_notice(env, model=model)
-    if notice is None:
+    given: dict[Purpose, str | None] = {"extraction": model, "decision": decision_model}
+    notices = [
+        (kind, found)
+        for kind in STAGE_KINDS.get(stage, ())
+        if (found := entity_model_notice(env, model=given[kind], kind=kind)) is not None
+    ]
+    if not notices:
         return None
-    head = f"модель извлечения сущностей {notice.model} ({notice.label}). {notice.price}"
-    if notice.info.free:
+    head = " ".join(
+        f"{KIND_TITLES[kind]} {found.model} ({found.label}). {found.price}"
+        for kind, found in notices
+    )
+    if all(found.info.free for _, found in notices):
         return StageCost(f"Шаг бесплатный: {head} С баланса ничего не спишется.", paid=False)
     limit = budget_from_env(env)
     return StageCost(f"Шаг платный, не более ${limit:.2f} за запуск: {head}", limit)
@@ -231,17 +260,20 @@ ENTITY_STAGES = ("entities", "figurants", "political")
 
 
 def chain_model_text(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
-    """Before «Сделать всё»: the entity model its steps will ask and its price; empty when
-    no step left asks it, or without OpenRouter."""
-    if not any(stage in ENTITY_STAGES for stage in stages):
-        return ""
-    notice = entity_model_notice(env)
-    if notice is None:
-        return ""
-    return (
-        f"Модель извлечения сущностей: {notice.model} ({notice.label}). {notice.price} "
-        f"Тип: {notice.kind}."
-    )
+    """Before «Сделать всё»: each model its steps will ask, with its price; empty when no
+    step left asks one, or without OpenRouter."""
+    order: tuple[Purpose, ...] = ("extraction", "decision")
+    parts = []
+    for kind in order:
+        if not any(kind in STAGE_KINDS.get(stage, ()) for stage in stages):
+            continue
+        notice = entity_model_notice(env, kind=kind)
+        if notice is not None:
+            parts.append(
+                f"{KIND_TITLES[kind].capitalize()}: {notice.model} ({notice.label}). "
+                f"{notice.price} Тип: {notice.kind}."
+            )
+    return " ".join(parts)
 
 
 def chain_cost_text(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
@@ -345,12 +377,17 @@ def run_spent(run: OperationRun, runs: Sequence[OperationRun]) -> str:
 
 
 def notice(
-    stage: str, env: Mapping[str, str] | None = None, *, last: str = "", model: str | None = None
+    stage: str,
+    env: Mapping[str, str] | None = None,
+    *,
+    last: str = "",
+    model: str | None = None,
+    decision_model: str | None = None,
 ) -> str:
     """The visible warning of a paid step: the cost, the balance, what the step spent the
     time before (`last`), and a red word when the balance is under the step's limit. Empty
     for a step that is free."""
-    found = cost(stage, env, model=model)
+    found = cost(stage, env, model=model, decision_model=decision_model)
     if found is None:
         return ""
     if not found.paid:

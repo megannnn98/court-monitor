@@ -26,6 +26,8 @@ const OPTION = {
 const SETTINGS = {
   current: "deepseek/deepseek-v4.1-flash",
   source: "environment",
+  decision_current: "deepseek/deepseek-v4.1-flash",
+  decision_source: "environment",
   default: "deepseek/deepseek-v4.1-flash",
   catalog_fetched_at: "2026-10-16T07:00:00Z",
   catalog_stale: false,
@@ -116,20 +118,20 @@ it("saves a model only after its test passed, and shows what the test found", as
 
   const select = await screen.findByLabelText("Модель");
   fireEvent.change(select, { target: { value: PASSED.model } });
-  const save = screen.getByRole("button", { name: "Сохранить выбор" }) as HTMLButtonElement;
+  const save = screen.getAllByRole("button", { name: "Сохранить выбор" })[0] as HTMLButtonElement;
   expect(save.disabled).toBe(true);
 
   read.mockReturnValue(ok({ ...SETTINGS, models: SETTINGS.models.map((model) => (model.id === PASSED.model ? { ...model, tested_at: "2026-10-16T07:05:00Z" } : model)) }) as never);
-  fireEvent.click(screen.getByRole("button", { name: "Тест" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Тест" })[0]);
 
   const result = await screen.findByRole("status", { name: "Результат теста" });
   expect(result.textContent).toContain("Успешно");
   expect(result.textContent).toContain("вход 812, выход 96");
   expect(result.textContent).toContain("Александр Моор");
-  expect(test).toHaveBeenCalledWith({ body: { model: PASSED.model } });
+  expect(test).toHaveBeenCalledWith({ body: { model: PASSED.model, kind: "extraction" } });
   await waitFor(() => expect(save.disabled).toBe(false));
   fireEvent.click(save);
-  await waitFor(() => expect(choose).toHaveBeenCalledWith({ body: { model: PASSED.model } }));
+  await waitFor(() => expect(choose).toHaveBeenCalledWith({ body: { model: PASSED.model, kind: "extraction" } }));
 });
 
 it("shows why a test failed", async () => {
@@ -139,7 +141,7 @@ it("shows why a test failed", async () => {
   );
   renderPage(<EntityModelPage />);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Тест" }));
+  fireEvent.click((await screen.findAllByRole("button", { name: "Тест" }))[0]);
 
   const result = await screen.findByRole("status", { name: "Результат теста" });
   expect(result.textContent).toContain("Ошибка");
@@ -151,7 +153,7 @@ it("says a second test is refused", async () => {
   test.mockReturnValue(failed(409, "Уже идёт тест модели: дождитесь его результата.") as never);
   renderPage(<EntityModelPage />);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Тест" }));
+  fireEvent.click((await screen.findAllByRole("button", { name: "Тест" }))[0]);
 
   expect(await screen.findByText("Уже идёт тест модели: дождитесь его результата.")).toBeTruthy();
 });
@@ -160,4 +162,26 @@ it("words an unknown price as unknown, never as zero", () => {
   expect(usd(null)).toBe("неизвестна");
   expect(usd(0)).toBe("$0.00");
   expect(usd(0.0021)).toBe("$0.0021");
+});
+
+it("tests and saves the decision model apart, by its own test", async () => {
+  read.mockReturnValue(ok(SETTINGS) as never);
+  test.mockReturnValue(
+    ok({
+      ...PASSED,
+      kind: "decision",
+      entities: [{ source: "Андрей Колесов", nominative: "", gender: "", is_person: true, as_expected: true, role: "other", note: "комментарий" }]
+    }) as never
+  );
+  renderPage(<EntityModelPage />);
+
+  const select = await screen.findByLabelText("Модель решений");
+  fireEvent.change(select, { target: { value: PASSED.model } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Тест" })[1]);
+
+  const result = await screen.findByRole("status", { name: "Результат теста" });
+  expect(result.textContent).toContain("other: комментарий");
+  expect(test).toHaveBeenCalledWith({ body: { model: PASSED.model, kind: "decision" } });
+  // The extraction's pass is no licence for the decision model.
+  expect((screen.getAllByRole("button", { name: "Сохранить выбор" })[1] as HTMLButtonElement).disabled).toBe(true);
 });

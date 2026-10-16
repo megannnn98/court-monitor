@@ -775,6 +775,7 @@ export type CycleResponse = {
      */
     chain_stopped: string;
     entity_model?: EntityModelNoticeResponse | null;
+    decision_model?: EntityModelNoticeResponse | null;
 };
 
 /**
@@ -791,6 +792,10 @@ export type CycleStartRequest = {
      * Entity Model
      */
     entity_model?: string | null;
+    /**
+     * Decision Model
+     */
+    decision_model?: string | null;
 };
 
 /**
@@ -1203,6 +1208,14 @@ export type EntityModelEntityResponse = {
      * As Expected
      */
     as_expected: boolean;
+    /**
+     * Role
+     */
+    role?: string;
+    /**
+     * Note
+     */
+    note?: string;
 };
 
 /**
@@ -1290,6 +1303,10 @@ export type EntityModelOptionResponse = {
      */
     tested_at: string | null;
     /**
+     * Decision Tested At
+     */
+    decision_tested_at?: string | null;
+    /**
      * Usable
      */
     usable: boolean;
@@ -1303,6 +1320,10 @@ export type EntityModelRequest = {
      * Model
      */
     model: string;
+    /**
+     * Kind
+     */
+    kind?: 'extraction' | 'decision';
 };
 
 /**
@@ -1319,6 +1340,14 @@ export type EntityModelSettingsResponse = {
      * Source
      */
     source: string;
+    /**
+     * Decision Current
+     */
+    decision_current: string;
+    /**
+     * Decision Source
+     */
+    decision_source: string;
     /**
      * Default
      */
@@ -1435,6 +1464,10 @@ export type EntityModelTestResponse = {
      * Error
      */
     error: string | null;
+    /**
+     * Kind
+     */
+    kind?: string;
 };
 
 /**

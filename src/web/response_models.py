@@ -1,7 +1,7 @@
 """Pydantic response models of the REST API."""
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -798,6 +798,8 @@ class CycleResponse(BaseModel):
     # The entity model the round's steps would ask, as the warning shows it; None when no
     # step left asks it, or without OpenRouter.
     entity_model: EntityModelNoticeResponse | None = None
+    # The same of the decision model (figurants, politics, news).
+    decision_model: EntityModelNoticeResponse | None = None
 
 
 class CycleStartRequest(BaseModel):
@@ -807,6 +809,7 @@ class CycleStartRequest(BaseModel):
     # The entity model the warning showed: the start is refused (409) when the choice
     # changed since, so the round never asks a model nobody saw.
     entity_model: str | None = None
+    decision_model: str | None = None
 
 
 class CycleStartResponse(BaseModel):
@@ -1278,6 +1281,8 @@ class EntityModelOptionResponse(BaseModel):
     price_text: str
     # When it last passed «Тест»; the choice of any but the default needs one.
     tested_at: str | None
+    # When it last passed the decision model's «Тест» (figurants).
+    decision_tested_at: str | None = None
     usable: bool
 
 
@@ -1298,6 +1303,9 @@ class EntityModelSettingsResponse(BaseModel):
     current: str
     # «stored» — chosen here; «environment» — no choice yet, the environment's model.
     source: str
+    # The decision model: who is accused, which case is political, what the news is.
+    decision_current: str
+    decision_source: str
     default: str
     catalog_fetched_at: datetime | None
     catalog_stale: bool
@@ -1310,6 +1318,9 @@ class EntityModelSettingsResponse(BaseModel):
 
 class EntityModelRequest(BaseModel):
     model: str = Field(max_length=200)
+    # Which of the two choices: «extraction» (names, unnamed, sentences, digests) or
+    # «decision» (figurants, politics, news).
+    kind: Literal["extraction", "decision"] = "extraction"
 
 
 class EntityModelEntityResponse(BaseModel):
@@ -1318,6 +1329,9 @@ class EntityModelEntityResponse(BaseModel):
     gender: str
     is_person: bool
     as_expected: bool
+    # The decision test: the role given, and why.
+    role: str = ""
+    note: str = ""
 
 
 class EntityModelTestResponse(BaseModel):
@@ -1332,3 +1346,4 @@ class EntityModelTestResponse(BaseModel):
     expected_matched: int
     expected_total: int
     error: str | None
+    kind: str = "extraction"

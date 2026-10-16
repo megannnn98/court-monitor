@@ -73,6 +73,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ENTITY_NORMALIZE_MODEL: ${ENTITY_NORMALIZE_MODEL:-}
+      # The decision model (figurants, politics, news) when none is chosen in the console.
+      ENTITY_DECISION_MODEL: ${ENTITY_DECISION_MODEL:-}
       # What one run of an entity step may spend on the model, in USD.
       ENTITY_MODEL_BUDGET_USD: ${ENTITY_MODEL_BUDGET_USD:-2}
       ASK_DAILY_BUDGET_USD: ${ASK_DAILY_BUDGET_USD:-1}

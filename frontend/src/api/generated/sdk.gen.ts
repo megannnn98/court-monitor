@@ -691,8 +691,9 @@ export const refreshCatalogV1 = <ThrowOnError extends boolean = false>(options?:
 /**
  * Test Entity Model
  *
- * One real call of the model through the names step's extractor; nothing is saved
- * to the entities. 409 while another test runs; 503 without OpenRouter.
+ * One real call of the model through the step it would serve — the names step for
+ * the extraction model, the figurants' for the decision model; nothing is saved to the
+ * entities. 409 while another test runs; 503 without OpenRouter.
  */
 export const testEntityModelV1 = <ThrowOnError extends boolean = false>(options: Options<TestEntityModelV1Data, ThrowOnError>) => (options.client ?? client).post<TestEntityModelV1Responses, TestEntityModelV1Errors, ThrowOnError>({
     url: '/api/v1/entity-model/test',

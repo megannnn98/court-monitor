@@ -39,6 +39,7 @@ from db.orm_models import (
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
+    TIMEOUT_SECONDS,
     Endpoint,
     ModelError,
     Spend,
@@ -319,10 +320,12 @@ class OpenRouterRoleClassifier:
         http_client: httpx.Client,
         endpoint: Endpoint | None = None,
         spend: Spend | None = None,
+        timeout_seconds: float = TIMEOUT_SECONDS,
     ) -> None:
         self._endpoint = endpoint or Endpoint("openrouter", OPENROUTER_URL, model, api_key)
         self._http = http_client
         self.spend = spend or Spend()
+        self._timeout_seconds = timeout_seconds
 
     @property
     def model(self) -> str:
@@ -343,6 +346,7 @@ class OpenRouterRoleClassifier:
                 schema=_RESPONSE_SCHEMA,
                 max_tokens=MAX_TOKENS,
                 spend=self.spend,
+                timeout_seconds=self._timeout_seconds,
             )
         except ModelError as exc:
             raise RoleClassifierError(str(exc)) from exc
@@ -364,7 +368,7 @@ def role_classifier_from_env(env: Mapping[str, str] | None = None) -> RoleClassi
     """A local model or OpenRouter (`llm.chat.endpoint_from_env`); None otherwise:
     the rest is then «unclear»."""
     env = os.environ if env is None else env
-    endpoint = endpoint_from_env(env)
+    endpoint = endpoint_from_env(env, purpose="decision")
     if endpoint is None:
         return None
     return OpenRouterRoleClassifier(

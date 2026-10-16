@@ -6,6 +6,7 @@ other origins (`web.csrf`, ADR 0022); starting a single step stays on the legacy
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from llm.chat import Purpose
 from llm.model_choice import chosen_model
 from orchestrator.operations import OperationNotFoundError, OperationRegistry
 from web.dependencies import get_db, get_operation_registry
@@ -80,14 +81,15 @@ def get_cycle(
         chain_note=chain_note_text(state),
         chain_stopped=chain_stopped_text(state),
         entity_model=_entity_model(state.current) if state.live is None else None,
+        decision_model=(_entity_model(state.current, "decision") if state.live is None else None),
     )
 
 
-def _entity_model(stage: str) -> EntityModelNoticeResponse | None:
-    """The entity model the round from `stage` would ask; None when no step left asks it."""
-    if not any(step in spend.ENTITY_STAGES for step in STAGES[STAGES.index(stage) :]):
+def _entity_model(stage: str, kind: Purpose = "extraction") -> EntityModelNoticeResponse | None:
+    """The model of `kind` the round from `stage` would ask; None when no step left asks it."""
+    if not any(kind in spend.STAGE_KINDS.get(step, ()) for step in STAGES[STAGES.index(stage) :]):
         return None
-    notice = spend.entity_model_notice()
+    notice = spend.entity_model_notice(kind=kind)
     if notice is None:
         return None
     price = notice.info.price
@@ -113,14 +115,19 @@ def start_cycle(
     409 when a run is live, when `after` is not the latest run any more (an old press),
     or when another worker started first."""
     state = current_state(registry)
-    if body.entity_model is not None:
-        chosen = chosen_model(db)
-        if chosen != body.entity_model:
+    shown: tuple[tuple[Purpose, str | None, str], ...] = (
+        ("extraction", body.entity_model, "Модель извлечения"),
+        ("decision", body.decision_model, "Модель решений"),
+    )
+    for kind, model, title in shown:
+        if model is None:
+            continue
+        chosen = chosen_model(db, kind=kind)
+        if chosen != model:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    f"Модель извлечения сменилась: теперь {chosen}. Проверьте её цену и "
-                    "запустите снова."
+                    f"{title} сменилась: теперь {chosen}. Проверьте её цену и запустите снова."
                 ),
             )
     try:
@@ -130,6 +137,7 @@ def start_cycle(
             chain=True,
             after=str(body.after),
             entity_model=body.entity_model,
+            decision_model=body.decision_model,
         )
     except StepRefused as refused:
         raise HTTPException(status_code=refused.status_code, detail=refused.message) from None

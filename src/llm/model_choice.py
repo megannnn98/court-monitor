@@ -32,7 +32,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.models.settings import AppSettingRecord, EntityModelSpendRecord
-from llm.chat import OPENROUTER_MODEL, ModelTally, is_free_model
+from llm.chat import OPENROUTER_MODEL, ModelTally, Purpose, is_free_model, model_from_env
 
 logger = logging.getLogger("entities")
 
@@ -42,9 +42,16 @@ CATALOG_SECONDS = 3600.0
 RETRY_SECONDS = 60.0
 # Pages draw their warning from the catalog: as short as the balance's (`web.ui.spend`).
 TIMEOUT_SECONDS = 4.0
-SETTING_KEY = "entity_model"
-# `<prefix><model>`: when the model last passed «Тест» (an ISO time).
-TESTED_PREFIX = "entity_model_tested:"
+# The stored choice of each kind: the extraction keeps its old key, so an installation
+# that chose before the split keeps its choice for extraction.
+SETTING_KEYS: dict[Purpose, str] = {"extraction": "entity_model", "decision": "decision_model"}
+SETTING_KEY = SETTING_KEYS["extraction"]
+# `<prefix><model>`: when the model last passed this kind's «Тест» (an ISO time).
+TESTED_PREFIXES: dict[Purpose, str] = {
+    "extraction": "entity_model_tested:",
+    "decision": "decision_model_tested:",
+}
+TESTED_PREFIX = TESTED_PREFIXES["extraction"]
 DEFAULT_MODEL = OPENROUTER_MODEL
 
 
@@ -261,37 +268,40 @@ def price_text(info: ModelInfo, catalog: Catalog) -> str:
 # -- the choice -------------------------------------------------------------------------
 
 
-def environment_model(env: Mapping[str, str] | None = None) -> str:
-    """The model without a stored choice: what `ENTITY_NORMALIZE_MODEL` names, else DeepSeek."""
-    env = os.environ if env is None else env
-    return env.get("ENTITY_NORMALIZE_MODEL", "").strip() or DEFAULT_MODEL
+def environment_model(env: Mapping[str, str] | None = None, kind: Purpose = "extraction") -> str:
+    """The model without a stored choice: what the environment names, else DeepSeek."""
+    return model_from_env(os.environ if env is None else env, kind)
 
 
-def stored_model(session: Session) -> str | None:
-    record = session.get(AppSettingRecord, SETTING_KEY)
+def stored_model(session: Session, kind: Purpose = "extraction") -> str | None:
+    record = session.get(AppSettingRecord, SETTING_KEYS[kind])
     return record.value if record is not None else None
 
 
-def chosen_model(session: Session, env: Mapping[str, str] | None = None) -> str:
-    return stored_model(session) or environment_model(env)
+def chosen_model(
+    session: Session, env: Mapping[str, str] | None = None, kind: Purpose = "extraction"
+) -> str:
+    return stored_model(session, kind) or environment_model(env, kind)
 
 
 class ChoiceRefused(ValueError):
     pass
 
 
-def tested_at(session: Session, model: str) -> str | None:
-    record = session.get(AppSettingRecord, TESTED_PREFIX + model)
+def tested_at(session: Session, model: str, kind: Purpose = "extraction") -> str | None:
+    record = session.get(AppSettingRecord, TESTED_PREFIXES[kind] + model)
     return record.value if record is not None else None
 
 
-def mark_tested(session: Session, model: str) -> None:
-    _put(session, TESTED_PREFIX + model, datetime.now(UTC).isoformat())
+def mark_tested(session: Session, model: str, kind: Purpose = "extraction") -> None:
+    _put(session, TESTED_PREFIXES[kind] + model, datetime.now(UTC).isoformat())
 
 
-def save_choice(session: Session, model: str, catalog: Catalog) -> None:
-    """Keep `model` as the entity model. Refused for a model not offered, one the catalog
-    says is not listed or does not honour a JSON schema, and one that has not passed
+def save_choice(
+    session: Session, model: str, catalog: Catalog, kind: Purpose = "extraction"
+) -> None:
+    """Keep `model` for `kind`. Refused for a model not offered, one the catalog says is
+    not listed or does not honour a JSON schema, and one that has not passed this kind's
     «Тест» — except the default, the way back."""
     if model not in MODEL_IDS:
         raise ChoiceRefused(f"Модели {model} нет в списке.")
@@ -300,10 +310,10 @@ def save_choice(session: Session, model: str, catalog: Catalog) -> None:
         raise ChoiceRefused(f"Модели {model} сейчас нет в каталоге OpenRouter.")
     if info.structured_outputs is False:
         raise ChoiceRefused(f"Модель {model} не поддерживает structured outputs (JSON Schema).")
-    if model != DEFAULT_MODEL and tested_at(session, model) is None:
+    if model != DEFAULT_MODEL and tested_at(session, model, kind) is None:
         raise ChoiceRefused(f"Сначала проверьте модель {model} кнопкой «Тест».")
-    _put(session, SETTING_KEY, model)
-    logger.info("event=entity_model_chosen model=%s", model)
+    _put(session, SETTING_KEYS[kind], model)
+    logger.info("event=entity_model_chosen kind=%s model=%s", kind, model)
 
 
 def _put(session: Session, key: str, value: str) -> None:
@@ -315,20 +325,25 @@ def _put(session: Session, key: str, value: str) -> None:
 
 
 def model_for_step(
-    session_factory: sessionmaker[Session], env: Mapping[str, str] | None = None
+    session_factory: sessionmaker[Session],
+    env: Mapping[str, str] | None = None,
+    kind: Purpose = "extraction",
 ) -> str:
     """The model a step command started without one asks: the stored choice, read once."""
     with session_factory() as session:
-        return chosen_model(session, env)
+        return chosen_model(session, env, kind)
 
 
-def log_selected(model: str, *, source: str, catalog: Catalog | None = None) -> None:
+def log_selected(
+    model: str, *, source: str, kind: Purpose = "extraction", catalog: Catalog | None = None
+) -> None:
     """The model of a run and its price, for a run nobody confirmed (a schedule, a shell)."""
     info = model_info(model, catalog if catalog is not None else CATALOG.get())
     price = info.price
     logger.info(
-        "event=entity_model_selected model=%s source=%s free=%s prompt_usd_per_million=%s "
-        "completion_usd_per_million=%s price_stale=%s",
+        "event=entity_model_selected kind=%s model=%s source=%s free=%s "
+        "prompt_usd_per_million=%s completion_usd_per_million=%s price_stale=%s",
+        kind,
         model,
         source,
         info.free,

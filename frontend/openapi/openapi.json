@@ -3159,7 +3159,7 @@
     "/api/v1/entity-model/test": {
       "post": {
         "summary": "Test Entity Model",
-        "description": "One real call of the model through the names step's extractor; nothing is saved\nto the entities. 409 while another test runs; 503 without OpenRouter.",
+        "description": "One real call of the model through the step it would serve — the names step for\nthe extraction model, the figurants' for the decision model; nothing is saved to the\nentities. 409 while another test runs; 503 without OpenRouter.",
         "operationId": "test_entity_model_v1",
         "requestBody": {
           "content": {
@@ -4359,6 +4359,16 @@
                 "type": "null"
               }
             ]
+          },
+          "decision_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntityModelNoticeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -4393,6 +4403,17 @@
               }
             ],
             "title": "Entity Model"
+          },
+          "decision_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Model"
           }
         },
         "type": "object",
@@ -5079,6 +5100,16 @@
           "as_expected": {
             "type": "boolean",
             "title": "As Expected"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": ""
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
           }
         },
         "type": "object",
@@ -5231,6 +5262,17 @@
             ],
             "title": "Tested At"
           },
+          "decision_tested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Tested At"
+          },
           "usable": {
             "type": "boolean",
             "title": "Usable"
@@ -5258,6 +5300,15 @@
             "type": "string",
             "maxLength": 200,
             "title": "Model"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "extraction",
+              "decision"
+            ],
+            "title": "Kind",
+            "default": "extraction"
           }
         },
         "type": "object",
@@ -5275,6 +5326,14 @@
           "source": {
             "type": "string",
             "title": "Source"
+          },
+          "decision_current": {
+            "type": "string",
+            "title": "Decision Current"
+          },
+          "decision_source": {
+            "type": "string",
+            "title": "Decision Source"
           },
           "default": {
             "type": "string",
@@ -5337,6 +5396,8 @@
         "required": [
           "current",
           "source",
+          "decision_current",
+          "decision_source",
           "default",
           "catalog_fetched_at",
           "catalog_stale",
@@ -5468,6 +5529,11 @@
               }
             ],
             "title": "Error"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "extraction"
           }
         },
         "type": "object",

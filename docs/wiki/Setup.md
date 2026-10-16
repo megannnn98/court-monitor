@@ -41,6 +41,7 @@ uv run python src/main.py validate-config
 | `ER_AUTO_LINK_MIN_SCORE`, `ER_REVIEW_MIN_SCORE`, `ER_MIN_MARGIN` | пороги решения ER v2, по умолчанию `0.85`, `0.40`, `0.10` (подобраны по `evaluate-er`) |
 | `OPENROUTER_API_KEY` | ключ OpenRouter для модели шагов 3, 4, 5 и безымянных фигурантов; без него решают только правила, остальное «неясно» |
 | `ENTITY_NORMALIZE_MODEL` | модель OpenRouter для этих шагов, пока в консоли не выбрана другая ([Entity Model](Entity-Model.md)); по умолчанию `deepseek/deepseek-v4.1-flash` |
+| `ENTITY_DECISION_MODEL` | модель решений (фигуранты, политичность, новости), пока в консоли не выбрана другая; по умолчанию — `ENTITY_NORMALIZE_MODEL`, иначе DeepSeek |
 | `ASK_DAILY_BUDGET_USD` | сколько за день могут потратить вопросы страницы «Спросить» ([Ask](Ask.md)), по умолчанию `1` |
 | `ENTITY_MODEL_BUDGET_USD` | сколько может потратить один запуск шага, по умолчанию `2`; что не спросили — спросит следующий запуск |
 | `INVESTIGATION_MAX_LLM_CALLS`, `INVESTIGATION_MAX_FOLLOWUPS`, `INVESTIGATION_MAX_EVIDENCE_ITEMS` | потолки одного вопроса `investigate` ([ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md)): обращений к модели `2`, дополнительных раундов поиска `2`, материалов в ответе `40`. Читаются из окружения процесса; `compose.yaml` их в контейнер не передаёт, там действуют значения по умолчанию |

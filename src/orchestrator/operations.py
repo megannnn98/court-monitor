@@ -82,6 +82,10 @@ class OperationParameters(BaseModel):
     # the run asks, fixed when it starts — the one its warning showed. A chain carries
     # it to every step, so a choice saved meanwhile changes no step of it.
     entity_model: str | None = Field(default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$")
+    # The same for the decision model: who is accused, which case is political, the news.
+    decision_model: str | None = Field(
+        default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$"
+    )
 
 
 @dataclass(frozen=True)
@@ -340,11 +344,17 @@ class OperationRegistry:
             raise ValueError("sources, published dates and mode are only supported for monitor")
         if (
             name == "monitor"
-            and parameters.entity_model is None
+            and (parameters.entity_model is None or parameters.decision_model is None)
             and (parameters.chain or parameters.mode in ENTITY_MODEL_MODES)
         ):
             with self._session_factory() as session:
-                parameters = parameters.model_copy(update={"entity_model": chosen_model(session)})
+                parameters = parameters.model_copy(
+                    update={
+                        "entity_model": parameters.entity_model or chosen_model(session),
+                        "decision_model": parameters.decision_model
+                        or chosen_model(session, kind="decision"),
+                    }
+                )
         command = _command_for(definition.name, parameters)
         self.interrupt_stale_runs()
         try:
@@ -505,7 +515,10 @@ class OperationRegistry:
             started = self.start(
                 "monitor",
                 OperationParameters(
-                    mode=following, chain=True, entity_model=parameters.entity_model
+                    mode=following,
+                    chain=True,
+                    entity_model=parameters.entity_model,
+                    decision_model=parameters.decision_model,
                 ),
             )
             logger.info(
@@ -705,6 +718,8 @@ def _command_for(name: str, parameters: OperationParameters) -> list[str]:
         command = [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
         if parameters.mode in ENTITY_MODEL_MODES and parameters.entity_model:
             command += ["--entity-model", parameters.entity_model]
+        if parameters.mode in ENTITY_MODEL_MODES and parameters.decision_model:
+            command += ["--decision-model", parameters.decision_model]
         return command
     if name == "monitor" and parameters.mode == "resolve":
         if parameters.source is not None:

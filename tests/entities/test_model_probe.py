@@ -166,3 +166,53 @@ def test_a_cost_not_reported_is_estimated_by_the_price_list_and_marked_so() -> N
     assert result.ok and result.cost_usd is None
     # 812 × $0.15 + 96 × $0.47 per million.
     assert result.estimated_cost_usd == round((812 * 0.15 + 96 * 0.47) / 1_000_000, 6)
+
+
+def _roles(answers: list[dict[str, object]]) -> Callable[[httpx.Request], httpx.Response]:
+    return lambda _: _completion({"answers": answers})
+
+
+def _run_decision(answer: Callable[[httpx.Request], httpx.Response]) -> model_probe.ProbeResult:
+    ticks = iter([0.0, 2.0])
+    return model_probe.probe_decision(
+        FREE,
+        "key",
+        http_client=_http(answer),
+        catalog=CatalogCache(request=lambda: CATALOG_PAYLOAD).get(),
+        clock=lambda: next(ticks),
+    )
+
+
+def test_the_decision_test_passes_when_only_the_accused_is_a_figurant() -> None:
+    result = _run_decision(
+        _roles(
+            [
+                {"id": 1, "source": "Эрик Ларссон", "kind": "accused", "explanation": "дело"},
+                {
+                    "id": 2,
+                    "source": "Андрей Колесов",
+                    "kind": "other",
+                    "explanation": "комментарий",
+                },
+            ]
+        )
+    )
+
+    assert result.ok and result.expected_matched == 2
+    assert [entity.role for entity in result.entities] == ["accused", "other"]
+
+
+def test_the_decision_test_fails_when_the_commentator_is_made_the_accused() -> None:
+    """The mistake of 16.10.2026: a free model passed the names test and accused the
+    founder of a channel named beside another man's case."""
+    result = _run_decision(
+        _roles(
+            [
+                {"id": 1, "source": "Эрик Ларссон", "kind": "accused", "explanation": "дело"},
+                {"id": 2, "source": "Андрей Колесов", "kind": "accused", "explanation": "дело"},
+            ]
+        )
+    )
+
+    assert not result.ok
+    assert result.error is not None and "не тому человеку" in result.error

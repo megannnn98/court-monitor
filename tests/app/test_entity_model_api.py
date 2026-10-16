@@ -23,12 +23,13 @@ from db.locks import try_advisory_lock
 from db.models.entities import EntityGroupRecord
 from db.models.settings import EntityModelSpendRecord
 from llm import model_choice
-from llm.chat import LEDGER, ModelTally
+from llm.chat import LEDGER, ModelTally, Purpose
 from llm.model_choice import CatalogCache, book_ledger, spend_summary, stored_model
 from orchestrator.operations import OperationParameters, OperationRegistry
 from processing.identity import model_probe
 from processing.identity.model_probe import FoundEntity, ProbeResult
 from processing.identity.normalizer import OpenRouterNameNormalizer, name_normalizer_from_env
+from processing.roles.roles import role_classifier_from_env
 from web import entity_model
 from web.app import app
 from web.dependencies import get_db, get_operation_registry
@@ -66,9 +67,9 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
 def _pages_read(monkeypatch: pytest.MonkeyPatch, session_factory: sessionmaker[Session]) -> None:
     """The warnings of the pages read the test database's choice."""
 
-    def read() -> str | None:
+    def read(kind: Purpose = "extraction") -> str | None:
         with session_factory() as session:
-            return stored_model(session)
+            return stored_model(session, kind)
 
     monkeypatch.setattr(entity_model, "read_stored", read)
     entity_model.forget()
@@ -205,7 +206,13 @@ def test_a_run_is_started_with_the_chosen_model_and_keeps_it(
     again = registry.get(run.id)
 
     assert again.parameters.entity_model == QWEN
-    assert again.command[-3:] == ["find-figurants", "--entity-model", QWEN]
+    assert again.command[-5:] == [
+        "find-figurants",
+        "--entity-model",
+        QWEN,
+        "--decision-model",
+        DEEPSEEK,
+    ]
 
 
 def test_the_purge_is_not_given_the_entity_model(session_factory: sessionmaker[Session]) -> None:
@@ -233,7 +240,7 @@ def test_a_chain_carries_its_model_to_the_next_step(session_factory: sessionmake
     following = registry.list_runs()[0]
     assert following.parameters.mode == "figurants"
     assert following.parameters.entity_model == QWEN
-    assert following.command[-2:] == ["--entity-model", QWEN]
+    assert following.command[-4:] == ["--entity-model", QWEN, "--decision-model", DEEPSEEK]
 
 
 def test_do_all_shows_the_model_and_its_price_and_starts_with_it(
@@ -288,6 +295,9 @@ class _Cycle:
     def figurants(self) -> _Found:
         normalizer = name_normalizer_from_env()
         assert isinstance(normalizer, OpenRouterNameNormalizer)
+        # The figurants are a decision: their classifier asks the decision model.
+        roles = role_classifier_from_env()
+        assert roles is not None and roles.model == DEEPSEEK
         LEDGER.add(normalizer.model, 0.0021, prompt_tokens=1500, completion_tokens=300)
         LEDGER.add(normalizer.model, None, prompt_tokens=1000, completion_tokens=100)
         return _Found(asked_model=normalizer.model)
@@ -302,14 +312,16 @@ def test_a_scheduled_step_asks_the_stored_choice_and_books_what_it_spent(
     reaches the production extractor; the step's spend is booked per model."""
     _choose(session_factory, QWEN)
     monkeypatch.setattr(cli_cycle, "configure_logging", lambda: None)
-    # The command sets the variable for its process: undone after the test.
-    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "from-the-environment")
+    # Empty, not deleted: the command writes both, and only a set variable is undone.
+    monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "")
+    # No decision model stored nor named: DeepSeek, not the extraction's choice.
+    monkeypatch.setenv("ENTITY_DECISION_MODEL", "")
     args = argparse.Namespace(command="find-figurants", entity_model=None)
 
     assert cli_cycle.run_cycle_command(args, session_factory, build_cycle=lambda _f: _Cycle())  # type: ignore[arg-type,return-value]
 
     printed = json.loads(capsys.readouterr().out)
-    assert printed == {"asked_model": QWEN, "entity_model": QWEN}
+    assert printed == {"asked_model": QWEN, "entity_model": QWEN, "decision_model": DEEPSEEK}
     with session_factory() as session:
         [row] = session.scalars(select(EntityModelSpendRecord)).all()
         summary = spend_summary(session, CatalogCache(request=lambda: CATALOG_PAYLOAD).get())
@@ -348,7 +360,7 @@ def test_a_live_run_card_names_the_model_the_run_asks_not_a_later_choice(
     _choose(session_factory, QWEN)
     _pages_read(monkeypatch, session_factory)
     registry = OperationRegistry(session_factory, executor=lambda _work: None)
-    run = registry.start("monitor", OperationParameters(mode="figurants"))
+    run = registry.start("monitor", OperationParameters(mode="entities"))
     with session_factory.begin() as session:
         session.execute(
             text(
@@ -365,3 +377,64 @@ def test_a_live_run_card_names_the_model_the_run_asks_not_a_later_choice(
 
     card = page.split('<section class="band run-card">', 1)[1].split("</section>", 1)[0]
     assert QWEN in card and FREE not in card
+
+
+def _choose_decision(session_factory: sessionmaker[Session], model: str) -> None:
+    with session_factory.begin() as session:
+        model_choice.mark_tested(session, model, "decision")
+        model_choice.save_choice(
+            session, model, CatalogCache(request=lambda: CATALOG_PAYLOAD).get(), "decision"
+        )
+
+
+def test_the_two_models_are_chosen_and_tested_apart(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A free model may extract; it decides who is accused only after the decision test."""
+    monkeypatch.setattr(model_probe, "probe", _passing)
+    seen: list[str] = []
+    monkeypatch.setattr(
+        model_probe, "probe_decision", lambda model, key: seen.append(model) or _failing(model, key)
+    )
+
+    with _client(session_factory) as client:
+        client.post("/api/v1/entity-model/test", json={"model": FREE})
+        extraction = client.post("/api/v1/entity-model", json={"model": FREE})
+        untested = client.post("/api/v1/entity-model", json={"model": FREE, "kind": "decision"})
+        failed = client.post(
+            "/api/v1/entity-model/test", json={"model": FREE, "kind": "decision"}
+        ).json()
+        still = client.post("/api/v1/entity-model", json={"model": FREE, "kind": "decision"})
+        settings = client.get("/api/v1/entity-model").json()
+
+    assert extraction.status_code == 200
+    assert untested.status_code == 400 and still.status_code == 400
+    assert seen == [FREE] and not failed["ok"] and failed["kind"] == "decision"
+    assert (settings["current"], settings["decision_current"]) == (FREE, DEEPSEEK)
+    assert settings["decision_source"] == "environment"
+
+
+def test_a_run_and_its_warning_carry_both_models(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _choose(session_factory, FREE)
+    _choose_decision(session_factory, QWEN)
+    _pages_read(monkeypatch, session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+
+    with _client(session_factory) as client:
+        cycle = client.get("/api/v1/cycle").json()
+        stale = client.post(
+            "/api/v1/cycle/start",
+            json={"after": 0, "entity_model": FREE, "decision_model": DEEPSEEK},
+        )
+    run = registry.start("monitor", OperationParameters(mode="political"))
+
+    assert cycle["entity_model"]["model"] == FREE and cycle["decision_model"]["model"] == QWEN
+    assert stale.status_code == 409 and QWEN in stale.json()["detail"]
+    assert run.command[-4:] == ["--entity-model", FREE, "--decision-model", QWEN]
+    # The figurants' step names the decision model; the names step, the extraction one.
+    figurants = step_confirmation("figurants")
+    assert QWEN in figurants and FREE not in figurants
+    names = step_confirmation("entities")
+    assert FREE in names and QWEN not in names

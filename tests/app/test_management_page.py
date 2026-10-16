@@ -647,7 +647,13 @@ def test_the_entities_step_starts_from_management(
     run = registry.runs_of("monitor")[0]
     assert (run.parameters.mode, run.command[2:]) == (
         "entities",
-        ["collect-entities", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+        [
+            "collect-entities",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
     )
     assert "Сборка сущностей" in page and "Готовлюсь" in page
 
@@ -682,7 +688,13 @@ def test_the_final_step_includes_rosfinmonitoring_check(
     run = registry.get(run_id)
     assert (run.parameters.mode, run.command[2:]) == (
         "political",
-        ["find-political", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+        [
+            "find-political",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
     )
     assert "Политические дела и сверка с РФМ" in page
     assert "Сверено по снимку перечня РФМ #2 от 2026-09-25" in page
@@ -727,7 +739,13 @@ def test_step_four_finds_the_figurants_from_management(
     run = registry.get(run_id)
     assert (run.parameters.mode, run.command[2:]) == (
         "figurants",
-        ["find-figurants", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+        [
+            "find-figurants",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
     )
     assert '<progress class="overall" value="50" max="3200">' in running
     assert "Фигуранты по статье УК без ответа модели: 3650" in done
@@ -766,7 +784,13 @@ def test_step_six_finds_the_political_cases_from_management(
     run = registry.get(run_id)
     assert (run.parameters.mode, run.command[2:]) == (
         "political",
-        ["find-political", "--entity-model", "deepseek/deepseek-v4.1-flash"],
+        [
+            "find-political",
+            "--entity-model",
+            "deepseek/deepseek-v4.1-flash",
+            "--decision-model",
+            "deepseek/deepseek-v4.1-flash",
+        ],
     )
     assert "Политические по статье УК: 1378" in done
     assert "Политические по ответу модели: 1500" in done

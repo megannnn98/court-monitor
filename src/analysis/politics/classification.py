@@ -299,7 +299,7 @@ def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> Politi
     """A local model or OpenRouter (`llm.chat.endpoint_from_env`); None otherwise:
     the rest is then «unclear»."""
     env = os.environ if env is None else env
-    endpoint = endpoint_from_env(env)
+    endpoint = endpoint_from_env(env, purpose="decision")
     if endpoint is None:
         return None
     return OpenRouterPoliticsClassifier(

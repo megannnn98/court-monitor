@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.service import RfCheckResult
 from application import build_operator_cycle
-from llm.chat import LEDGER
+from llm.chat import DECISION_MODEL_ENV, EXTRACTION_MODEL_ENV, LEDGER, Purpose
 from llm.model_choice import book_ledger, log_selected, model_for_step
 from observability import configure_logging
 from orchestrator.cycle import OperatorCycle
@@ -120,8 +120,15 @@ def add_cycle_arguments(subparsers: Any) -> None:
         subparsers.choices[name].add_argument(
             "--entity-model",
             help=(
-                "The model the step asks (the console passes the one its warning showed); "
-                "unset, the model chosen on «Модель извлечения»"
+                "The extraction model the step asks (the console passes the one its "
+                "warning showed); unset, the one chosen on «Модель извлечения»"
+            ),
+        )
+        subparsers.choices[name].add_argument(
+            "--decision-model",
+            help=(
+                "The decision model (figurants, politics, news); unset, the one chosen on "
+                "«Модель извлечения»"
             ),
         )
 
@@ -176,11 +183,19 @@ def run_cycle_command(
         _print(run_comparison(session_factory, args.step, size=args.sample, seed=args.seed))
         return True
     if args.command in ENTITY_MODEL_COMMANDS:
+        # Both chosen before either is set: the decision model falls back to the
+        # extraction's variable, which would by then name the extraction's choice.
         model = _select_entity_model(args, session_factory)
+        decision = _select_entity_model(args, session_factory, kind="decision")
+        if os.environ.get("OPENROUTER_API_KEY", "").strip():
+            os.environ[EXTRACTION_MODEL_ENV] = model
+            os.environ[DECISION_MODEL_ENV] = decision
         LEDGER.reset()
         LEDGER.active = True
         try:
-            return _run_step(args, build_cycle(session_factory), entity_model=model)
+            return _run_step(
+                args, build_cycle(session_factory), entity_model=model, decision_model=decision
+            )
         finally:
             LEDGER.active = False
             try:
@@ -191,21 +206,32 @@ def run_cycle_command(
     return _run_step(args, build_cycle(session_factory))
 
 
-def _select_entity_model(args: argparse.Namespace, session_factory: sessionmaker[Session]) -> str:
-    """The run's model, fixed for the whole process: the one passed, else the stored
-    choice. Logged with its price — a run started by a schedule asks nobody."""
-    given = getattr(args, "entity_model", None)
-    model = given or model_for_step(session_factory)
-    if os.environ.get("OPENROUTER_API_KEY", "").strip():
-        os.environ["ENTITY_NORMALIZE_MODEL"] = model
-    log_selected(model, source="run" if given else "stored-choice")
+def _select_entity_model(
+    args: argparse.Namespace,
+    session_factory: sessionmaker[Session],
+    *,
+    kind: Purpose = "extraction",
+) -> str:
+    """The run's model of `kind`, fixed for the whole process: the one passed, else the
+    stored choice. Logged with its price — a run started by a schedule asks nobody."""
+    given = getattr(args, "decision_model" if kind == "decision" else "entity_model", None)
+    model = given or model_for_step(session_factory, kind=kind)
+    log_selected(model, source="run" if given else "stored-choice", kind=kind)
     return model
 
 
 def _run_step(
-    args: argparse.Namespace, cycle: OperatorCycle, *, entity_model: str | None = None
+    args: argparse.Namespace,
+    cycle: OperatorCycle,
+    *,
+    entity_model: str | None = None,
+    decision_model: str | None = None,
 ) -> bool:
-    model = {"entity_model": entity_model} if entity_model else {}
+    model = {
+        key: value
+        for key, value in (("entity_model", entity_model), ("decision_model", decision_model))
+        if value
+    }
     if args.command == "purge-junk":
         purged = cycle.purge()
         _print(

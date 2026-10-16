@@ -16,6 +16,7 @@ from collections.abc import Callable
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from llm.chat import Purpose
 from llm.model_choice import environment_model, stored_model
 
 logger = logging.getLogger("operator_console")
@@ -23,37 +24,40 @@ logger = logging.getLogger("operator_console")
 CACHE_SECONDS = 5.0
 
 _lock = threading.Lock()
-_cache: tuple[float, str] | None = None
+_cache: dict[Purpose, tuple[float, str]] = {}
 
 
-def _read_stored() -> str | None:
+def _read_stored(kind: Purpose = "extraction") -> str | None:
     from web.dependencies import _get_session_factory
 
     with _get_session_factory()() as session:
-        return stored_model(session)
+        return stored_model(session, kind)
 
 
 # Replaced in tests: no test reads a real database through a page's warning.
-read_stored: Callable[[], str | None] = _read_stored
+read_stored: Callable[[Purpose], str | None] = _read_stored
 
 
-def current_entity_model(now: Callable[[], float] = time.monotonic) -> str:
-    global _cache
+def current_entity_model(
+    kind: Purpose = "extraction", now: Callable[[], float] = time.monotonic
+) -> str:
     with _lock:
-        if _cache is not None and now() - _cache[0] < CACHE_SECONDS:
-            return _cache[1]
+        cached = _cache.get(kind)
+        if cached is not None and now() - cached[0] < CACHE_SECONDS:
+            return cached[1]
     try:
-        model = read_stored() or environment_model()
+        model = read_stored(kind) or environment_model(kind=kind)
     except (RuntimeError, SQLAlchemyError) as exc:
-        logger.warning("event=entity_model_choice_unreadable error=%s", type(exc).__name__)
-        model = environment_model()
+        logger.warning(
+            "event=entity_model_choice_unreadable kind=%s error=%s", kind, type(exc).__name__
+        )
+        model = environment_model(kind=kind)
     with _lock:
-        _cache = (now(), model)
+        _cache[kind] = (now(), model)
     return model
 
 
 def forget() -> None:
     """After a save: the next page reads the new choice."""
-    global _cache
     with _lock:
-        _cache = None
+        _cache.clear()

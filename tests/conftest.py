@@ -119,5 +119,5 @@ def _no_openrouter_catalog_or_stored_choice(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(model_choice, "CATALOG", fake)
     for module in ("web.ui.spend", "web.routers.entity_model", "processing.identity.model_probe"):
         monkeypatch.setattr(f"{module}.CATALOG", fake)
-    monkeypatch.setattr(entity_model, "read_stored", lambda: None)
+    monkeypatch.setattr(entity_model, "read_stored", lambda _kind="extraction": None)
     entity_model.forget()

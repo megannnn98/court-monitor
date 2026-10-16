@@ -53,7 +53,7 @@ it("asks before «Сделать всё» and names the latest run it was read f
   expect(await screen.findByText(/спишутся деньги/)).toBeTruthy();
   expect(start).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
-  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: null } }));
+  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: null, decision_model: null } }));
 });
 
 it("stops a live run and shows a refusal", async () => {
@@ -96,7 +96,7 @@ it("shows the entity model and its price before «Запустить» and start
   expect(notice.textContent).toContain("Выходные токены: $0.47 / 1 млн");
   expect(notice.textContent).toContain("Тип: платная");
   fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
-  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: "qwen/qwen3.8-flash" } }));
+  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: "qwen/qwen3.8-flash", decision_model: null } }));
 });
 
 it("says FREE and $0 for a free model, and that an unknown price is unknown", async () => {
@@ -118,4 +118,23 @@ it("says FREE and $0 for a free model, and that an unknown price is unknown", as
   const unknown = screen.getByLabelText("Модель извлечения сущностей").textContent ?? "";
   expect(unknown).toContain("Текущие цены неизвестны");
   expect(unknown).not.toContain("$0");
+});
+
+it("shows the decision model apart and starts with both", async () => {
+  cycle.mockReturnValue(
+    ok({ ...IDLE, entity_model: { ...NOTICE, model: "nvidia/nemotron-3.5-super-vl:free", free: true, kind: "бесплатная" }, decision_model: NOTICE }) as never
+  );
+  start.mockReturnValue(ok({ run_id: 42, stage: "load" }) as never);
+  renderPage(<WorkPage />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Сделать всё" }));
+
+  expect(screen.getByLabelText("Модель извлечения сущностей").textContent).toContain("FREE");
+  expect(screen.getByLabelText("Модель решений (фигуранты, политичность)").textContent).toContain("qwen/qwen3.8-flash");
+  fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
+  await waitFor(() =>
+    expect(start).toHaveBeenCalledWith({
+      body: { after: 41, entity_model: "nvidia/nemotron-3.5-super-vl:free", decision_model: "qwen/qwen3.8-flash" }
+    })
+  );
 });
