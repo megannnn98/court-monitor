@@ -9,7 +9,7 @@ purge stops before its batch. The screens themselves: `junk_screen.EmbeddingScre
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
 class JunkScreenError(Exception):
@@ -25,4 +25,12 @@ class ArticleScreen(Protocol):
 
     def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:
         """A score per (title, text): the higher, the likelier a criminal case."""
+        ...
+
+
+@runtime_checkable
+class ExplainingScreen(Protocol):
+    def hold_reasons(self) -> Sequence[str | None]:
+        """Why each article of the last `scores` call is held, in its order; None where the
+        score alone says it (`screen.reason`)."""
         ...

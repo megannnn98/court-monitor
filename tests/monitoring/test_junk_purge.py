@@ -451,3 +451,11 @@ def test_with_the_verifier_an_article_goes_only_when_both_jevs_agree(
     assert result.held == (1 if fine_goes else 2)
     if not fine_goes:
         assert _holds(session_factory) == {ids["junk"]: HELD, ids["fine"]: HELD}
+        with session_factory() as session:
+            rescued = session.get_one(JunkScreenHoldRecord, ids["fine"])
+            first = session.get_one(JunkScreenHoldRecord, ids["junk"])
+        # The rescued article scores the cutoff; its reason tells JEV-1's score and JEV-2.
+        assert rescued.score == rescued.cutoff == 0.5
+        assert "оценила статью в 0.10" in rescued.reason
+        assert "вторая модель не подтвердила" in rescued.reason and "UNCERTAIN" in rescued.reason
+        assert "вторая модель" not in first.reason and "в 0.90" in first.reason

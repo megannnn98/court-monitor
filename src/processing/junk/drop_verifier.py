@@ -220,6 +220,7 @@ class CascadeScreen:
         self._first = first
         self._verifier = verifier
         self._counts: Counter[str] = Counter()
+        self._reasons: list[str | None] = []
 
     @property
     def name(self) -> str:
@@ -234,6 +235,11 @@ class CascadeScreen:
         """Every batch so far, summed."""
         return {name: self._counts[name] for name in COUNTS}
 
+    def hold_reasons(self) -> list[str | None]:
+        """Of the last batch: why JEV-2 kept an article JEV-1 would let go; None for the
+        rest. A rescued article scores the cutoff, so its own score is told here."""
+        return list(self._reasons)
+
     def scores(self, articles: Sequence[tuple[str, str]]) -> list[float]:
         # JEV-1 fails closed: its error stops the purge, before JEV-2 is asked anything.
         first = self._first.scores(articles)
@@ -243,20 +249,40 @@ class CascadeScreen:
             zip(dropped, self._verifier.verdicts([articles[i] for i in dropped]), strict=True)
         )
         final: list[float] = []
+        reasons: list[str | None] = []
         counts: Counter[str] = Counter()
         for i, ((title, _), score) in enumerate(zip(articles, first, strict=True)):
             verdict = verdicts.get(i)
             keep = verdict is None or not verdict.confirms_drop
             final.append(cutoff if verdict is not None and keep else score)
+            reasons.append(
+                _rescue_reason(score, cutoff, verdict) if verdict is not None and keep else None
+            )
             counts.update(_counted(verdict, keep))
             _log_article(title, score, cutoff, verdict, keep)
         self._counts.update(counts)
+        self._reasons = reasons
         logger.info(
             "event=junk_screen_cascade_batch %s screen=%s",
             " ".join(f"{name}={counts[name]}" for name in COUNTS),
             self.name,
         )
         return final
+
+
+def _rescue_reason(score: float, cutoff: float, verdict: Verdict) -> str:
+    if verdict.decision == ERROR:
+        second = f"вторая модель не ответила ({(verdict.error or '')[:200]})"
+    else:
+        second = (
+            f"вторая модель не подтвердила, что её можно удалить: {verdict.decision}, "
+            f"P(DROP) {_number(verdict.p_drop)} (удаляется от {MIN_P_DROP:.2f})"
+        )
+    return (
+        f"Извлечение не нашло уголовного события; модель отсева оценила статью в {score:.2f} "
+        f"(порог {cutoff:.2f}), но {second}. Удержана для проверки — это не доказательство "
+        "уголовного дела."
+    )
 
 
 def _counted(verdict: Verdict | None, keep: bool) -> list[str]:

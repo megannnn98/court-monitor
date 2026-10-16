@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import JunkScreenHoldRecord
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
-from processing.junk.article_screen import ArticleScreen
+from processing.junk.article_screen import ArticleScreen, ExplainingScreen
 from processing.junk.screen import HELD, reason
 
 logger = logging.getLogger("monitoring")
@@ -203,6 +203,11 @@ class JunkPurge:
         scores = self._screen.scores([(row.title or "", row.text or "") for row in rows])
         cutoff = self._screen.cutoff
         _log_passed(rows, scores, cutoff, self._screen.name)
+        reasons: Sequence[str | None] = (
+            self._screen.hold_reasons()
+            if isinstance(self._screen, ExplainingScreen)
+            else [None] * len(rows)
+        )
         held = [
             {
                 "article_id": row.id,
@@ -210,9 +215,9 @@ class JunkPurge:
                 "score": score,
                 "cutoff": cutoff,
                 "screen": self._screen.name,
-                "reason": reason(score, cutoff),
+                "reason": told or reason(score, cutoff),
             }
-            for row, score in zip(rows, scores, strict=True)
+            for row, score, told in zip(rows, scores, reasons, strict=True)
             if score >= cutoff
         ]
         if not held:

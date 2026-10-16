@@ -172,6 +172,8 @@ def test_a_failing_jev2_is_counted_and_logged(caplog: pytest.LogCaptureFixture) 
         cascade.scores([("Пост", "текст")])
 
     assert cascade.counts["jev2_error"] == 1 and cascade.counts["final_keep"] == 1
+    [told] = cascade.hold_reasons()
+    assert told is not None and "вторая модель не ответила" in told and "TimeoutException" in told
     [line] = [r for r in caplog.records if "event=junk_screen_cascade " in r.getMessage()]
     assert line.levelno == logging.WARNING
     assert "jev2_decision=ERROR" in line.getMessage() and "TimeoutException" in line.getMessage()
@@ -217,6 +219,10 @@ def test_a_batch_lines_up_and_is_counted(caplog: pytest.LogCaptureFixture) -> No
         assert cascade.scores(articles) == [0.9, 0.03, CUTOFF, CUTOFF]
 
     assert sorted(service.asked) == ["Обрыв", "Погода", "Пост"]
+    told = cascade.hold_reasons()
+    assert told[0] is None and told[1] is None
+    assert told[2] is not None and "KEEP, P(DROP) 0.1000" in told[2] and "в 0.20" in told[2]
+    assert told[3] is not None and "не ответила" in told[3]
     assert cascade.counts == {
         "total": 4,
         "jev1_keep": 1,
