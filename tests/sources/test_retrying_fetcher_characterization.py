@@ -84,6 +84,13 @@ def test_success_after_transient_failures(slept: list[float]) -> None:
     assert (inner.calls, slept) == (3, [0.5, 1.0])
 
 
+def test_retry_after_is_respected_when_it_exceeds_exponential_backoff(slept: list[float]) -> None:
+    document, inner = _fetch([TransientFetchError("429", retry_after_seconds=3), DOCUMENT])
+
+    assert document is DOCUMENT
+    assert (inner.calls, slept) == (2, [3])
+
+
 @pytest.mark.parametrize(
     ("max_attempts", "base", "sleeps"),
     [

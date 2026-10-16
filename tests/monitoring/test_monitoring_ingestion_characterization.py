@@ -334,7 +334,9 @@ def test_persistence_failure_stops_the_ingestion_stage(
     with pytest.raises(PersistenceError, match="Failed to persist b"):
         service.ingest(handle, discovery)
 
-    assert upstream.fetches == ["a", "b"]
+    # Documents are read in parallel, so ones after "b" may already be fetched;
+    # storage is what stops at the failure.
+    assert upstream.fetches[:2] == ["a", "b"]
     assert [external_id for external_id, _, _ in _stored(session_factory)] == ["a"]
     run = service.repository.get_run(handle.run_id)
     assert run is not None
