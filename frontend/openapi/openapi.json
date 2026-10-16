@@ -7018,6 +7018,51 @@
         ],
         "title": "LatestRosfinMatchResponse"
       },
+      "LayoutSuspectResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "signal": {
+            "type": "string",
+            "title": "Signal"
+          },
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Since"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "signal",
+          "run_id",
+          "since",
+          "count",
+          "total",
+          "text"
+        ],
+        "title": "LayoutSuspectResponse",
+        "description": "A source whose latest runs suggest that its page layout changed."
+      },
       "LiveOperationResponse": {
         "properties": {
           "mode": {
@@ -10333,6 +10378,14 @@
                 "type": "null"
               }
             ]
+          },
+          "layout_suspects": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutSuspectResponse"
+            },
+            "type": "array",
+            "title": "Layout Suspects",
+            "default": []
           }
         },
         "type": "object",

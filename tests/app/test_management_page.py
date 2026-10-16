@@ -16,6 +16,7 @@ from support.pipeline_runs import finish_steps
 
 from db.orm_models import JunkScreenHoldRecord, OperatorOperationRunRecord
 from ingestion.sources.source_registry import news_sources
+from monitor_core.errors import ParseError
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.operations import OperationParameters, OperationRegistry, OperationRunStatus
 from orchestrator.repository import SqlAlchemyMonitoringRepository
@@ -1088,6 +1089,36 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
     assert "tg-broblsud" in errors and "ValueError: Post text not found" in errors
     assert "Источников с ошибками загрузки за неделю: 1" in home
     assert 'href="/ui/runs#source-errors"' in home
+
+
+def test_the_runs_journal_marks_a_suspected_layout_change(
+    session_factory: sessionmaker[Session],
+) -> None:
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    run = monitoring.start_run(
+        scope="source:kommersant",
+        source="kommersant",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=1),
+    )
+    monitoring.add_counters(run, {"documents_discovered": 3, "documents_failed": 3})
+    for _ in range(3):
+        monitoring.record_failure(
+            run,
+            stage=MonitoringStage.INGESTION,
+            entity_type="source_document",
+            error=ParseError("Article text not found"),
+        )
+    monitoring.finish_run(run)
+
+    with _client(session_factory, registry) as client:
+        page = client.get("/ui/management").text
+
+    warning = page[page.index('id="layout-suspects"') :]
+    assert "Возможное изменение вёрстки источника" in warning
+    assert "kommersant" in warning and f"запуске №{run}" in warning
 
 
 @pytest.mark.parametrize(

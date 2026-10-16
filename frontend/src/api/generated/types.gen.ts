@@ -2261,6 +2261,42 @@ export type LatestRosfinMatchResponse = {
 };
 
 /**
+ * LayoutSuspectResponse
+ *
+ * A source whose latest runs suggest that its page layout changed.
+ */
+export type LayoutSuspectResponse = {
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Signal
+     */
+    signal: string;
+    /**
+     * Run Id
+     */
+    run_id: number;
+    /**
+     * Since
+     */
+    since: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * LiveOperationResponse
  *
  * The step running now: its mode and the title the console gives it.
@@ -4325,6 +4361,10 @@ export type StatusResponse = {
      */
     next_action: string;
     balance?: BalanceResponse | null;
+    /**
+     * Layout Suspects
+     */
+    layout_suspects?: Array<LayoutSuspectResponse>;
 };
 
 /**

@@ -38,6 +38,7 @@ from orchestrator.models import (
     SourceMonitoringStateView,
     classify_failure,
 )
+from orchestrator.source_health import LayoutSuspect, layout_suspects
 
 logger = logging.getLogger("monitoring")
 
@@ -112,6 +113,11 @@ def _run_view(record: MonitoringRunRecord) -> MonitoringRunView:
 class SqlAlchemyMonitoringRepository:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
+
+    def layout_suspects(self, source: str | None = None) -> list[LayoutSuspect]:
+        """The sources (or the one) whose runs look like a change of the site's layout."""
+        with self._session_factory() as session:
+            return layout_suspects(session, source=source)
 
     def start_run(
         self,

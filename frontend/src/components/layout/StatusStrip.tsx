@@ -14,7 +14,16 @@ export function StatusStrip() {
   if (status.isError) {
     return <p className="mb-4 text-xs text-destructive">Показатели не загрузились: {status.error.message}</p>;
   }
-  const { articles, people, result, queue, latest_monitoring_status: latest, live_operation: live, balance } = status.data;
+  const {
+    articles,
+    people,
+    result,
+    queue,
+    latest_monitoring_status: latest,
+    live_operation: live,
+    balance,
+    layout_suspects: layoutSuspects = []
+  } = status.data;
   const items: [string, string][] = [
     ["Публикации", formatNumber(articles)],
     ["Люди", formatNumber(people)],
@@ -29,6 +38,14 @@ export function StatusStrip() {
           <span className="size-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
           Идёт: {live.title}
           <span className="ml-auto">ход →</span>
+        </Link>
+      ) : null}
+      {layoutSuspects.length ? (
+        <Link
+          to="/runs#layout-suspects"
+          className="block rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+        >
+          Возможное изменение вёрстки: {layoutSuspects.map((suspect) => suspect.source).join(", ")}. Проверить →
         </Link>
       ) : null}
       <dl className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">

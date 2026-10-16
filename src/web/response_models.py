@@ -250,6 +250,18 @@ class BalanceResponse(BaseModel):
     known: bool
 
 
+class LayoutSuspectResponse(BaseModel):
+    """A source whose latest runs suggest that its page layout changed."""
+
+    source: str
+    signal: str
+    run_id: int
+    since: datetime
+    count: int
+    total: int
+    text: str
+
+
 class StatusResponse(BaseModel):
     """The legacy status strip and menu counters: the same numbers on every page."""
 
@@ -262,6 +274,7 @@ class StatusResponse(BaseModel):
     next_action: str
     # None with no OpenRouter key: the console then spends nothing.
     balance: BalanceResponse | None = None
+    layout_suspects: list[LayoutSuspectResponse] = []
 
 
 class OptionResponse(BaseModel):

@@ -7,12 +7,15 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.orm_models import MonitoringRunRecord, OperatorOperationRunRecord
+from monitor_core.errors import ParseError
+from orchestrator.models import MonitoringStage, MonitoringTrigger
+from orchestrator.repository import SqlAlchemyMonitoringRepository
 from web.app import app
 from web.dependencies import get_db
 
@@ -86,3 +89,40 @@ def test_the_route_says_what_the_strip_says(session_factory: sessionmaker[Sessio
     assert _strip(page, "Последний запуск") == "завершён с ошибками"
     assert status["live_operation"] == {"mode": "entities", "title": "Сборка сущностей"}
     assert "Идёт: Сборка сущностей" in page
+
+
+def test_status_lists_a_source_that_looks_like_its_layout_changed(
+    session_factory: sessionmaker[Session],
+) -> None:
+    monitoring = SqlAlchemyMonitoringRepository(session_factory)
+    run_id = monitoring.start_run(
+        scope="source:kommersant",
+        source="kommersant",
+        trigger=MonitoringTrigger.MANUAL,
+        parameters={},
+        stale_after=timedelta(hours=1),
+    )
+    monitoring.add_counters(run_id, {"documents_discovered": 3, "documents_failed": 3})
+    for _ in range(3):
+        monitoring.record_failure(
+            run_id,
+            stage=MonitoringStage.INGESTION,
+            entity_type="source_document",
+            error=ParseError("Article text not found"),
+        )
+    monitoring.finish_run(run_id)
+
+    with _client(session_factory) as client:
+        status = client.get("/api/v1/status").json()
+
+    assert status["layout_suspects"] == [
+        {
+            "source": "kommersant",
+            "signal": "parse",
+            "run_id": run_id,
+            "since": status["layout_suspects"][0]["since"],
+            "count": 3,
+            "total": 3,
+            "text": f"kommersant: в запуске №{run_id} не разобраны 3 из 3 статей — похоже, сайт сменил вёрстку статьи.",
+        }
+    ]

@@ -26,6 +26,7 @@ from orchestrator.operations import (
     OperationRun,
     OperationRunStatus,
 )
+from orchestrator.source_health import layout_suspects
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
@@ -515,6 +516,21 @@ def _source_errors(db: Session) -> str:
 </section>"""
 
 
+def _layout_suspects(db: Session) -> str:
+    """One warning per source, separate from ordinary individual load errors."""
+    suspects = layout_suspects(db)
+    if not suspects:
+        return ""
+    rows = "".join(
+        f"<li><b>{escape(suspect.source)}</b>: {escape(suspect.text)}</li>" for suspect in suspects
+    )
+    return f"""<section class="band warning" id="layout-suspects" aria-labelledby="layout-title">
+  <h2 id="layout-title">Возможное изменение вёрстки источника</h2>
+  <p>Проверьте страницу источника и парсер: это сигнал, а не автоматическое отключение.</p>
+  <ul>{rows}</ul>
+</section>"""
+
+
 def _management_page(
     db: Session,
     *,
@@ -552,6 +568,7 @@ def _management_page(
 {run_html}
 {_history(history[:HISTORY_SIZE], run)}
 {_spending(history)}
+{_layout_suspects(db)}
 {_source_errors(db)}
 {funnel_html(funnel(db))}"""
     page = _page(

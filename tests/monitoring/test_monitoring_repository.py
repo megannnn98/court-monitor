@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from monitor_core.errors import PermanentFetchError, TransientFetchError
+from monitor_core.errors import NoTextError, ParseError, PermanentFetchError, TransientFetchError
 from orchestrator.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
@@ -21,6 +21,7 @@ from orchestrator.models import (
     source_scope,
 )
 from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.source_health import layout_suspects
 
 STALE_AFTER = timedelta(minutes=120)
 
@@ -93,6 +94,87 @@ def test_item_failures_complete_run_with_errors(session_factory: sessionmaker[Se
         ),
         (MonitoringStage.EXTRACTION, 7, None, FailureKind.NON_RETRYABLE, "PermanentFetchError"),
     ]
+
+
+def test_layout_suspect_detects_a_latest_run_of_parse_failures(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    run_id = _start(repository, "kommersant")
+    repository.add_counters(run_id, {"documents_discovered": 50, "documents_failed": 50})
+    for number in range(50):
+        repository.record_failure(
+            run_id,
+            stage=MonitoringStage.INGESTION,
+            entity_type="source_document",
+            error=ParseError(f"Article text not found {number}"),
+        )
+    repository.finish_run(run_id)
+
+    with session_factory() as session:
+        suspects = layout_suspects(session)
+
+    assert [(item.source, item.signal, item.count, item.total) for item in suspects] == [
+        ("kommersant", "parse", 50, 50)
+    ]
+
+
+def test_layout_suspect_does_not_count_a_post_without_text(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    run_id = _start(repository, "tg-quiet")
+    repository.add_counters(run_id, {"documents_discovered": 3, "documents_failed": 3})
+    for _ in range(3):
+        repository.record_failure(
+            run_id,
+            stage=MonitoringStage.INGESTION,
+            entity_type="source_document",
+            error=NoTextError("Post has no text"),
+        )
+    repository.finish_run(run_id)
+
+    with session_factory() as session:
+        assert layout_suspects(session) == []
+
+
+def test_layout_suspect_needs_previous_discovery_before_a_silent_streak(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    for _ in range(3):
+        run_id = _start(repository, "tg-quiet")
+        repository.finish_run(run_id)
+
+    with session_factory() as session:
+        assert layout_suspects(session) == []
+
+
+def test_layout_suspect_detects_three_old_silent_runs_after_a_discovery(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    discovered = _start(repository, "tg-layout")
+    repository.add_counters(discovered, {"documents_discovered": 1})
+    repository.finish_run(discovered)
+    silent = []
+    for _ in range(3):
+        run_id = _start(repository, "tg-layout")
+        repository.finish_run(run_id)
+        silent.append(run_id)
+    now = datetime.now(UTC)
+    with session_factory.begin() as session:
+        for index, run_id in enumerate([discovered, *silent]):
+            session.execute(
+                text("UPDATE monitoring_runs SET started_at = :started WHERE id = :id"),
+                {"id": run_id, "started": now - timedelta(hours=48 - index * 8)},
+            )
+    with session_factory() as session:
+        suspects = layout_suspects(session, now=now)
+
+    assert [
+        (item.source, item.signal, item.run_id, item.count, item.total) for item in suspects
+    ] == [("tg-layout", "silent", silent[0], 3, 4)]
 
 
 def test_failed_run_keeps_error_message(session_factory: sessionmaker[Session]) -> None:
