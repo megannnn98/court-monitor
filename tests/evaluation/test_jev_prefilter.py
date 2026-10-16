@@ -30,7 +30,7 @@ from evaluation.jev_prefilter.experiment import (
     verdict,
 )
 from evaluation.jev_prefilter.policy import POLICIES, THRESHOLDS, decide
-from evaluation.jev_prefilter.prompt import (
+from processing.junk.drop_verifier_prompt import (
     DECISION,
     DIAGNOSTIC_OPTIONS,
     DROP,

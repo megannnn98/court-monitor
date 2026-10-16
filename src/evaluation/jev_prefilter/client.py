@@ -23,7 +23,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from evaluation.jev_prefilter.prompt import (
+from processing.junk.drop_verifier_prompt import (
     PROMPT_VERSION,
     QUESTION_OPTIONS,
     RUBRIC_VERSION,

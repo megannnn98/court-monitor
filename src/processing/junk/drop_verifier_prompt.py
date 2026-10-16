@@ -9,6 +9,11 @@ read afterwards what Jev drops. They never take part in the decision (`policy.de
 
 The prompt and the rubric are frozen at `PROMPT_VERSION` / `RUBRIC_VERSION`: both are part of
 every cache key, and the experiment does not change them after the full run.
+
+Written and measured as the strong pre-filter (`evaluation.jev_prefilter`, 2026-10-15), it is
+asked in production as the junk screen's second opinion (`drop_verifier`): only about an
+article the first screen would let go, and in exactly these words — the measurement holds
+for this request and no other.
 """
 
 from __future__ import annotations

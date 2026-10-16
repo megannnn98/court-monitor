@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from evaluation.jev_prefilter.prompt import DECISION, DROP
+from processing.junk.drop_verifier_prompt import DECISION, DROP
 
 THRESHOLDS = (0.5, 0.6, 0.7, 0.8, 0.9)
 ARGMAX = "argmax"

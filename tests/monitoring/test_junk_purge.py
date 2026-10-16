@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -23,6 +24,7 @@ from db.orm_models import (
     SourceDocument,
 )
 from processing.junk.article_screen import JunkScreenError
+from processing.junk.drop_verifier import CascadeScreen, DropVerifier
 from processing.junk.holds import hold_again, mark_junk, reextract
 from processing.junk.purge import (
     EXPIRED_CONTENT_TYPE,
@@ -412,3 +414,40 @@ def test_a_score_close_under_the_cutoff_is_a_warning(
     assert warned.levelno == logging.WARNING
     assert f"article_id={ids['fine']} score=0.1000" in warned.getMessage()
     assert ids["fine"] not in _articles(session_factory)
+
+
+def _verifier(choice: str) -> DropVerifier:
+    """JEV-2 answering `choice` about every article it is asked about."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        rest = 0.05
+        return httpx.Response(
+            200,
+            json={
+                "model": "typesafe/jev-1.13",
+                "answers": {
+                    "decision": {
+                        "choice": choice,
+                        "probabilities": {"KEEP": rest, "UNCERTAIN": rest, "DROP": 0.9},
+                    }
+                },
+            },
+        )
+
+    return DropVerifier(lambda: httpx.Client(transport=httpx.MockTransport(handler)), "key")
+
+
+@pytest.mark.parametrize(("choice", "fine_goes"), [("DROP", True), ("UNCERTAIN", False)])
+def test_with_the_verifier_an_article_goes_only_when_both_jevs_agree(
+    session_factory: sessionmaker[Session], choice: str, fine_goes: bool
+) -> None:
+    ids = _seed(session_factory)
+
+    result = JunkPurge(session_factory, screen=CascadeScreen(Screen(), _verifier(choice))).run()
+
+    # The exhibition JEV-1 holds; the fine JEV-1 would let go, JEV-2 decides.
+    assert (ids["fine"] not in _articles(session_factory)) is fine_goes
+    assert ids["junk"] in _articles(session_factory)
+    assert result.held == (1 if fine_goes else 2)
+    if not fine_goes:
+        assert _holds(session_factory) == {ids["junk"]: HELD, ids["fine"]: HELD}

@@ -43,7 +43,7 @@ from evaluation.jev_prefilter.client import (
     classify,
 )
 from evaluation.jev_prefilter.policy import POLICIES, decide
-from evaluation.jev_prefilter.prompt import (
+from processing.junk.drop_verifier_prompt import (
     DECISION,
     DIAGNOSTIC_OPTIONS,
     DROP,

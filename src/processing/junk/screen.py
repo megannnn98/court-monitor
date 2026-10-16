@@ -11,8 +11,9 @@ until its extraction is fixed and run again.
 
 Off by default. `JUNK_SCREEN=jev` turns on the screen that asks a decision model
 (`processing.junk.decision_screen`) — the one `compose.yaml` sets: it saves more cases, holds
-less junk and needs nothing installed. `JUNK_SCREEN=1` turns on the embedding screen
-described here; `JUNK_SCREEN_MODEL` points to another model file. Turned on, a model file that is missing or wrong, an embedding
+less junk and needs nothing installed. With it, `JUNK_SCREEN_VERIFIER=jev` asks a second
+decision model before an article is let go (`processing.junk.drop_verifier`): it goes only
+when both agree. `JUNK_SCREEN=1` turns on the embedding screen described here; `JUNK_SCREEN_MODEL` points to another model file. Turned on, a model file that is missing or wrong, an embedding
 model that does not load, or an embedding that fails stops the purge before it deletes
 the batch — an article the screen could not judge is never deleted.
 """
@@ -28,6 +29,7 @@ from pathlib import Path
 
 from processing.junk.article_screen import ArticleScreen, JunkScreenError
 from processing.junk.decision_screen import decision_screen_from_env
+from processing.junk.drop_verifier import cascade_screen_from_env
 from processing.junk.embedder import (
     EmbeddingConfig,
     EmbeddingConfigurationError,
@@ -120,7 +122,10 @@ def screen_from_env(env: Mapping[str, str] | None = None) -> ArticleScreen | Non
     env = os.environ if env is None else env
     chosen = env.get("JUNK_SCREEN", "").strip().lower()
     if chosen == DECISION:
-        return decision_screen_from_env(env)
+        first = decision_screen_from_env(env)
+        if env.get("JUNK_SCREEN_VERIFIER", "").strip().lower() == DECISION:
+            return cascade_screen_from_env(first, env)
+        return first
     if chosen not in ("1", "true", "yes", "on"):
         return None
     model = ScreenModel.load(Path(env.get("JUNK_SCREEN_MODEL") or DEFAULT_MODEL_PATH))
