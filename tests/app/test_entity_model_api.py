@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select, text
+from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.openrouter_catalog import CATALOG_PAYLOAD
 
@@ -158,17 +158,20 @@ def test_the_test_writes_no_entity_and_books_its_cost_apart(
 
 
 def test_a_second_test_while_one_runs_is_refused(
-    session_factory: sessionmaker[Session], test_engine: object, monkeypatch: pytest.MonkeyPatch
+    session_factory: sessionmaker[Session], test_engine: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     asked: list[str] = []
-    monkeypatch.setattr(
-        model_probe, "probe", lambda model, key: asked.append(model) or _passing(model, key)
-    )
+
+    def recording(model: str, key: str) -> ProbeResult:
+        asked.append(model)
+        return _passing(model, key)
+
+    monkeypatch.setattr(model_probe, "probe", recording)
 
     with (
         _client(session_factory) as client,
         try_advisory_lock(test_engine, model_probe.LOCK_KEY) as held,
-    ):  # type: ignore[arg-type]
+    ):
         assert held
         busy = client.post("/api/v1/entity-model/test", json={"model": FREE})
 
@@ -393,9 +396,12 @@ def test_the_two_models_are_chosen_and_tested_apart(
     """A free model may extract; it decides who is accused only after the decision test."""
     monkeypatch.setattr(model_probe, "probe", _passing)
     seen: list[str] = []
-    monkeypatch.setattr(
-        model_probe, "probe_decision", lambda model, key: seen.append(model) or _failing(model, key)
-    )
+
+    def failing(model: str, key: str) -> ProbeResult:
+        seen.append(model)
+        return _failing(model, key)
+
+    monkeypatch.setattr(model_probe, "probe_decision", failing)
 
     with _client(session_factory) as client:
         client.post("/api/v1/entity-model/test", json={"model": FREE})
