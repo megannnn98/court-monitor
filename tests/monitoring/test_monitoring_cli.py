@@ -644,7 +644,7 @@ def test_a_lane_child_gets_its_environment_and_a_session_of_its_own(
         def __init__(self, command: list[str], **kwargs: Any) -> None:
             started.update(kwargs, command=command)
 
-    monkeypatch.setattr(monitoring_cli.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(subprocess, "Popen", FakePopen)
 
     monitoring_cli._LaneProcess(["monitor", "--lane"], {"INGESTION_DOMAIN_CONCURRENCY": "t.me=1"})
 
@@ -789,7 +789,7 @@ def test_a_refused_parent_death_signal_is_no_guarantee(
             ctypes.set_errno(1)  # EPERM, as a seccomp filter answers
             return -1
 
-    monkeypatch.setattr(monitoring_cli.ctypes, "CDLL", Refusing)
+    monkeypatch.setattr(ctypes, "CDLL", Refusing)
 
     # The parent is alive, but nothing would stop this lane once it is not.
     assert not monitoring_cli.interrupt_when_parent_dies(os.getppid())

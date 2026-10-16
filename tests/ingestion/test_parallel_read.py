@@ -6,6 +6,7 @@ import asyncio
 from datetime import UTC, datetime
 
 from ingestion.service import ReadDocument, SourceIngestion
+from ingestion.sources.sqlalchemy_persistence import SqlAlchemyPersistenceResult
 from monitor_core.ingestion import IngestionPipeline
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 
@@ -35,12 +36,20 @@ class _Fetcher:
 
 class _Parser:
     def parse(self, raw: RawDocument) -> ParsedArticle:
-        return ParsedArticle(title=raw.external_id, text="text", published_at=None)
+        return ParsedArticle(
+            external_id=raw.external_id,
+            url=raw.url,
+            title=raw.external_id,
+            text="text",
+            published_at=None,
+        )
 
 
 class _Persistence:
-    def save(self, raw: RawDocument, parsed: ParsedArticle) -> object:
-        return object()
+    def save(
+        self, raw_document: RawDocument, article: ParsedArticle
+    ) -> SqlAlchemyPersistenceResult:
+        return SqlAlchemyPersistenceResult(document_id=1, article_id=1)
 
 
 def _documents(fetcher: _Fetcher) -> SourceIngestion:
@@ -63,7 +72,12 @@ def test_parallel_reads_are_bounded_and_isolate_a_failed_article() -> None:
     assert fetcher.peak == 2
     assert [reference.external_id for reference, _ in outcomes] == ["one", "bad", "two", "three"]
     assert isinstance(outcomes[1][1], RuntimeError)
-    assert all(isinstance(result, (ReadDocument, Exception)) for _, result in outcomes)
+    # Every other article is read, not failed: the broken one stays its own.
+    assert all(
+        isinstance(result, ReadDocument)
+        for reference, result in outcomes
+        if reference.external_id != "bad"
+    )
 
 
 async def _collect(

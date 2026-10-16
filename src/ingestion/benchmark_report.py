@@ -106,7 +106,7 @@ def _nice_step(raw: float) -> float:
     if raw <= 0:
         return 1.0
     magnitude = 10 ** math.floor(math.log10(raw))
-    return next(m * magnitude for m in (1, 2, 2.5, 5, 10) if m * magnitude >= raw)
+    return float(next(m * magnitude for m in (1, 2, 2.5, 5, 10) if m * magnitude >= raw))
 
 
 def render_svg(
