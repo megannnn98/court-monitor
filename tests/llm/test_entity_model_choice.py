@@ -133,6 +133,11 @@ def test_the_answer_must_come_from_the_model_asked() -> None:
     )
     assert served_by_asked("qwen/qwen3.8-flash", None)
     assert not served_by_asked("nvidia/nemotron-3.5-super-vl:free", "openai/gpt-oss-120b")
+    # A suffix other than a date is another model, though it starts alike.
+    for other in ("-thinking", "-other", "-experimental", "-2026"):
+        assert not served_by_asked(
+            "deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4.1-flash" + other
+        )
 
 
 # -- one call ---------------------------------------------------------------------------

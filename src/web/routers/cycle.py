@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from llm.chat import Purpose
-from llm.model_choice import chosen_model
 from orchestrator.operations import OperationNotFoundError, OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.response_models import (
@@ -22,7 +21,7 @@ from web.response_models import (
 )
 from web.ui import spend
 from web.ui.cycle import PROCESSING_LABELS, chain_question, step_statuses
-from web.ui.management import StepRefused, start_step
+from web.ui.management import StepRefused, shown_models, start_step
 from web.ui.pipeline import (
     STAGES,
     chain_note_text,
@@ -115,22 +114,8 @@ def start_cycle(
     409 when a run is live, when `after` is not the latest run any more (an old press),
     or when another worker started first."""
     state = current_state(registry)
-    shown: tuple[tuple[Purpose, str | None, str], ...] = (
-        ("extraction", body.entity_model, "Модель извлечения"),
-        ("decision", body.decision_model, "Модель решений"),
-    )
-    for kind, model, title in shown:
-        if model is None:
-            continue
-        chosen = chosen_model(db, kind=kind)
-        if chosen != model:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"{title} сменилась: теперь {chosen}. Проверьте её цену и запустите снова."
-                ),
-            )
     try:
+        shown_models(db, body.entity_model, body.decision_model)
         run = start_step(
             registry,
             state.current,

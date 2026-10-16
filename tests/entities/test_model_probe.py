@@ -216,3 +216,19 @@ def test_the_decision_test_fails_when_the_commentator_is_made_the_accused() -> N
 
     assert not result.ok
     assert result.error is not None and "не тому человеку" in result.error
+
+
+def test_valid_json_with_a_wrong_name_fails_the_test() -> None:
+    """The schema and every item answered are not enough: the names must be right."""
+    wrong = {
+        "names": [
+            {**GOOD["names"][0], "nominative": "Александра Моора"},
+            GOOD["names"][1],
+            {**GOOD["names"][2], "is_person": True, "nominative": "Свобода Политзаключённым"},
+        ]
+    }
+
+    result = _run(lambda _: _completion(wrong))
+
+    assert not result.ok and result.expected_matched == 1
+    assert result.error is not None and "«Александра Моора»" in result.error
