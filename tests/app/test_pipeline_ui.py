@@ -60,3 +60,23 @@ def test_a_free_model_is_warned_of_as_free_with_no_balance(
 
     assert "FREE" in text and "Шаг бесплатный" in text
     assert "Шаг платный" not in text and "Остаток" not in text
+
+
+def test_a_start_address_carries_only_the_models_its_steps_ask(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A change of the extraction model is no reason to refuse the figurants' step."""
+    from web.ui.pipeline import models_query
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    assert models_query(("load",)) == "" and models_query(("purge",)) == ""
+    assert models_query(("entities",)).startswith("em=") and "dm=" not in models_query(
+        ("entities",)
+    )
+    assert models_query(("figurants",)).startswith("dm=") and "em=" not in models_query(
+        ("figurants",)
+    )
+    assert "em=" in models_query(("political",)) and "dm=" in models_query(("political",))
+    # The chain from step 2: both, for the steps after it.
+    assert "em=" in models_query(("purge", "entities", "figurants", "political"))

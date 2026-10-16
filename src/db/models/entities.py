@@ -146,7 +146,8 @@ class EntityRoleAnswerRecord(Base):
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
-    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    # In the key: an answer is one model's, never another model's (16.10.2026).
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -201,7 +202,8 @@ class EntityPoliticsAnswerRecord(Base):
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
-    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    # In the key: an answer is one model's, never another model's (16.10.2026).
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
     verdict: Mapped[str] = mapped_column(String(16), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -305,7 +307,8 @@ class EntityNameNormalizationRecord(Base):
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
-    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    # In the key: an answer is one model's, never another model's (16.10.2026).
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
     nominative: Mapped[str] = mapped_column(Text, nullable=False)
     gender: Mapped[str] = mapped_column(String(8), nullable=False)
     is_person: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -392,7 +395,8 @@ class UnnamedAnswerRecord(Base):
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
-    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    # In the key: an answer is one model's, never another model's (16.10.2026).
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
     # The answer as JSON (`analysis.unnamed.figurants.UnnamedAnswer`).
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
@@ -469,7 +473,8 @@ class EntityNewsAnswerRecord(Base):
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
     input_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     prompt_version: Mapped[str] = mapped_column(String(32), primary_key=True)
-    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    # In the key: an answer is one model's, never another model's (16.10.2026).
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

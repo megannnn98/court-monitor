@@ -352,3 +352,32 @@ def test_failed_run_records_its_failure_kind(session_factory: sessionmaker[Sessi
         "error_type": "TransientFetchError",
     }
     assert runs[permanent].stage_metrics["run"]["failure_kind"] == "non_retryable"
+
+
+def test_layout_suspect_reads_the_last_thirty_days_only(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A source last run 40 days ago tells nothing now; one run 29 days ago still does."""
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    now = datetime.now(UTC)
+    for source, days in (("old-site", 40), ("recent-site", 29)):
+        run_id = _start(repository, source)
+        repository.add_counters(run_id, {"documents_discovered": 3, "documents_failed": 3})
+        for _ in range(3):
+            repository.record_failure(
+                run_id,
+                stage=MonitoringStage.INGESTION,
+                entity_type="source_document",
+                error=ParseError("Article text not found"),
+            )
+        repository.finish_run(run_id)
+        with session_factory.begin() as session:
+            session.execute(
+                text("UPDATE monitoring_runs SET started_at = :started WHERE id = :id"),
+                {"id": run_id, "started": now - timedelta(days=days)},
+            )
+
+    with session_factory() as session:
+        suspects = layout_suspects(session, now=now)
+
+    assert [(item.source, item.signal) for item in suspects] == [("recent-site", "parse")]

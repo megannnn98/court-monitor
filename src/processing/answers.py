@@ -8,6 +8,8 @@ What steps 4 and 5 share, so that a rebuild costs nothing it need not:
 - A positive answer sticks: an entity once «accused» (step 4) or «political» (step 5)
   is not asked again when its quotes change (a new publication); only a person undoes
   it. The others are asked again then: a new publication may bring a case.
+- Answers are a model's own (the model is in the key): another model asks again, and
+  a positive answer sticks within the model that gave it.
 - A new prompt version need not ask everything again: `accepted` takes the answers of
   earlier versions the change does not touch.
 - The rest is asked in batches within the run's budget (`llm.chat`); what the
@@ -83,17 +85,25 @@ def cached[Answer](
     cache: AnswerCache[Answer],
     keys: Mapping[int, str],
     hashes: Mapping[int, str],
+    model: str | None = None,
 ) -> dict[int, Answer]:
     """The answers the cache holds for these entities: by the question, else a positive
-    answer the entity (by key, resolved to today's) was once given."""
+    answer the entity (by key, resolved to today's) was once given — of `model` only, when
+    one asks: another model's answer, positive or not, is not this model's (16.10.2026: a
+    free model's «accused» kept answering after the operator chose another). With no model
+    to ask, whatever model answered."""
     by_hash: dict[str, Any] = {}
     positive: dict[str, Any] = {}
-    records = session.scalars(
-        select(cache.record).where(
-            cache.record.input_hash.in_(set(hashes.values()))
-            | cache.record.key.in_(set(keys.values()))
-        )
+    query = select(cache.record).where(
+        cache.record.input_hash.in_(set(hashes.values())) | cache.record.key.in_(set(keys.values()))
     )
+    if model is not None:
+        query = query.where(cache.record.model == model)
+    else:
+        # No model to ask: any model's answer will do, but the same one every time —
+        # two models' answers live side by side; oldest first, so the newest wins below.
+        query = query.order_by(cache.record.created_at.asc(), cache.record.model.asc())
+    records = session.scalars(query)
     for record in records:
         value = getattr(record, cache.field)
         current = record.prompt_version == cache.prompt_version
@@ -136,7 +146,9 @@ def ask_missing[Item, Answer](
     """Cached answers, then the rest asked in batches, each batch cached as it comes. A
     failed batch stays unanswered: the next run asks it again."""
     with session_factory() as session:
-        answers = cached(session, cache, keys, hashes)
+        answers = cached(
+            session, cache, keys, hashes, classifier.model if classifier is not None else None
+        )
     hits = len(answers)
     missing = [group_id for group_id in items if group_id not in answers]
     spend: Spend | None = getattr(classifier, "spend", None)

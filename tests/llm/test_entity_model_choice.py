@@ -38,14 +38,19 @@ def _catalog() -> Catalog:
     return CatalogCache(request=lambda: CATALOG_PAYLOAD).get()
 
 
-def test_the_console_offers_ten_models_with_deepseek_mimo_qwen_and_space_bunny() -> None:
+def test_the_console_offers_deepseek_mimo_qwen_space_bunny_and_a_free_model() -> None:
     ids = [option.id for option in ENTITY_MODELS]
 
-    assert len(ids) == len(set(ids)) == 10
+    assert len(ids) == len(set(ids))
     assert ids[0] == "deepseek/deepseek-v4.1-flash" == model_choice.DEFAULT_MODEL
     for family in ("deepseek/", "xiaomi/mimo", "qwen/", "stealth/space-bunny"):
         assert any(model.startswith(family) for model in ids), family
     assert any(is_free_model(model) for model in ids)
+
+
+def test_no_model_known_broken_for_the_steps_is_offered() -> None:
+    assert not model_choice.MODEL_IDS & set(model_choice.EXCLUDED_MODELS)
+    assert "openai/gpt-oss-120b" in model_choice.EXCLUDED_MODELS
 
 
 def test_prices_are_read_per_million_tokens_from_the_catalog() -> None:
@@ -133,6 +138,11 @@ def test_the_answer_must_come_from_the_model_asked() -> None:
     )
     assert served_by_asked("qwen/qwen3.8-flash", None)
     assert not served_by_asked("nvidia/nemotron-3.5-super-vl:free", "openai/gpt-oss-120b")
+    # A suffix other than a date is another model, though it starts alike.
+    for other in ("-thinking", "-other", "-experimental", "-2026"):
+        assert not served_by_asked(
+            "deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4.1-flash" + other
+        )
 
 
 # -- one call ---------------------------------------------------------------------------
@@ -254,3 +264,11 @@ def test_the_ledger_counts_tokens_and_cost_per_model_only_while_on() -> None:
     # The call without a reported cost is counted apart, for an estimate.
     assert (tally.uncosted_calls, tally.uncosted_prompt_tokens) == (1, 120)
     assert spend.calls == 3 and spend.uncosted_calls == 1
+
+
+def test_the_dated_and_free_shapes_openrouter_answers_are_the_model_asked() -> None:
+    assert served_by_asked("x/y", "x/y:free")
+    assert served_by_asked("x/y:free", "x/y-20260101:free")
+    assert served_by_asked("x/y", "x/y-20260101")
+    # A snapshot of the snapshot is no answer of the model asked: one date only.
+    assert not served_by_asked("x/y", "x/y-20260101-20260102")

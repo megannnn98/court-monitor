@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import html
 import json
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -17,6 +19,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.openrouter_catalog import CATALOG_PAYLOAD
+from support.pipeline_runs import finish_steps
 
 from cli import cycle as cli_cycle
 from db.locks import try_advisory_lock
@@ -102,7 +105,8 @@ def test_an_old_installation_keeps_deepseek_and_sees_ten_models_with_prices(
 
     assert settings["current"] == DEEPSEEK == settings["default"]
     assert settings["source"] == "environment"
-    assert len(settings["models"]) == 10
+    assert len(settings["models"]) == len(model_choice.ENTITY_MODELS)
+    assert "openai/gpt-oss-120b" not in {model["id"] for model in settings["models"]}
     by_id = {model["id"]: model for model in settings["models"]}
     assert by_id[DEEPSEEK]["prompt_usd_per_million"] == 0.09
     assert by_id[DEEPSEEK]["completion_usd_per_million"] == 0.18
@@ -444,3 +448,61 @@ def test_a_run_and_its_warning_carry_both_models(
     assert QWEN in figurants and FREE not in figurants
     names = step_confirmation("entities")
     assert FREE in names and QWEN not in names
+
+
+def test_a_legacy_step_button_starts_only_with_the_models_it_showed(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The journal's buttons carry the models their warning named; a choice saved in
+    another tab since makes the press a 409, not a run of an unseen model."""
+    _choose(session_factory, QWEN)
+    _pages_read(monkeypatch, session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge")
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/runs").text
+        action = html.unescape(re.search(r'id="step-entities"[^>]*formaction="([^"]+)"', page)[1])  # type: ignore[index]
+        _choose(session_factory, FREE)
+        entity_model.forget()
+        stale = client.post(action, follow_redirects=False)
+        before = len(registry.runs_of("monitor"))
+        fresh_page = client.get("/ui/runs").text
+        fresh = html.unescape(
+            re.search(r'id="step-entities"[^>]*formaction="([^"]+)"', fresh_page)[1]  # type: ignore[index]
+        )
+        started = client.post(fresh, follow_redirects=False)
+
+    assert f"em={QWEN}" in action.replace("%2F", "/").replace("%3A", ":")
+    assert stale.status_code == 409 and FREE in stale.text
+    assert before == 2, "the stale press started nothing"
+    assert started.status_code == 303
+    run = registry.runs_of("monitor")[0]
+    assert run.parameters.entity_model == FREE and run.parameters.mode == "entities"
+
+
+def test_collect_entities_starts_only_with_the_model_its_warning_showed(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale press is sent back to the page, which says why; nothing starts."""
+    _choose(session_factory, QWEN)
+    _pages_read(monkeypatch, session_factory)
+    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    finish_steps(session_factory, registry, "load", "purge")
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/entities").text
+        found = re.search(r'action="(/ui/entities/collect[^"]*)"', page)
+        assert found is not None
+        action = html.unescape(found[1])
+        _choose(session_factory, FREE)
+        entity_model.forget()
+        before = len(registry.runs_of("monitor"))
+        stale = client.post(action, follow_redirects=False)
+        told = client.get(stale.headers["location"]).text
+
+    # The step asks the extraction model alone: its address names no decision model.
+    assert "em=" in action and "dm=" not in action
+    assert stale.status_code == 303 and "refused=" in stale.headers["location"]
+    assert f"теперь {FREE}" in told
+    assert len(registry.runs_of("monitor")) == before, "the stale press started nothing"

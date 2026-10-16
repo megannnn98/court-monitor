@@ -28,6 +28,14 @@ class MonitoringRunRecord(Base):
     __tablename__ = "monitoring_runs"
     __table_args__ = (
         Index("ix_monitoring_runs_started_at", "started_at"),
+        # A source's latest runs first (`orchestrator.source_health`).
+        Index(
+            "ix_monitoring_runs_source_started_at",
+            "source",
+            text("started_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("source IS NOT NULL"),
+        ),
         Index("ix_monitoring_runs_status", "status"),
         # At most one live run per scope ("source:<name>" or "derived"), across processes.
         Index(

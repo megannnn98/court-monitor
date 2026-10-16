@@ -41,7 +41,14 @@ from processing.roles.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, U
 from web.candidate_rows import surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager
-from web.ui.pipeline import PipelineState, current_state, out_of_turn, step_confirmation
+from web.ui.management import StepRefused, shown_models
+from web.ui.pipeline import (
+    PipelineState,
+    current_state,
+    models_query,
+    out_of_turn,
+    step_confirmation,
+)
 from web.ui.run_cards import RUN_STATUS_BADGES, RUN_STATUS_LABELS, badge, local_time
 from web.ui.run_tail import tail_html
 
@@ -294,11 +301,13 @@ def _collect_bar(state: PipelineState, last_run: OperationRun | None) -> str:
     refusal = out_of_turn(state, "entities")
     if refusal is None:
         warning = step_confirmation("entities")
+        models = models_query(("entities",))
+        query = f"?{models}" if models else ""
         confirm = (
             f" onsubmit=\"return confirm('{escape(warning, quote=True)}')\"" if warning else ""
         )
         return (
-            f'<form method="post" action="/ui/entities/collect" class="run-bar"{confirm}>'
+            f'<form method="post" action="/ui/entities/collect{query}" class="run-bar"{confirm}>'
             '<button id="collect-button" type="submit">3. Собрать сущности</button>'
             f'<span class="muted">{last}</span></form>'
         )
@@ -507,6 +516,8 @@ def ui_entities(
     region: str = Query(default="", max_length=200),
     sort: str = Query(default="mentions", pattern="^(mentions|articles|recent|name)$"),
     page: int = Query(default=1, ge=1),
+    # Why «Собрать сущности» did not start (`collect_entities`): said on the page.
+    refused: str = Query(default="", max_length=300),
     db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse:
@@ -589,7 +600,8 @@ def ui_entities(
         if rows
         else '<p class="empty">Никого не найдено: ослабьте фильтры.</p>'
     )
-    body = f"""{_collect_bar(current_state(registry), _last_collect(registry))}
+    refusal = f'<p class="warning collect-refused">{escape(refused)}</p>' if refused else ""
+    body = f"""{refusal}{_collect_bar(current_state(registry), _last_collect(registry))}
 <form method="get" class="toolbar filters" role="search">
   <input type="hidden" name="sort" value="{sort}">
   <label class="field">Имя <input type="search" name="q" value="{
@@ -657,10 +669,25 @@ def _verdict_mark(verdict: str | None) -> str:
 
 @router.post("/ui/entities/collect", response_model=None)
 def collect_entities(
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> RedirectResponse:
+    # The models the button's warning showed; 409 when the choice changed since.
+    try:
+        entity_model, decision_model = shown_models(
+            db, request.query_params.get("em"), request.query_params.get("dm")
+        )
+    except StepRefused as refused:
+        # Back to the page, which says why: the other starts answer with a page too.
+        return RedirectResponse(f"/ui/entities?refused={quote(refused.message)}", status_code=303)
     # Out of turn or raced by another start: the page shows why nothing started.
     if out_of_turn(current_state(registry), "entities") is None:
         with suppress(OperationConflictError):
-            registry.start("monitor", OperationParameters(mode="entities"))
+            registry.start(
+                "monitor",
+                OperationParameters(
+                    mode="entities", entity_model=entity_model, decision_model=decision_model
+                ),
+            )
     return RedirectResponse("/ui/entities", status_code=303)

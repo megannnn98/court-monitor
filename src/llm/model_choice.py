@@ -73,9 +73,14 @@ ENTITY_MODELS: tuple[ModelOption, ...] = (
     ModelOption("stealth/space-bunny-alpha", "Space Bunny Alpha"),
     ModelOption("nvidia/nemotron-3.5-super-vl:free", "NVIDIA Nemotron 3.5 Super VL (free)"),
     ModelOption("nvidia/nemotron-3.5-super-vl", "NVIDIA Nemotron 3.5 Super VL"),
-    ModelOption("openai/gpt-oss-120b", "OpenAI gpt-oss-120b"),
 )
 MODEL_IDS = frozenset(option.id for option in ENTITY_MODELS)
+# Models taken off the list, and why: one line each, so none comes back blind.
+EXCLUDED_MODELS: dict[str, str] = {
+    # 16.10.2026: OpenRouter answers HTTP 400 «Reasoning is mandatory for this endpoint
+    # and cannot be disabled»; `llm.chat.chat_json` disables reasoning for every step.
+    "openai/gpt-oss-120b": "требует reasoning, а шаги его отключают",
+}
 
 
 @dataclass(frozen=True)

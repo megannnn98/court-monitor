@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -153,14 +154,22 @@ def is_free_model(model: str) -> bool:
     return model.endswith(":free")
 
 
+# A dated snapshot of a model: `-YYYYMMDD`.
+_DATED = re.compile(r"-\d{8}")
+
+
 def served_by_asked(asked: str, served: object) -> bool:
-    """Whether the answer came from the model asked. OpenRouter answers the dated slug
-    (`deepseek/deepseek-v4.1-flash-20260910` for `deepseek/deepseek-v4.1-flash`) and may
-    keep or drop the `:free` suffix; no model named in the answer is no evidence."""
+    """Whether the answer came from the model asked: the same id, or its dated snapshot
+    (`deepseek/deepseek-v4.1-flash-20260910` for `deepseek/deepseek-v4.1-flash`); the
+    `:free` suffix may be kept or dropped. Another suffix (`-thinking`, `-exp`) is another
+    model. No model named in the answer is no evidence."""
     if not isinstance(served, str) or not served:
         return True
     base = asked.removesuffix(":free")
-    return served.removesuffix(":free").startswith(base)
+    name = served.removesuffix(":free")
+    if name == base:
+        return True
+    return name.startswith(base) and _DATED.fullmatch(name.removeprefix(base)) is not None
 
 
 class Spend:

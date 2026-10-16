@@ -37,7 +37,14 @@ from llm.chat import (
 )
 from llm.model_choice import CATALOG, Catalog, mark_tested, model_info
 from processing.identity.normalizer import NameItem, NameNormalizerError, OpenRouterNameNormalizer
-from processing.roles.roles import OpenRouterRoleClassifier, RoleClassifierError, RoleItem
+from processing.roles.roles import (
+    FIGURANT,
+    OpenRouterRoleClassifier,
+    RoleAnswer,
+    RoleClassifierError,
+    RoleItem,
+    role_of,
+)
 
 logger = logging.getLogger("entities")
 
@@ -165,11 +172,19 @@ def probe(
                 and (not person or name.nominative.strip() == nominative),
             )
         )
-    if error is None and len(answers) != len(ITEMS):
-        error = (
-            f"Модель ответила на {len(answers)} из {len(ITEMS)} записей: шаг сочтёт "
-            "остальные неотвеченными."
-        )
+    if error is None:
+        problems = []
+        if len(answers) != len(ITEMS):
+            problems.append(
+                f"ответила на {len(answers)} из {len(ITEMS)} записей (шаг сочтёт остальные "
+                "неотвеченными)"
+            )
+        # Valid JSON is not enough: each name as expected, the slogan not a person.
+        wrong = ", ".join(f"«{entity.source}»" for entity in entities if not entity.as_expected)
+        if wrong:
+            problems.append(f"ответила неверно: {wrong}")
+        if problems:
+            error = f"Модель {'; '.join(problems)}. Для шага имён она не годится."
     reported = spend.calls > 0 and spend.uncosted_calls == 0
     return ProbeResult(
         ok=error is None,
@@ -198,13 +213,45 @@ DECISION_TEXT = (
     "Комментируя новость, основатель провластного телеграм-канала Андрей Колесов призвал "
     "создать обменный фонд из иностранцев."
 )
+# Built on the quote of 16.10.2026, names and plot invented: the man detained abroad and
+# another man's Russian case stand in one quote, the detention told by the same verb. A
+# free model answered «accused — дела по УК РФ» for the man detained abroad.
+DECISION_ABROAD = (
+    "ФСБ задержала в Брянской области гражданина Норвегии Ларса Хольма: ему предъявили "
+    "обвинение в шпионаже."
+)
+# The window the step itself sends (`processing.roles.roles.QUOTE_CONTEXT`): cut mid-
+# sentence, the speaker a pronoun, the FSB's video credited after the name.
+DECISION_ABROAD_QUOTE = (
+    "обменный фонд гражданами Норвегии и Швеции, «чтобы выручать своих». Так он отреагировал "
+    "на задержание в Сербии автора военного блога «Пеликан» Павла Рудина. Видео: "
+    "пресс-служба ФСБ"
+)
+# A model answering the same question twice may answer it differently (16.10.2026: the
+# free model gave foreign, detained, foreign on the very same quote): one pass is no proof.
+DECISION_ROUNDS = 3
 DECISION_ITEMS: tuple[RoleItem, ...] = (
     RoleItem(1, "Эрик Ларссон", (DECISION_TEXT,)),
     RoleItem(2, "Андрей Колесов", (DECISION_TEXT,)),
+    RoleItem(3, "Павел Рудин", (DECISION_ABROAD_QUOTE,)),
+    RoleItem(4, "Ларс Хольм", (DECISION_ABROAD,)),
 )
-# Whether each item is a figurant of the case (accused or detained in it).
-DECISION_EXPECTED: dict[int, bool] = {1: True, 2: False}
-_FIGURANT = frozenset({"accused", "detained"})
+# Whether each item must end a figurant (`processing.roles.roles.role_of`). The test cuts
+# off the dangerous class — what the step makes of an answer — not the taxonomy: only
+# «accused» makes a figurant, and only figurants go on to the politics step. «detained»
+# makes a «possible» (a person's review), «support» or «other» a «mentioned»: wrong
+# perhaps, but no political prisoner. (16.10.2026: DeepSeek, the model in use, answered
+# support and detained for the commentator and the man detained abroad in one round of
+# three — and the same model told them apart in the other two.)
+DECISION_EXPECTED: dict[int, bool] = {1: True, 2: False, 3: False, 4: True}
+
+
+def _as_expected(item_id: int, kind: str) -> bool:
+    return (role_of(kind) == FIGURANT) == DECISION_EXPECTED[item_id]
+
+
+def _expected_words(item_id: int) -> str:
+    return "обвиняемый (accused)" if DECISION_EXPECTED[item_id] else "не обвиняемый"
 
 
 def probe_decision(
@@ -215,8 +262,9 @@ def probe_decision(
     catalog: Catalog | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> ProbeResult:
-    """One call of `model` through the figurants' classifier; a pass needs the schema,
-    both items answered and each told right: the accused accused, the commentator not."""
+    """`DECISION_ROUNDS` calls of `model` through the figurants' classifier; a pass needs,
+    in every one, the schema, every item answered and each answer of its expected class.
+    The first round that fails ends the test and is the one shown."""
     spend = Spend()
     classifier = OpenRouterRoleClassifier(
         api_key,
@@ -228,11 +276,31 @@ def probe_decision(
     )
     started = clock()
     error: str | None = None
-    answers = {}
-    try:
-        answers = classifier.classify(DECISION_ITEMS)
-    except RoleClassifierError as exc:
-        error = _reason(exc)
+    answers: dict[int, RoleAnswer] = {}
+    for round_number in range(1, DECISION_ROUNDS + 1):
+        try:
+            answers = classifier.classify(DECISION_ITEMS)
+        except RoleClassifierError as exc:
+            error = _reason(exc)
+            break
+        problems = []
+        if len(answers) != len(DECISION_ITEMS):
+            problems.append(f"ответила на {len(answers)} из {len(DECISION_ITEMS)} записей")
+        wrong = [
+            f"«{item.name}»: ждали {_expected_words(item.id)}, модель ответила {answer.kind}"
+            for item in DECISION_ITEMS
+            if (answer := answers.get(item.id)) is not None
+            and not _as_expected(item.id, answer.kind)
+        ]
+        if wrong:
+            problems.append("; ".join(wrong))
+        if problems:
+            error = (
+                f"В прогоне {round_number} из {DECISION_ROUNDS} модель {'; '.join(problems)}. "
+                "Она приписывает дело не тому человеку или теряет обвиняемого: для шага "
+                "фигурантов и политики не годится."
+            )
+            break
     seconds = round(clock() - started, 2)
     entities = [
         FoundEntity(
@@ -240,20 +308,13 @@ def probe_decision(
             nominative="",
             gender="",
             is_person=True,
-            as_expected=(answer.kind in _FIGURANT) == DECISION_EXPECTED[item.id],
+            as_expected=_as_expected(item.id, answer.kind),
             role=answer.kind,
             note=answer.explanation,
         )
         for item in DECISION_ITEMS
         if (answer := answers.get(item.id)) is not None
     ]
-    if error is None and len(answers) != len(DECISION_ITEMS):
-        error = f"Модель ответила на {len(answers)} из {len(DECISION_ITEMS)} записей."
-    if error is None and not all(entity.as_expected for entity in entities):
-        error = (
-            "Модель приписала дело не тому человеку (или не узнала обвиняемого): для шага "
-            "фигурантов и политики она не годится."
-        )
     reported = spend.calls > 0 and spend.uncosted_calls == 0
     return ProbeResult(
         ok=error is None,
