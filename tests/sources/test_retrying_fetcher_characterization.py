@@ -91,6 +91,17 @@ def test_retry_after_is_respected_when_it_exceeds_exponential_backoff(slept: lis
     assert (inner.calls, slept) == (2, [3])
 
 
+def test_a_retry_after_longer_than_the_backoff_ceiling_waits_only_the_ceiling(
+    slept: list[float],
+) -> None:
+    # A site asking for an hour would stall the run past its stale timeout.
+    inner = Scripted([TransientFetchError("429", retry_after_seconds=3600), DOCUMENT])
+    fetcher = RetryingDocumentFetcher(inner, base_delay_seconds=0.5, max_delay_seconds=1.0)
+
+    assert asyncio.run(fetcher.fetch(REFERENCE)) is DOCUMENT
+    assert slept == [1.0]
+
+
 @pytest.mark.parametrize(
     ("max_attempts", "base", "sleeps"),
     [

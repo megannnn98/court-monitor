@@ -63,7 +63,10 @@ class RetryingDocumentFetcher:
                     backoff = self._uniform(
                         backoff * (1 - self._jitter_ratio), backoff * (1 + self._jitter_ratio)
                     )
-                await asyncio.sleep(max(backoff, exc.retry_after_seconds or 0.0))
+                # A site's Retry-After is honoured up to the same ceiling: an hour-long
+                # wait would stall the run past its stale timeout.
+                retry_after = min(exc.retry_after_seconds or 0.0, self._max_delay_seconds)
+                await asyncio.sleep(max(backoff, retry_after))
 
     def bind_http_client(self, client: httpx.AsyncClient) -> None:
         """Forward the pooled source client to a client-aware wrapped fetcher."""

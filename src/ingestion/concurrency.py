@@ -429,9 +429,11 @@ class RequestGates:
         return max(0.0, self._cooldowns.get(host, 0.0) - time.monotonic())
 
     def note_cooldown(self, host: str, seconds: float) -> None:
-        """Remember that this domain asked to be left alone for `seconds`."""
+        """Remember that this domain asked to be left alone for `seconds`, at most
+        the backoff ceiling: a longer pause would stall every run on the domain."""
         if seconds <= 0:
             return
+        seconds = min(seconds, self._limits.max_delay_seconds)
         until = time.monotonic() + seconds
         self._cooldowns[host] = max(self._cooldowns.get(host, 0.0), until)
 

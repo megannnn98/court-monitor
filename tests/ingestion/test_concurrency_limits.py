@@ -4,7 +4,7 @@ import asyncio
 
 import httpx
 
-from ingestion.concurrency import FetchLimits, build_http_client
+from ingestion.concurrency import FetchLimits, RequestGates, build_http_client
 
 
 def test_global_and_per_domain_limits_gate_real_client_requests() -> None:
@@ -47,3 +47,11 @@ def test_global_and_per_domain_limits_gate_real_client_requests() -> None:
 
     assert peak == 2
     assert host_peaks == {"a.test": 1, "b.test": 1}
+
+
+def test_a_domain_cooldown_never_outlasts_the_backoff_ceiling() -> None:
+    gates = RequestGates(FetchLimits(max_delay_seconds=2.0))
+
+    gates.note_cooldown("sudrf.test", 3600)
+
+    assert 0 < gates.cooldown_seconds("sudrf.test") <= 2.0
