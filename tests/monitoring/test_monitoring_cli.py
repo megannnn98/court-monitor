@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -25,9 +27,15 @@ from application import ApplicationServices
 from cli.cycle import add_cycle_arguments, run_cycle_command
 from cli.monitoring import (
     MONITOR_EXIT_ALREADY_RUNNING,
+    MONITOR_EXIT_FAILED,
+    Lane,
     add_monitoring_arguments,
+    lane_arguments,
+    merge_lane_exit_codes,
     run_monitoring_command,
+    source_lanes,
 )
+from ingestion.concurrency import FetchLimits
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.repository import SqlAlchemyMonitoringRepository
 from orchestrator.runs import MonitoringRuns
@@ -46,6 +54,7 @@ def _run(
     upstreams: dict[str, FakeUpstream],
     capsys: pytest.CaptureFixture[str],
     *argv: str,
+    lanes: list[list[str]] | None = None,
 ) -> object:
     service = build_service(session_factory, upstreams)
 
@@ -60,7 +69,33 @@ def _run(
             ),
         )
 
-    assert run_monitoring_command(_parse(*argv), session_factory, build_services=build)
+    started_lanes = lanes if lanes is not None else []
+
+    class InProcessLane:
+        """A lane run in this process, in place of a child `python src/main.py`."""
+
+        def __init__(self, lane_argv: list[str], env: Mapping[str, str]) -> None:
+            started_lanes.append(lane_argv)
+            output = io.StringIO()
+            self._exit_code = 0
+            with contextlib.redirect_stdout(output):
+                try:
+                    run_monitoring_command(
+                        _parse(*lane_argv), session_factory, build_services=build
+                    )
+                except SystemExit as exc:
+                    self._exit_code = int(exc.code or 0)
+            self._results = json.loads(output.getvalue())
+
+        def wait(self) -> tuple[int, list[Any]]:
+            return self._exit_code, self._results
+
+        def interrupt(self) -> None:
+            pass
+
+    assert run_monitoring_command(
+        _parse(*argv), session_factory, build_services=build, start_lane=InProcessLane
+    )
     return json.loads(capsys.readouterr().out)
 
 
@@ -347,12 +382,23 @@ def test_a_load_only_catch_up_leaves_resolution_to_monitor_resolve(
     upstreams = {"ovd-info": ovd, "sota-vision": sota}
     selection = ("--selected-source", "ovd-info", "--selected-source", "sota-vision")
 
+    lanes: list[list[str]] = []
     loaded = _run(
-        session_factory, upstreams, capsys, "monitor", "--catch-up", "--load-only", *selection
+        session_factory,
+        upstreams,
+        capsys,
+        "monitor",
+        "--catch-up",
+        "--load-only",
+        *selection,
+        lanes=lanes,
     )
     resolved = _run(session_factory, upstreams, capsys, "monitor-resolve", *selection)
 
-    # The load: two source runs, no resolution, no derived run.
+    # The load: one lane per site, each loading only its own source; two source runs,
+    # no resolution, no derived run.
+    assert [lane[-1] for lane in lanes] == ["ovd-info", "sota-vision"]
+    assert all("--lane" in lane for lane in lanes)
     assert isinstance(loaded, list)
     assert [(run["source"], run["status"], run["documents_ingested"]) for run in loaded] == [
         ("ovd-info", "completed", 1),
@@ -492,3 +538,107 @@ def test_purge_junk_reports_what_it_removed(
 
     assert isinstance(report, dict)
     assert report["articles"] == 1
+
+
+def test_every_site_gets_a_lane_and_a_host_of_many_sources_one_per_allowed_request() -> None:
+    limits = FetchLimits(per_domain_concurrency=2)
+
+    lanes = source_lanes(
+        ["tg-mash", "ovd-info", "tg-rusnews", "kommersant", "tg-astrapress", "sota-vision"],
+        limits,
+    )
+
+    # t.me allows 2 requests at once: two lanes of one request each, channels dealt
+    # in turn, so t.me never sees more than it did from a single lane.
+    assert lanes == [
+        Lane(host="t.me", sources=["tg-mash", "tg-astrapress"], shared=True),
+        Lane(host="t.me", sources=["tg-rusnews"], shared=True),
+        Lane(host="ovd.info", sources=["ovd-info"], shared=False),
+        Lane(host="www.kommersant.ru", sources=["kommersant"], shared=False),
+        Lane(host="sota.vision", sources=["sota-vision"], shared=False),
+    ]
+
+
+def test_a_domain_limit_of_its_own_sets_how_many_lanes_its_host_gets() -> None:
+    limits = FetchLimits(per_domain_concurrency=2, domain_concurrency={"t.me": 3})
+
+    lanes = source_lanes(["tg-mash", "tg-rusnews", "tg-astrapress", "tg-bazabazon"], limits)
+
+    assert [lane.sources for lane in lanes] == [
+        ["tg-mash", "tg-bazabazon"],
+        ["tg-rusnews"],
+        ["tg-astrapress"],
+    ]
+
+
+def test_a_shared_lane_sends_one_request_at_a_time_to_its_host() -> None:
+    shared = Lane(host="t.me", sources=["tg-mash"], shared=True)
+    alone = Lane(host="ovd.info", sources=["ovd-info"], shared=False)
+    env = {"INGESTION_DOMAIN_CONCURRENCY": "memopzk.org=1"}
+
+    assert shared.env(env) == {"INGESTION_DOMAIN_CONCURRENCY": "memopzk.org=1,t.me=1"}
+    assert shared.env({}) == {"INGESTION_DOMAIN_CONCURRENCY": "t.me=1"}
+    assert alone.env(env) == {}
+    limits = FetchLimits.from_env(env | shared.env(env))
+    assert (limits.concurrency_for("t.me"), limits.concurrency_for("memopzk.org")) == (1, 1)
+
+
+def test_a_lane_child_loads_only_its_sources_with_the_same_terms() -> None:
+    args = _parse(
+        "monitor",
+        "--catch-up",
+        "--load-only",
+        "--limit",
+        "20",
+        "--published-from",
+        "2026-10-01",
+        "--published-to",
+        "2026-10-16",
+    )
+
+    assert lane_arguments(args, ["tg-mash", "tg-rusnews"]) == [
+        "monitor",
+        "--catch-up",
+        "--load-only",
+        "--lane",
+        "--selected-source",
+        "tg-mash",
+        "--selected-source",
+        "tg-rusnews",
+        "--limit",
+        "20",
+        "--published-from",
+        "2026-10-01",
+        "--published-to",
+        "2026-10-16",
+    ]
+
+
+def test_a_failed_lane_outweighs_an_already_running_one() -> None:
+    assert merge_lane_exit_codes([0, 0]) == 0
+    assert merge_lane_exit_codes([0, MONITOR_EXIT_ALREADY_RUNNING]) == MONITOR_EXIT_ALREADY_RUNNING
+    assert (
+        merge_lane_exit_codes([MONITOR_EXIT_ALREADY_RUNNING, MONITOR_EXIT_FAILED, 0])
+        == MONITOR_EXIT_FAILED
+    )
+    assert merge_lane_exit_codes([0, 2]) == 2
+
+
+def test_a_lane_child_gets_its_environment_and_a_session_of_its_own(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import cli.monitoring as monitoring_cli
+
+    started: dict[str, Any] = {}
+
+    class FakePopen:
+        def __init__(self, command: list[str], **kwargs: Any) -> None:
+            started.update(kwargs, command=command)
+
+    monkeypatch.setattr(monitoring_cli.subprocess, "Popen", FakePopen)
+
+    monitoring_cli._LaneProcess(["monitor", "--lane"], {"INGESTION_DOMAIN_CONCURRENCY": "t.me=1"})
+
+    assert started["command"][-2:] == ["monitor", "--lane"]
+    assert started["env"]["INGESTION_DOMAIN_CONCURRENCY"] == "t.me=1"
+    assert started["start_new_session"] is True
