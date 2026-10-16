@@ -167,7 +167,9 @@ def merge_lane_exit_codes(codes: Sequence[int]) -> int:
     return next((code for code in codes if code), 0)
 
 
-def _load_in_lanes(args: argparse.Namespace, lanes: list[Lane], start_lane: LaneStarter) -> None:
+def _load_in_lanes(
+    args: argparse.Namespace, sources: Sequence[str], lanes: list[Lane], start_lane: LaneStarter
+) -> None:
     logger.info(
         "event=monitoring_parallel_load lanes=%d sources=%d hosts=%s",
         len(lanes),
@@ -183,7 +185,14 @@ def _load_in_lanes(args: argparse.Namespace, lanes: list[Lane], start_lane: Lane
         for handle in handles:
             handle.interrupt()
         raise
-    results = [result for _, lane_results in finished for result in lane_results]
+    # As a sequential load would print them: in the order the sources were given.
+    position = {source: index for index, source in enumerate(sources)}
+
+    def order(result: Any) -> int:
+        source = result.get("source") if isinstance(result, dict) else None
+        return position.get(source, len(position)) if isinstance(source, str) else len(position)
+
+    results = sorted((result for _, lane_results in finished for result in lane_results), key=order)
     _print(results)
     exit_code = merge_lane_exit_codes([code for code, _ in finished])
     if exit_code:
@@ -388,7 +397,7 @@ def run_monitoring_command(
     if args.catch_up and args.load_only and not args.lane:
         lanes = source_lanes(sources, FetchLimits.from_env())
         if len(lanes) > 1:
-            _load_in_lanes(args, lanes, start_lane)
+            _load_in_lanes(args, sources, lanes, start_lane)
             return True
 
     trigger = MonitoringTrigger.BACKFILL if args.backfill else MonitoringTrigger.MANUAL

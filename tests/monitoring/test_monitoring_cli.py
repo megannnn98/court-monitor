@@ -642,3 +642,28 @@ def test_a_lane_child_gets_its_environment_and_a_session_of_its_own(
     assert started["command"][-2:] == ["monitor", "--lane"]
     assert started["env"]["INGESTION_DOMAIN_CONCURRENCY"] == "t.me=1"
     assert started["start_new_session"] is True
+
+
+def test_a_parallel_load_reports_its_sources_in_the_order_they_were_given(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import cli.monitoring as monitoring_cli
+
+    sources = ["tg-mash", "ovd-info", "tg-rusnews", "tg-astrapress"]
+
+    class Done:
+        def __init__(self, argv: list[str], env: Mapping[str, str]) -> None:
+            selected = [argv[i + 1] for i, arg in enumerate(argv) if arg == "--selected-source"]
+            self._results = [{"source": source} for source in selected]
+
+        def wait(self) -> tuple[int, list[Any]]:
+            return 0, self._results
+
+        def interrupt(self) -> None:
+            pass
+
+    args = _parse("monitor", "--catch-up", "--load-only")
+    lanes = source_lanes(sources, FetchLimits(per_domain_concurrency=2))
+    monitoring_cli._load_in_lanes(args, sources, lanes, Done)
+
+    assert [run["source"] for run in json.loads(capsys.readouterr().out)] == sources
