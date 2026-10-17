@@ -33,12 +33,11 @@ from persons.resolution.candidates import (
 )
 from persons.resolution.decision import PersonResolutionDecisionPolicy, ResolutionThresholds
 from persons.resolution.models import (
-    PersonIdentityInput,
     PersonResolutionAction,
     ScoredPersonCandidate,
 )
 from persons.resolution.service import PersonResolutionEngine
-from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from persons.resolution.surface import pipeline_identity
 
 A = PersonResolutionAction
 RECALL_KS = (1, 5, 10)
@@ -82,17 +81,6 @@ class ErCorpus(BaseModel):
 
 def load_er_corpus(path: Path) -> ErCorpus:
     return ErCorpus.model_validate_json(path.read_text(encoding="utf-8"))
-
-
-_extraction_normalizer = RuleBasedMentionNormalizer()
-
-
-def pipeline_identity(surface: str) -> PersonIdentityInput:
-    """The identity the extraction pipeline would hand to ER for this surface form."""
-    _, data = _extraction_normalizer.normalize_person(surface)
-    return PersonIdentityInput(
-        name=data.full_name, surface_text=surface, matching_key=data.matching_key
-    )
 
 
 def seed_er_corpus(session_factory: sessionmaker[Session], corpus: ErCorpus) -> dict[str, int]:

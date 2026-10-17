@@ -10,8 +10,10 @@ resolution-markers = [
 [manifest]
 members = [
     "court-core",
+    "court-ingestion",
     "court-monitor-recovered",
     "court-platform",
+    "court-processing",
 ]
 
 [[package]]
@@ -459,6 +461,29 @@ requires-dist = [
 ]
 
 [[package]]
+name = "court-ingestion"
+version = "0.1.0"
+source = { editable = "packages/court-ingestion" }
+dependencies = [
+    { name = "court-core" },
+    { name = "court-platform" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "selectolax" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "selectolax", specifier = ">=0.3.29" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
 name = "court-monitor-recovered"
 version = "0.1.0"
 source = { virtual = "." }
@@ -466,7 +491,9 @@ dependencies = [
     { name = "alembic" },
     { name = "anthropic" },
     { name = "court-core" },
+    { name = "court-ingestion" },
     { name = "court-platform" },
+    { name = "court-processing" },
     { name = "curl-cffi" },
     { name = "dagster" },
     { name = "dagster-postgres" },
@@ -495,7 +522,7 @@ dev = [
     { name = "types-openpyxl" },
 ]
 semantic = [
-    { name = "sentence-transformers" },
+    { name = "court-processing", extra = ["semantic"] },
 ]
 
 [package.metadata]
@@ -503,7 +530,9 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.19.1" },
     { name = "anthropic", specifier = ">=1.8.0" },
     { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
     { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
     { name = "curl-cffi", specifier = ">=0.16.3,<0.17" },
     { name = "dagster", specifier = ">=1.13.22" },
     { name = "dagster-postgres", specifier = ">=0.29.22" },
@@ -531,7 +560,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16.3" },
     { name = "types-openpyxl", specifier = ">=3.1.5.20260827" },
 ]
-semantic = [{ name = "sentence-transformers", specifier = ">=5.0" }]
+semantic = [{ name = "court-processing", extras = ["semantic"], editable = "packages/court-processing" }]
 
 [[package]]
 name = "court-platform"
@@ -553,6 +582,42 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.0" },
     { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
 ]
+
+[[package]]
+name = "court-processing"
+version = "0.1.0"
+source = { editable = "packages/court-processing" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "court-core" },
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pymorphy3" },
+    { name = "rapidfuzz" },
+    { name = "sqlalchemy" },
+]
+
+[package.optional-dependencies]
+semantic = [
+    { name = "sentence-transformers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=1.8.0" },
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pymorphy3", specifier = ">=2.0.6" },
+    { name = "rapidfuzz", specifier = ">=3.14" },
+    { name = "sentence-transformers", marker = "extra == 'semantic'", specifier = ">=5.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+provides-extras = ["semantic"]
 
 [[package]]
 name = "cssselect2"

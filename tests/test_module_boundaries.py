@@ -36,8 +36,6 @@ ENTRY_POINT = "entry_point"
 MODULE_OF: tuple[tuple[str, str], ...] = (
     ("ingestion/", INGESTION),
     ("processing/", PROCESSING),
-    # A command-line entry: it runs the evaluation tooling of the resolver.
-    ("persons/resolution/cli.py", ENTRY_POINT),
     # Person resolution (ER v2): the optional path of ADR 0024, beside processing.
     ("persons/", PROCESSING),
     ("persons/resolution/cli_reviewer.py", PROCESSING),
@@ -216,6 +214,7 @@ MODULE_TOOLS: dict[str, frozenset[str]] = {
     "cli/ingestion.py": frozenset({"ingestion"}),
     "cli/extraction.py": frozenset({"processing.extraction", "ingestion.sources.source_registry"}),
     "cli/persons.py": frozenset({"persons", "processing.extraction"}),
+    "cli/person_resolution.py": frozenset({"persons"}),
     "cli/persecution.py": frozenset({"analysis.persecution", "persons"}),
     "cli/rosfinmonitoring.py": frozenset({"analysis.rosfinmonitoring"}),
     "cli/candidates.py": frozenset({"results.candidates"}),

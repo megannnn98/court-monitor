@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "court-core",
+    "court-ingestion",
     "court-platform",
+    "court-processing",
     "alembic>=1.19.1",
     "anthropic>=1.8.0",
     "curl-cffi>=0.16.3,<0.17",
@@ -36,7 +38,9 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 court-core = { workspace = true }
+court-ingestion = { workspace = true }
 court-platform = { workspace = true }
+court-processing = { workspace = true }
 
 [tool.ruff]
 target-version = "py313"
@@ -53,7 +57,7 @@ dev = [
     "types-openpyxl>=3.1.5.20260827",
 ]
 semantic = [
-    "sentence-transformers>=5.0",
+    "court-processing[semantic]",
 ]
 
 [tool.uv]

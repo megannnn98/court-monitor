@@ -1,28 +1,18 @@
-"""CLI for ER v2: dry-run resolution, human review, evaluation."""
+"""CLI for ER v2: dry-run resolution and human review. Its evaluation, `evaluate-er`, is
+tooling: `evaluation.person_resolution.cli`."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.database import create_database_engine, create_session_factory
-from db.maintenance import require_disposable_database, truncate_disposable_tables
-from evaluation.person_resolution.er_run import (
-    format_er_evaluation,
-    load_er_corpus,
-    pipeline_identity,
-    run_er_evaluation,
-)
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_factory import build_entity_review_service
 from persons.resolution.ai_policy import EntityReviewSettings
-from persons.resolution.candidates import CandidateConfig
-from persons.resolution.decision import ResolutionThresholds
 from persons.resolution.factory import build_person_resolution_engine
 from persons.resolution.models import ScoredPersonCandidate
 from persons.resolution.redecide import redecide_name_only_reviews
@@ -33,9 +23,7 @@ from persons.resolution.review import (
     ResolutionReviewView,
 )
 from persons.resolution.service import ResolutionPlan
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_ER_CORPUS_PATH = REPO_ROOT / "tests" / "fixtures" / "er_v2_corpus.json"
+from persons.resolution.surface import pipeline_identity
 
 
 def add_person_resolution_arguments(subparsers: Any) -> None:
@@ -82,19 +70,6 @@ def add_person_resolution_arguments(subparsers: Any) -> None:
         "--apply", action="store_true", help="Link the accepted reviews (writes to the database)"
     )
     redecide.add_argument("--limit", type=int, default=None)
-
-    evaluate = subparsers.add_parser(
-        "evaluate-er",
-        help="Evaluate ER v2 on the golden corpus in a disposable database",
-    )
-    evaluate.add_argument(
-        "--database-url",
-        default=None,
-        help="Disposable database (name ends with _test or _eval); default EVALUATION_DATABASE_URL",
-    )
-    evaluate.add_argument("--corpus-path", type=Path, default=DEFAULT_ER_CORPUS_PATH)
-    evaluate.add_argument("--sweep", action="store_true", help="Sweep decision thresholds")
-    evaluate.add_argument("--output-path", type=Path, default=None)
 
 
 def format_plan(plan: ResolutionPlan) -> str:
@@ -183,31 +158,6 @@ def format_review(view: ResolutionReviewView) -> str:
             f"    conflicts: {', '.join(candidate.conflicts) or 'none'}",
         ]
     return "\n".join(lines)
-
-
-def run_evaluate_er(args: argparse.Namespace) -> None:
-    database_url = args.database_url or os.environ.get("EVALUATION_DATABASE_URL")
-    if not database_url:
-        raise SystemExit(
-            "evaluate-er needs --database-url or EVALUATION_DATABASE_URL "
-            "(a disposable database whose name ends with _test or _eval)"
-        )
-    engine = create_database_engine(database_url)
-    require_disposable_database(engine)
-    truncate_disposable_tables(engine)
-    session_factory = create_session_factory(engine)
-    config = CandidateConfig.from_env(os.environ)
-    run = run_er_evaluation(
-        session_factory,
-        load_er_corpus(args.corpus_path),
-        thresholds=ResolutionThresholds.from_env(os.environ),
-        config=config,
-        sweep=args.sweep,
-    )
-    print(format_er_evaluation(run))
-    if args.output_path is not None:
-        args.output_path.parent.mkdir(parents=True, exist_ok=True)
-        args.output_path.write_text(run.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
 def _run_ai_review(

@@ -1,0 +1,24 @@
+[project]
+name = "court-ingestion"
+version = "0.1.0"
+description = "Ingestion of court-monitor: source adapters, discovery, fetch, parsers, stored articles, the read-only source search"
+requires-python = ">=3.13"
+dependencies = [
+    "court-core",
+    "court-platform",
+    "httpx>=0.28.0",
+    "pydantic>=2.11.0",
+    "selectolax>=0.3.29",
+    "sqlalchemy>=2.0,<3.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ingestion"]
+
+[tool.uv.sources]
+court-core = { workspace = true }
+court-platform = { workspace = true }

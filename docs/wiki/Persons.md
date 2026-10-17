@@ -55,7 +55,7 @@ decision: REVIEW, reason=multiple_plausible_candidates
 | candidates | `src/persons/resolution/candidates.py` |
 | scoring/decision | `src/persons/resolution/features.py`, `src/persons/resolution/decision.py` |
 | manual review | `src/persons/resolution/review.py`, `src/web/ui/reviews.py` |
-| CLI | `src/persons/resolution/cli.py` |
+| CLI | `src/cli/person_resolution.py` |
 | API/UI cards | `src/web/routers/persons.py`, `src/web/ui/persons.py` |
 
 ## Данные и артефакты
