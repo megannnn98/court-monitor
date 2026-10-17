@@ -1,12 +1,12 @@
-"""Dagster code location: `dagster dev -m orchestrator.dagster.definitions` (with src on PYTHONPATH)."""
+"""Dagster code location: `dagster dev -m dagster_location.definitions`."""
 
 from __future__ import annotations
 
 import dagster as dg
 
-from orchestrator.dagster.assets import MONITORING_ASSETS
+from dagster_location.resources import monitoring_service_resource
+from orchestrator.dagster.assets import MONITORING_ASSETS, MONITORING_RESOURCE_KEY
 from orchestrator.dagster.jobs import build_derived_job, monitoring_job
-from orchestrator.dagster.resources import MONITORING_RESOURCE_KEY, monitoring_service_resource
 from orchestrator.dagster.schedules import build_source_schedules
 from orchestrator.models import MonitoringSettings
 from settings import ApplicationSettings

@@ -15,7 +15,7 @@ from support.pipeline_runs import finish_steps
 
 from orchestrator.operations import OperationParameters, OperationRegistry
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 from web.ui.run_tail import pulse
 
 LOG = (
@@ -85,7 +85,9 @@ def _tail(page: str) -> list[str]:
 
 
 def _registry(session_factory: sessionmaker[Session], *done: str) -> OperationRegistry:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     if done:
         finish_steps(session_factory, registry, *done)
     return registry

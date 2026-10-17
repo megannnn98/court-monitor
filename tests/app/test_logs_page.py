@@ -21,7 +21,7 @@ from orchestrator.operations import (
 )
 from orchestrator.repository import SqlAlchemyMonitoringRepository
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
 SELECTION = OperationParameters(sources=["ovd-info"])
 
@@ -48,6 +48,7 @@ def test_the_logs_page_shows_the_latest_run_output_escaped(
 ) -> None:
     registry = OperationRegistry(
         session_factory,
+        command_line=OPERATION_COMMAND_LINE,
         executor=lambda work: work(),
         process_runner=lambda command, heartbeat: ProcessResult(
             1, '[{"source": "ovd-info"}]', "ERROR <b>boom</b>\n"
@@ -71,7 +72,9 @@ def test_the_logs_page_shows_the_latest_run_output_escaped(
 def test_a_live_run_is_refreshed_and_can_be_stopped_from_the_logs(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start("monitor", SELECTION)
 
     with _client(session_factory, registry) as client:
@@ -95,7 +98,9 @@ def test_a_live_run_is_refreshed_and_can_be_stopped_from_the_logs(
 def test_stop_returns_to_management_by_default_and_unknown_runs_are_404(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start("monitor", SELECTION)
 
     with _client(session_factory, registry) as client:
@@ -146,7 +151,9 @@ def _progress_box(page: str) -> str:
 def test_a_live_run_shows_which_source_of_how_many_and_how_far_into_it(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run_id = _running_run(session_factory, registry)
     monitoring = SqlAlchemyMonitoringRepository(session_factory)
     monitoring.finish_run(_monitoring_run(monitoring, "ovd-info"))
@@ -169,7 +176,9 @@ def test_a_live_run_shows_which_source_of_how_many_and_how_far_into_it(
 def test_the_last_step_is_the_shared_classification(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run_id = _running_run(session_factory, registry)
     monitoring = SqlAlchemyMonitoringRepository(session_factory)
     for source in ("ovd-info", "sota-vision", "tg-mash"):
@@ -186,7 +195,9 @@ def test_the_last_step_is_the_shared_classification(
 def test_a_pending_run_is_getting_ready_and_an_ended_one_has_no_progress(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start("monitor", SELECTION)
 
     with _client(session_factory, registry) as client:

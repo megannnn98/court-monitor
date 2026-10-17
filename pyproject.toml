@@ -8,6 +8,8 @@ dependencies = [
     "court-analysis",
     "court-core",
     "court-ingestion",
+    "court-investigation",
+    "court-orchestrator",
     "court-platform",
     "court-processing",
     "court-results",
@@ -42,6 +44,8 @@ members = ["packages/*"]
 court-analysis = { workspace = true }
 court-core = { workspace = true }
 court-ingestion = { workspace = true }
+court-investigation = { workspace = true }
+court-orchestrator = { workspace = true }
 court-platform = { workspace = true }
 court-processing = { workspace = true }
 court-results = { workspace = true }

@@ -1,0 +1,28 @@
+[project]
+name = "court-investigation"
+version = "0.1.0"
+description = "The investigation runtime of court-monitor (LangGraph, ADR 0026/0027): one question, read through the results API and the read-only source search"
+requires-python = ">=3.13"
+dependencies = [
+    "court-ingestion",
+    "court-platform",
+    "court-results",
+    "httpx>=0.28.0",
+    # `langchain_core` is imported for the graph's runnable config; it comes with LangGraph.
+    "langchain-core>=1.0",
+    "langgraph>=1.0",
+    "pydantic>=2.11.0",
+    "pymorphy3>=2.0.6",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/investigation"]
+
+[tool.uv.sources]
+court-ingestion = { workspace = true }
+court-platform = { workspace = true }
+court-results = { workspace = true }

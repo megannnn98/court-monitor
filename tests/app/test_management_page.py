@@ -21,7 +21,7 @@ from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.operations import OperationParameters, OperationRegistry, OperationRunStatus
 from orchestrator.repository import SqlAlchemyMonitoringRepository
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 from web.ui import spend
 
 
@@ -45,7 +45,9 @@ def _client(
 def test_the_home_page_has_no_source_list_step_one_loads_them_all(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         response = client.get("/ui/management")
@@ -68,7 +70,9 @@ def test_the_home_page_has_no_source_list_step_one_loads_them_all(
 def test_the_console_status_strip_is_in_russian(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
@@ -86,7 +90,9 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
     session_factory: sessionmaker[Session],
 ) -> None:
     queued: list[object] = []
-    registry = OperationRegistry(session_factory, executor=queued.append)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=queued.append
+    )
 
     with _client(session_factory, registry) as client:
         response = client.post(
@@ -121,7 +127,9 @@ def test_post_starts_one_tracked_run_for_the_selected_sources(
 def test_step_one_without_sources_loads_every_news_source(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         everything = client.post("/ui/management/run", data={}, follow_redirects=False)
@@ -135,7 +143,9 @@ def test_step_one_without_sources_loads_every_news_source(
 def test_post_passes_published_date_range_to_monitor(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         response = client.post(
@@ -158,7 +168,9 @@ def test_post_passes_published_date_range_to_monitor(
 def test_post_rejects_reversed_published_date_range(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         response = client.post(
@@ -172,7 +184,9 @@ def test_post_rejects_reversed_published_date_range(
 
 
 def test_a_registry_source_does_not_start_a_run(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         registry_source = client.post("/ui/management/run", data={"sources": ["memopzk-figurants"]})
@@ -185,7 +199,9 @@ def test_a_registry_source_does_not_start_a_run(session_factory: sessionmaker[Se
 def test_the_first_step_counts_every_source(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         full = _run_bar(client.get("/ui/management").text)
@@ -202,7 +218,9 @@ def test_the_first_step_counts_every_source(
 def test_the_latest_manual_runs_are_listed_with_their_status(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         client.post("/ui/management/run", data={"sources": ["ovd-info"]})
@@ -215,7 +233,9 @@ def test_the_latest_manual_runs_are_listed_with_their_status(
 
 
 def test_the_stylesheet_url_carries_its_version(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
@@ -226,7 +246,9 @@ def test_the_stylesheet_url_carries_its_version(session_factory: sessionmaker[Se
 def test_person_resolution_has_no_button_and_no_route(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities")
 
     with _client(session_factory, registry) as client:
@@ -243,7 +265,9 @@ def test_person_resolution_has_no_button_and_no_route(
 def test_an_earlier_resolution_run_still_shows_its_card(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start(
         "monitor", OperationParameters(sources=["sota-vision", "ovd-info"], mode="resolve")
     )
@@ -267,7 +291,9 @@ def test_an_earlier_resolution_run_still_shows_its_card(
 def test_a_step_out_of_turn_is_refused_by_the_server(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         early = client.post("/ui/management/entities")
@@ -300,7 +326,9 @@ def _live(session_factory: sessionmaker[Session], registry: OperationRegistry, m
 def test_a_live_resolution_shows_how_many_articles_of_the_source_are_done(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run_id = _live(session_factory, registry, "resolve")
     monitoring = SqlAlchemyMonitoringRepository(session_factory)
     current = monitoring.start_run(
@@ -324,7 +352,9 @@ def test_a_live_resolution_shows_how_many_articles_of_the_source_are_done(
 
 
 def test_a_load_has_no_classification_step(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run_id = _live(session_factory, registry, "load")
 
     with _client(session_factory, registry) as client:
@@ -344,7 +374,9 @@ def _details(page: str) -> str:
 def test_an_ended_run_is_a_card_that_counts_the_sources_it_never_reached(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     sources = ["ovd-info", "sota-vision", "tg-mash", "tg-astrapress"]
     run = registry.start("monitor", OperationParameters(sources=sources, mode="load"))
     with session_factory.begin() as session:
@@ -387,7 +419,9 @@ def test_a_source_held_by_another_run_is_busy_even_when_the_report_was_cut(
     session_factory: sessionmaker[Session],
 ) -> None:
     """The CLI's JSON report is cut to its tail; the busy source is read from the runs."""
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     monitoring = SqlAlchemyMonitoringRepository(session_factory)
     held = monitoring.start_run(
         scope="source:tg-mash",
@@ -423,7 +457,9 @@ def test_a_source_held_by_another_run_is_busy_even_when_the_report_was_cut(
 def test_every_number_column_of_a_load_says_what_it_counts(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start("monitor", OperationParameters(sources=["ovd-info"], mode="load"))
     with session_factory.begin() as session:
         session.execute(
@@ -487,7 +523,9 @@ def _run_bar(page: str) -> str:
 
 
 def test_while_a_load_runs_its_button_stops_it(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         client.post("/ui/management/run", data={"sources": ["ovd-info"]}, follow_redirects=False)
@@ -513,7 +551,9 @@ def test_while_a_load_runs_its_button_stops_it(session_factory: sessionmaker[Ses
 def test_while_a_resolution_runs_its_button_stops_it(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities")
 
     # A resolution has no button, but a legacy run started elsewhere can be stopped.
@@ -540,7 +580,9 @@ def test_while_a_resolution_runs_its_button_stops_it(
 def test_the_purge_runs_in_the_background_and_its_button_stops_it(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     (loaded,) = finish_steps(session_factory, registry, "load")
 
     with _client(session_factory, registry) as client:
@@ -585,7 +627,9 @@ def test_the_purge_runs_in_the_background_and_its_button_stops_it(
 def test_do_all_on_the_runs_page_names_the_last_step_as_one(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
@@ -622,7 +666,9 @@ def test_do_all_on_the_runs_page_names_the_last_step_as_one(
 def test_the_current_step_follows_the_latest_run(
     session_factory: sessionmaker[Session], finished: tuple[str, ...], status: str, current: str
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     if finished:
         finish_steps(session_factory, registry, *finished[:-1])
         finish_steps(session_factory, registry, finished[-1], status=status)
@@ -637,7 +683,9 @@ def test_the_current_step_follows_the_latest_run(
 def test_the_entities_step_starts_from_management(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge")
 
     with _client(session_factory, registry) as client:
@@ -661,7 +709,9 @@ def test_the_entities_step_starts_from_management(
 def test_the_final_step_includes_rosfinmonitoring_check(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
@@ -705,7 +755,9 @@ def test_the_final_step_includes_rosfinmonitoring_check(
 def test_step_four_finds_the_figurants_from_management(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities")
 
     with _client(session_factory, registry) as client:
@@ -757,7 +809,9 @@ def test_step_four_finds_the_figurants_from_management(
 def test_step_six_finds_the_political_cases_from_management(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
@@ -840,7 +894,9 @@ def test_the_home_page_shows_the_selection_funnel(session_factory: sessionmaker[
             (datetime(2026, 9, 1, tzinfo=UTC), "new"),
         ):
             seed.article(ovd, external_id=external_id, title="Суд", text="Текст", published_at=day)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
@@ -889,7 +945,9 @@ def test_the_funnel_counts_a_held_publication_as_neither_a_case_nor_dropped(
             event_date=None,
             links=[],
         )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
@@ -936,7 +994,9 @@ def test_the_funnel_goes_by_the_latest_extraction_as_the_steps_do(
                 article_id=article, status="held", score=0.8, cutoff=0.7, screen="t", reason="r"
             )
         )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
@@ -980,7 +1040,9 @@ def test_a_held_article_that_is_a_case_now_is_counted_as_a_case_alone(
                 seed.event(
                     run, "Ивана Иванова арестовали.", event_type="arrest", event_date=None, links=[]
                 )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
@@ -994,7 +1056,9 @@ def test_a_held_article_that_is_a_case_now_is_counted_as_a_case_alone(
 
 
 def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     ids = finish_steps(
         session_factory, registry, "load", "purge", "entities", "figurants", "political"
     )
@@ -1010,7 +1074,9 @@ def test_the_latest_manual_runs_are_four_at_most(session_factory: sessionmaker[S
 def test_a_live_old_list_check_is_named_as_what_it_is(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities")
     finish_steps(session_factory, registry, "rosfin", status="running")
 
@@ -1057,7 +1123,9 @@ def test_a_live_old_list_check_is_named_as_what_it_is(
 def test_the_final_card_says_how_the_list_was_checked(
     session_factory: sessionmaker[Session], out: str, shown: list[str], hidden: list[str]
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
@@ -1084,7 +1152,9 @@ def test_the_final_card_says_how_the_list_was_checked(
 def test_the_sources_errors_are_here_and_the_overview_only_warns(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     with _client(session_factory, registry) as client:
         clean = client.get("/ui/management").text
         clean_home = client.get("/ui/overview").text
@@ -1118,7 +1188,9 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
 def test_the_runs_journal_marks_a_suspected_layout_change(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     monitoring = SqlAlchemyMonitoringRepository(session_factory)
     run = monitoring.start_run(
         scope="source:kommersant",
@@ -1173,7 +1245,9 @@ def test_a_live_step_that_asks_a_paid_model_says_so_on_its_card_and_an_ended_one
     monkeypatch.setenv("JUNK_SCREEN", "jev")
     monkeypatch.delenv("ENTITY_NORMALIZE_MODEL", raising=False)
     monkeypatch.delenv("ENTITY_MODEL_BUDGET_USD", raising=False)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, *done_steps)
 
     with _client(session_factory, registry) as client:
@@ -1238,7 +1312,9 @@ def test_every_phase_of_the_final_step_that_reads_texts_has_its_own_bar(
 ) -> None:
     """The step has six phases; only the verdicts used to show a bar, and those that
     followed it left the card saying «Сохраняю…» for minutes."""
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     with _client(session_factory, registry) as client:
         address, run_id = _political_run(session_factory, client, registry)
         _set_run(
@@ -1256,7 +1332,9 @@ def test_every_phase_of_the_final_step_that_reads_texts_has_its_own_bar(
 def test_a_phase_without_a_count_still_says_which_one_it_is(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     with _client(session_factory, registry) as client:
         address, run_id = _political_run(session_factory, client, registry)
         _set_run(
@@ -1278,7 +1356,9 @@ def test_a_phase_without_a_count_still_says_which_one_it_is(
 def test_a_running_card_shows_the_last_three_things_the_run_said(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     log = (
         "2026-10-01 09:44:10,771 INFO monitoring request_id=- event=entities_rf_check_stage "
         "stage=downloading\n"
@@ -1308,7 +1388,9 @@ def test_a_running_card_shows_the_last_three_things_the_run_said(
 def test_the_log_tail_follows_a_run_that_ended_badly_and_leaves_a_good_one_alone(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     with _client(session_factory, registry) as client:
         address, run_id = _political_run(session_factory, client, registry)
         log = "event=entity_politics_stage stage=asking 50/3200\nTraceback: boom\n"
@@ -1345,7 +1427,9 @@ def _printed(session_factory: sessionmaker[Session], run_id: int, totals: str) -
 def test_a_run_says_what_it_spent_and_what_the_step_spent_before(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     first, entities = finish_steps(session_factory, registry, "political", "entities")
     (stopped,) = finish_steps(session_factory, registry, "political", status="interrupted")
     (latest,) = finish_steps(session_factory, registry, "political")
@@ -1379,7 +1463,9 @@ def test_a_run_says_what_it_spent_and_what_the_step_spent_before(
 
 
 def test_the_spending_is_listed_beside_the_runs(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     old, load, purge, entities = finish_steps(
         session_factory, registry, "purge", "load", "purge", "entities"
     )
@@ -1431,7 +1517,9 @@ def test_the_next_step_is_told_what_it_spent_the_last_time(
     monkeypatch.delenv("ENTITY_NORMALIZE_MODEL", raising=False)
     monkeypatch.setattr(spend, "_request", lambda _key: None)
     spend.reset_cache()
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     old, _load, purge = finish_steps(session_factory, registry, "entities", "load", "purge")
     _printed(session_factory, old, '{"model_cost_usd": 0.0123}')
     _printed(session_factory, purge, '{"holds_cost_usd": 0.5}')

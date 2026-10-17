@@ -1,8 +1,10 @@
 """FastAPI dependencies shared by every route: the database session and the services built once."""
 
 import os
+import sys
 from collections.abc import Iterator
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session, sessionmaker
@@ -12,11 +14,19 @@ from orchestrator.models import (
     MonitoringSettings,
 )
 from orchestrator.operations import (
+    CommandLine,
     OperationRegistry,
 )
 from web.health import (
+    REPO_ROOT,
     ReadinessChecker,
     expected_schema_revision,
+)
+
+# An operation runs `main.py`, the application's command line, from the repository.
+OPERATION_COMMAND_LINE = CommandLine(
+    program=(sys.executable, str(Path(__file__).resolve().parents[1] / "main.py")),
+    cwd=REPO_ROOT,
 )
 
 
@@ -54,7 +64,7 @@ def get_db() -> Iterator[Session]:
 def get_operation_registry(db: Session = Depends(get_db)) -> OperationRegistry:  # noqa: B008
     """Runs live in PostgreSQL, so a registry holds no state of its own: one per request,
     on the engine of the request's session (an overridden `get_db` included)."""
-    return OperationRegistry(session_factory_for(db))
+    return OperationRegistry(session_factory_for(db), command_line=OPERATION_COMMAND_LINE)
 
 
 def get_readiness_checker() -> ReadinessChecker:

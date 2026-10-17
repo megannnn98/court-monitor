@@ -12,7 +12,9 @@ members = [
     "court-analysis",
     "court-core",
     "court-ingestion",
+    "court-investigation",
     "court-monitor-recovered",
+    "court-orchestrator",
     "court-platform",
     "court-processing",
     "court-results",
@@ -513,6 +515,33 @@ requires-dist = [
 ]
 
 [[package]]
+name = "court-investigation"
+version = "0.1.0"
+source = { editable = "packages/court-investigation" }
+dependencies = [
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "court-results" },
+    { name = "httpx" },
+    { name = "langchain-core" },
+    { name = "langgraph" },
+    { name = "pydantic" },
+    { name = "pymorphy3" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-results", editable = "packages/court-results" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "langchain-core", specifier = ">=1.0" },
+    { name = "langgraph", specifier = ">=1.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pymorphy3", specifier = ">=2.0.6" },
+]
+
+[[package]]
 name = "court-monitor-recovered"
 version = "0.1.0"
 source = { virtual = "." }
@@ -522,6 +551,8 @@ dependencies = [
     { name = "court-analysis" },
     { name = "court-core" },
     { name = "court-ingestion" },
+    { name = "court-investigation" },
+    { name = "court-orchestrator" },
     { name = "court-platform" },
     { name = "court-processing" },
     { name = "court-results" },
@@ -563,6 +594,8 @@ requires-dist = [
     { name = "court-analysis", editable = "packages/court-analysis" },
     { name = "court-core", editable = "packages/court-core" },
     { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-investigation", editable = "packages/court-investigation" },
+    { name = "court-orchestrator", editable = "packages/court-orchestrator" },
     { name = "court-platform", editable = "packages/court-platform" },
     { name = "court-processing", editable = "packages/court-processing" },
     { name = "court-results", editable = "packages/court-results" },
@@ -594,6 +627,37 @@ dev = [
     { name = "types-openpyxl", specifier = ">=3.1.5.20260827" },
 ]
 semantic = [{ name = "court-processing", extras = ["semantic"], editable = "packages/court-processing" }]
+
+[[package]]
+name = "court-orchestrator"
+version = "0.1.0"
+source = { editable = "packages/court-orchestrator" }
+dependencies = [
+    { name = "court-analysis" },
+    { name = "court-core" },
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "court-results" },
+    { name = "dagster" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "court-results", editable = "packages/court-results" },
+    { name = "dagster", specifier = ">=1.13.22" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
 
 [[package]]
 name = "court-platform"

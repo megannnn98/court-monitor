@@ -45,9 +45,6 @@ MODULE_OF: tuple[tuple[str, str], ...] = (
     # people, officials): data the verdicts are checked against, keyed like mentions.
     ("airtable/", ANALYSIS),
     ("results/", RESULTS),
-    # Dagster's code location and its resource build the application: wiring.
-    ("orchestrator/dagster/definitions.py", ENTRY_POINT),
-    ("orchestrator/dagster/resources.py", ENTRY_POINT),
     ("orchestrator/", ORCHESTRATOR),
     ("investigation/", INVESTIGATION),
     ("db/", SHARED),
@@ -397,12 +394,27 @@ def test_an_investigation_runs_no_sql_of_its_own() -> None:
 
 
 def test_dagster_only_schedules_the_orchestrator() -> None:
-    # An asset calls one stage of `MonitoringService`; no domain stage lives in Dagster.
+    # An asset calls one stage of `MonitoringService`; no domain stage lives in Dagster,
+    # and nothing of Dagster's in the orchestrator builds the application.
     offenders = sorted(
         f"{path} -> {module}"
         for path, tree in _files("orchestrator/dagster/")
         for module in _imported_modules(tree, path)
-        if module.split(".")[0] not in ("orchestrator", "application", "settings")
+        if module.split(".")[0] != "orchestrator"
+    )
+
+    assert offenders == []
+
+
+def test_the_dagster_code_location_only_wires_the_orchestrator() -> None:
+    # The code location builds the application and hands its `MonitoringService` to the
+    # orchestrator's assets: it reaches no domain module itself.
+    offenders = sorted(
+        f"{path} -> {module}"
+        for path, tree in _files("dagster_location/")
+        for module in _imported_modules(tree, path)
+        if module.split(".")[0]
+        not in ("orchestrator", "application", "settings", "dagster_location")
     )
 
     assert offenders == []

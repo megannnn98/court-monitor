@@ -1,0 +1,32 @@
+[project]
+name = "court-orchestrator"
+version = "0.1.0"
+description = "The pipeline orchestrator of court-monitor: monitoring runs, the operator cycle, operator operations, Dagster assets, jobs and schedules"
+requires-python = ">=3.13"
+dependencies = [
+    "court-analysis",
+    "court-core",
+    "court-ingestion",
+    "court-platform",
+    "court-processing",
+    "court-results",
+    "dagster>=1.13.22",
+    "httpx>=0.28.0",
+    "pydantic>=2.11.0",
+    "sqlalchemy>=2.0,<3.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/orchestrator"]
+
+[tool.uv.sources]
+court-analysis = { workspace = true }
+court-core = { workspace = true }
+court-ingestion = { workspace = true }
+court-platform = { workspace = true }
+court-processing = { workspace = true }
+court-results = { workspace = true }

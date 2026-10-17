@@ -13,6 +13,7 @@ from support.db_fixtures import DatabaseSeeder
 from api import app, get_db
 from db.orm_models import MonitoringRunRecord
 from orchestrator.operations import OperationParameters, OperationRegistry
+from web.dependencies import OPERATION_COMMAND_LINE
 
 
 @pytest.fixture
@@ -66,9 +67,9 @@ def test_versioned_read_endpoints_match_legacy_contracts(
             )
         )
 
-    OperationRegistry(session_factory, executor=lambda work: None).start(
-        "discover-and-ingest", OperationParameters(source="ovd-info", limit=1)
-    )
+    OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda work: None
+    ).start("discover-and-ingest", OperationParameters(source="ovd-info", limit=1))
 
     for path in (
         "/persons",

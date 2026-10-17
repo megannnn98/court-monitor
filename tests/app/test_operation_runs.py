@@ -33,6 +33,7 @@ from orchestrator.operations import (
     ProcessRunner,
     next_in_chain,
 )
+from web.dependencies import OPERATION_COMMAND_LINE
 
 INGEST = OperationParameters(source="ovd-info", limit=3)
 
@@ -61,6 +62,7 @@ def _registry(
 ) -> OperationRegistry:
     return OperationRegistry(
         session_factory,
+        command_line=OPERATION_COMMAND_LINE,
         executor=kwargs.pop("executor", _inline),  # type: ignore[arg-type]
         process_runner=process,
         **kwargs,  # type: ignore[arg-type]
@@ -73,7 +75,9 @@ def test_a_run_is_stored_and_read_by_a_new_registry(
     run = _registry(session_factory).start("discover-and-ingest", INGEST)
 
     # Another API process: its own session factory and registry.
-    other = OperationRegistry(create_session_factory(test_engine))
+    other = OperationRegistry(
+        create_session_factory(test_engine), command_line=OPERATION_COMMAND_LINE
+    )
     stored = other.get(run.id)
 
     assert stored.status is OperationRunStatus.SUCCEEDED
@@ -358,7 +362,9 @@ def test_another_api_worker_reads_the_stored_run(
     run = accepting.start("discover-and-ingest", OperationParameters(source="ovd-info", limit=3))
     assert len(queued) == 1  # the work was handed off, not run in the call
 
-    reading = OperationRegistry(create_session_factory(test_engine))
+    reading = OperationRegistry(
+        create_session_factory(test_engine), command_line=OPERATION_COMMAND_LINE
+    )
     with _client(session_factory, reading) as client:
         listed = client.get("/operations/runs").json()
         detail = client.get(f"/operations/runs/{run.id}").json()
@@ -469,7 +475,9 @@ def test_a_stopped_run_ends_its_process_and_keeps_the_output_so_far(
     session_factory: sessionmaker[Session], test_engine: Engine
 ) -> None:
     """The stop comes from another API process; the one running it learns at its beat."""
-    other = OperationRegistry(create_session_factory(test_engine))
+    other = OperationRegistry(
+        create_session_factory(test_engine), command_line=OPERATION_COMMAND_LINE
+    )
     seen: dict[str, object] = {}
 
     def stopped_midway(command: list[str], heartbeat: Heartbeat) -> ProcessResult:

@@ -23,6 +23,9 @@ from orchestrator.service import (
 )
 
 GROUP = "monitoring"
+# The resource every asset takes as its `monitoring` parameter: a `MonitoringService`,
+# given by the code location (`dagster_location.resources`).
+MONITORING_RESOURCE_KEY = "monitoring"
 
 
 class MonitoringRunConfig(dg.Config):

@@ -1,4 +1,4 @@
 load_from:
   - python_module:
-      module_name: orchestrator.dagster.definitions
+      module_name: dagster_location.definitions
       working_directory: /app/src

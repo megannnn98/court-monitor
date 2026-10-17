@@ -35,7 +35,7 @@ from processing.identity.normalizer import OpenRouterNameNormalizer, name_normal
 from processing.roles.roles import role_classifier_from_env
 from web import entity_model
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 from web.ui import spend
 from web.ui.pipeline import step_confirmation
 
@@ -57,7 +57,9 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         with session_factory() as session:
             yield session
 
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     app.dependency_overrides[get_db] = override
     app.dependency_overrides[get_operation_registry] = lambda: registry
     try:
@@ -205,7 +207,9 @@ def test_a_run_is_started_with_the_chosen_model_and_keeps_it(
     session_factory: sessionmaker[Session],
 ) -> None:
     _choose(session_factory, QWEN)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     run = registry.start("monitor", OperationParameters(mode="figurants"))
     # A choice saved while it runs changes nothing of it.
@@ -225,7 +229,9 @@ def test_a_run_is_started_with_the_chosen_model_and_keeps_it(
 def test_the_purge_is_not_given_the_entity_model(session_factory: sessionmaker[Session]) -> None:
     """Jev keeps its own settings: the choice is the entity steps' alone."""
     _choose(session_factory, FREE)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     run = registry.start("monitor", OperationParameters(mode="purge"))
 
@@ -236,7 +242,9 @@ def test_the_purge_is_not_given_the_entity_model(session_factory: sessionmaker[S
 
 def test_a_chain_carries_its_model_to_the_next_step(session_factory: sessionmaker[Session]) -> None:
     _choose(session_factory, QWEN)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     first = registry.start("monitor", OperationParameters(mode="entities", chain=True))
     _choose(session_factory, FREE)
     with session_factory.begin() as session:
@@ -366,7 +374,9 @@ def test_a_live_run_card_names_the_model_the_run_asks_not_a_later_choice(
 ) -> None:
     _choose(session_factory, QWEN)
     _pages_read(monkeypatch, session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start("monitor", OperationParameters(mode="entities"))
     with session_factory.begin() as session:
         session.execute(
@@ -430,7 +440,9 @@ def test_a_run_and_its_warning_carry_both_models(
     _choose(session_factory, FREE)
     _choose_decision(session_factory, QWEN)
     _pages_read(monkeypatch, session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory) as client:
         cycle = client.get("/api/v1/cycle").json()
@@ -457,7 +469,9 @@ def test_a_legacy_step_button_starts_only_with_the_models_it_showed(
     another tab since makes the press a 409, not a run of an unseen model."""
     _choose(session_factory, QWEN)
     _pages_read(monkeypatch, session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge")
 
     with _client(session_factory) as client:
@@ -487,7 +501,9 @@ def test_collect_entities_starts_only_with_the_model_its_warning_showed(
     """A stale press is sent back to the page, which says why; nothing starts."""
     _choose(session_factory, QWEN)
     _pages_read(monkeypatch, session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge")
 
     with _client(session_factory) as client:

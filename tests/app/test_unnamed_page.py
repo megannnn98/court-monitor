@@ -25,7 +25,7 @@ from db.orm_models import (
 from orchestrator.operations import OperationRegistry
 from processing.identity.collector import EntityCollector
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 from web.ui.workload import workload
 
 QUOTE = "В Тюмени задержан 17-летний житель города по делу о теракте <b>на железной дороге</b>."
@@ -33,7 +33,9 @@ QUOTE = "В Тюмени задержан 17-летний житель горо�
 
 @contextmanager
 def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     def override_get_db() -> Iterator[Session]:
         with session_factory() as session:

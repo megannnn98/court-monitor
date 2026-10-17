@@ -11,8 +11,6 @@ import dagster as dg
 from application import build_application_services
 from orchestrator.service import MonitoringService
 
-MONITORING_RESOURCE_KEY = "monitoring"
-
 
 def monitoring_service_resource() -> dg.ResourceDefinition:
     def create(_: dg.InitResourceContext) -> MonitoringService:

@@ -17,12 +17,12 @@ import os
 import signal
 import socket
 import subprocess
-import sys
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import IO, Any, Literal, Protocol
 
@@ -232,11 +232,24 @@ class _OutputTail:
         return self.text()
 
 
-def _run_process(command: list[str], heartbeat: Heartbeat) -> ProcessResult:
+@dataclass(frozen=True)
+class CommandLine:
+    """How an operation starts the application's command line. The composition root gives
+    it: the orchestrator knows the commands, not where the application is installed."""
+
+    # The program and its first arguments, e.g. (python, …/main.py).
+    program: tuple[str, ...]
+    # Where the command runs: the repository, whose relative paths it reads.
+    cwd: Path
+
+
+def _run_process(
+    command: list[str], heartbeat: Heartbeat, *, cwd: Path | None = None
+) -> ProcessResult:
     """The command without a shell; its output goes to the heartbeat as it comes."""
     process = subprocess.Popen(
         command,
-        cwd=_repo_root(),
+        cwd=cwd,
         env=os.environ | {"PYTHONUNBUFFERED": "1"},
         text=True,
         stdout=subprocess.PIPE,
@@ -275,14 +288,16 @@ class OperationRegistry:
         self,
         session_factory: sessionmaker[Session],
         *,
+        command_line: CommandLine,
         executor: Executor = _thread_executor,
-        process_runner: ProcessRunner = _run_process,
+        process_runner: ProcessRunner | None = None,
         stale_after: timedelta = STALE_AFTER,
         worker_id: str | None = None,
     ) -> None:
         self._session_factory = session_factory
+        self._command_line = command_line
         self._executor = executor
-        self._process_runner = process_runner
+        self._process_runner = process_runner or partial(_run_process, cwd=command_line.cwd)
         self._stale_after = stale_after
         self._worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
 
@@ -355,7 +370,7 @@ class OperationRegistry:
                         or chosen_model(session, kind="decision"),
                     }
                 )
-        command = _command_for(definition.name, parameters)
+        command = _command_for(definition.name, parameters, self._command_line.program)
         self.interrupt_stale_runs()
         try:
             with self._session_factory.begin() as session:
@@ -633,11 +648,6 @@ def _to_run(record: OperatorOperationRunRecord) -> OperationRun:
     )
 
 
-def _repo_root() -> Path:
-    # src/orchestrator/operations.py -> the repository, where `src/main.py` is.
-    return Path(__file__).resolve().parents[2]
-
-
 def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
     return text[-limit:]
 
@@ -710,8 +720,8 @@ _WHOLE_DATABASE_COMMANDS = {
 }
 
 
-def _command_for(name: str, parameters: OperationParameters) -> list[str]:
-    main = [sys.executable, str(_repo_root() / "src" / "main.py")]
+def _command_for(name: str, parameters: OperationParameters, program: tuple[str, ...]) -> list[str]:
+    main = list(program)
     if name == "monitor" and parameters.mode in _WHOLE_DATABASE_COMMANDS:
         if parameters.source is not None or parameters.sources is not None:
             raise ValueError(f"{parameters.mode} takes no sources: it covers the whole database")

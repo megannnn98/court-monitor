@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from db.orm_models import OperatorOperationRunRecord
 from orchestrator.operations import OperationRegistry
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
 
 def _executor(_work: object) -> None:
@@ -33,7 +33,9 @@ def _executor(_work: object) -> None:
 
 @contextmanager
 def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
-    registry = OperationRegistry(session_factory, executor=_executor)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=_executor
+    )
 
     def override_get_db() -> Iterator[Session]:
         with session_factory() as session:
