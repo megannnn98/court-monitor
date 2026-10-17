@@ -129,3 +129,43 @@ def test_parse_rejects_a_body_that_holds_nothing_but_the_headline() -> None:
 
     with pytest.raises(ParseError, match="Paragraphs not found"):
         SudrfArticleParser().parse(raw)
+
+
+# Pages whose body text is not in `<p>` (2-й Западный окружной военный суд, October 2026):
+# each failed with «Paragraphs not found» on every run, and each is a criminal case.
+FIXTURE_404 = Path("tests/fixtures/sudrf_article_404.html")  # pasted from VK: <span>, <br>
+FIXTURE_30 = Path("tests/fixtures/sudrf_article_30.html")  # plain text in the cell
+FIXTURE_253 = Path("tests/fixtures/sudrf_article_253.html")  # <p> only for the headline
+
+
+def test_parse_reads_a_body_written_in_spans_and_line_breaks() -> None:
+    article = SudrfArticleParser().parse(_raw(FIXTURE_404, "404"))
+
+    assert article.title.startswith("Жителя Калужской области осудили")
+    assert article.published_at == datetime(2026, 10, 1, tzinfo=SUDRF_TIMEZONE)
+    assert "Александра Бобровского" in article.text
+    assert "ч. 2 ст. 280 УК РФ" in article.text
+    # The line breaks between the spans are the paragraphs.
+    assert article.text.startswith("2-й Западный окружной военный суд рассмотрел")
+    assert len(article.text.split("\n\n")) >= 3
+
+
+def test_parse_reads_a_body_of_plain_text_without_its_headline_line() -> None:
+    article = SudrfArticleParser().parse(_raw(FIXTURE_30, "30"))
+
+    assert article.title == "Суд приступил к рассмотрению нового дела националиста Королева"
+    assert article.text.startswith("МОСКВА, 5 мая - РИА Новости.")
+    assert "Николая Королева" in article.text
+    # A blank line in the text is a paragraph break.
+    assert "\n\nКоролев был приговорен в 2008 году" in article.text
+
+
+def test_parse_reads_a_body_whose_paragraphs_hold_only_the_headline() -> None:
+    article = SudrfArticleParser().parse(_raw(FIXTURE_253, "253"))
+
+    assert article.title == "Москвич осужден за публичные призывы и оправдание терроризма"
+    assert article.text.startswith("2-й Западный окружной военный суд рассмотрел")
+    assert "Ивана Колосова" in article.text
+    # A line wrapped inside a sentence, and a span that splits one, stay one sentence.
+    assert "ст. 275.1 (сотрудничество на конфиденциальной основе с иностранным" in article.text
+    assert article.title not in article.text
