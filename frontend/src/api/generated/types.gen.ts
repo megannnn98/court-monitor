@@ -776,6 +776,15 @@ export type CycleResponse = {
     chain_stopped: string;
     entity_model?: EntityModelNoticeResponse | null;
     decision_model?: EntityModelNoticeResponse | null;
+    /**
+     * Working Date
+     */
+    working_date?: string | null;
+    last_load?: LastLoadResponse | null;
+    /**
+     * Period Question
+     */
+    period_question?: string;
 };
 
 /**
@@ -788,6 +797,14 @@ export type CycleStartRequest = {
      * After
      */
     after: number;
+    /**
+     * Published From
+     */
+    published_from?: string | null;
+    /**
+     * Published To
+     */
+    published_to?: string | null;
     /**
      * Entity Model
      */
@@ -2261,6 +2278,26 @@ export type KnownResponse = {
      * Names
      */
     names: Array<string>;
+};
+
+/**
+ * LastLoadResponse
+ *
+ * The latest load that ended well: when, and for what dates (None: no dates, all new).
+ */
+export type LastLoadResponse = {
+    /**
+     * Finished At
+     */
+    finished_at: string | null;
+    /**
+     * Published From
+     */
+    published_from: string | null;
+    /**
+     * Published To
+     */
+    published_to: string | null;
 };
 
 /**

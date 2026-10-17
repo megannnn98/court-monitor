@@ -3,11 +3,13 @@ two actions of the legacy page — «Сделать всё» and «Остано�
 other origins (`web.csrf`, ADR 0022); starting a single step stays on the legacy
 «Журнал запусков»."""
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from llm.chat import Purpose
-from orchestrator.operations import OperationNotFoundError, OperationRegistry
+from orchestrator.operations import OperationNotFoundError, OperationRegistry, OperationRunStatus
 from web.dependencies import get_db, get_operation_registry
 from web.response_models import (
     CycleResponse,
@@ -16,14 +18,17 @@ from web.response_models import (
     CycleStepResponse,
     CycleTaskResponse,
     EntityModelNoticeResponse,
+    LastLoadResponse,
     LiveRunResponse,
     StopResponse,
 )
 from web.ui import spend
 from web.ui.cycle import PROCESSING_LABELS, chain_question, step_statuses
-from web.ui.management import StepRefused, shown_models, start_step
+from web.ui.management import StepRefused, shown_models, start_step, working_date
 from web.ui.pipeline import (
+    OPERATION,
     STAGES,
+    chain_confirmation,
     chain_note_text,
     chain_span,
     chain_stopped_text,
@@ -81,7 +86,30 @@ def get_cycle(
         chain_stopped=chain_stopped_text(state),
         entity_model=_entity_model(state.current) if state.live is None else None,
         decision_model=(_entity_model(state.current, "decision") if state.live is None else None),
+        working_date=working_date(),
+        period_question=chain_confirmation("load", with_model=False),
+        last_load=_last_load(registry),
     )
+
+
+# How far back «Работа» looks for the latest load that ended well.
+_LOAD_HISTORY = 50
+
+
+def _day(value: str | None) -> date | None:
+    return date.fromisoformat(value) if value else None
+
+
+def _last_load(registry: OperationRegistry) -> LastLoadResponse | None:
+    for run in registry.runs_of(OPERATION, limit=_LOAD_HISTORY):
+        if run.parameters.mode == "load" and run.status is OperationRunStatus.SUCCEEDED:
+            parameters = run.parameters
+            return LastLoadResponse(
+                finished_at=run.finished_at,
+                published_from=_day(parameters.published_from),
+                published_to=_day(parameters.published_to),
+            )
+    return None
 
 
 def _entity_model(stage: str, kind: Purpose = "extraction") -> EntityModelNoticeResponse | None:
@@ -116,17 +144,22 @@ def start_cycle(
     state = current_state(registry)
     try:
         shown_models(db, body.entity_model, body.decision_model)
+        # With dates the round is steps 1–5 for them; without, from where it is.
+        period = body.published_from is not None or body.published_to is not None
+        stage = "load" if period else state.current
         run = start_step(
             registry,
-            state.current,
+            stage,
             chain=True,
             after=str(body.after),
+            published_from=body.published_from,
+            published_to=body.published_to,
             entity_model=body.entity_model,
             decision_model=body.decision_model,
         )
     except StepRefused as refused:
         raise HTTPException(status_code=refused.status_code, detail=refused.message) from None
-    return CycleStartResponse(run_id=run.id, stage=state.current)
+    return CycleStartResponse(run_id=run.id, stage=stage)
 
 
 @router.post("/cycle/runs/{run_id}/stop", response_model=StopResponse)

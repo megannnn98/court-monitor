@@ -72,6 +72,8 @@ def _service(
     session_factory: sessionmaker[Session],
     upstream: FakeUpstream,
     fetch_errors: dict[str, Exception],
+    *,
+    discovery_limit: int = 20,
 ) -> MonitoringService:
     def create_adapter(_client: object, _fetcher: DocumentFetcher) -> SourceAdapter:
         return ScriptedAdapter(upstream, fetch_errors)
@@ -85,7 +87,7 @@ def _service(
     )
     return build_monitoring_service(
         session_factory,
-        settings=MonitoringSettings(enabled_sources=(SOURCE,), discovery_limit=20),
+        settings=MonitoringSettings(enabled_sources=(SOURCE,), discovery_limit=discovery_limit),
         env={},
         sources={SOURCE: definition},
         create_fetcher=UnusedFetcher,
@@ -189,8 +191,9 @@ def test_ingestion_stage_selects_fetches_skips_and_counts_as_before(
         service, published_from=date(2026, 9, 1), published_to=date(2026, 9, 30)
     )
 
-    # Only the second run follows a completed load, so only it may stop at stored documents.
-    assert upstream.discoveries_until_known == 1
+    # A load for a period goes past stored documents (it may be after an older period),
+    # so neither run stopped where they begin.
+    assert upstream.discoveries_until_known == 0
     assert [ref.external_id for ref in discovery.references] == [
         "a-known",
         "b-new",
@@ -342,3 +345,72 @@ def test_persistence_failure_stops_the_ingestion_stage(
     assert run is not None
     assert (run.documents_ingested, run.documents_failed, run.error_count) == (1, 0, 0)
     assert MonitoringStage.INGESTION.value not in run.stage_metrics
+
+
+def test_a_load_without_dates_stops_at_stored_documents(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("a-known", "Уже сохранённая статья.", published_at=IN_RANGE)
+    service = _service(session_factory, upstream, {})
+    _load(service)
+    upstream.publish("b-new", "Новая статья.", published_at=IN_RANGE)
+
+    _load(service)
+
+    # Only the second run follows a completed load, so only it may stop at stored documents.
+    assert upstream.discoveries_until_known == 1
+
+
+def test_a_load_for_a_period_goes_deep_past_the_first_load_ceiling(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("a-known", "Уже сохранённая статья.", published_at=IN_RANGE)
+    service = _service(session_factory, upstream, {}, discovery_limit=5000)
+    _load(service)
+    _load(service, published_from=date(2026, 9, 1))
+
+    # The first load of a source is held to FIRST_LOAD_LIMIT; a period is not, and it
+    # does not stop at the stored document either.
+    assert upstream.limits == [500, 5000]
+    assert upstream.discoveries_until_known == 0
+
+
+def test_a_load_for_a_period_stops_a_source_once_its_articles_are_older(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Sources list newest first: past a run of articles older than the period, the rest
+    are older still and are not downloaded."""
+    upstream = FakeUpstream()
+    for number in range(3):
+        upstream.publish(f"in-{number}", "Статья периода.", published_at=IN_RANGE)
+    # Old posts among the period's (pinned, or a listing not quite in order) do not end
+    # it: the count is of older articles in a row, and starts again after each new one.
+    for number in range(9):
+        upstream.publish(f"stray-a-{number}", "Закреплённый пост.", published_at=BEFORE_RANGE)
+    upstream.publish("in-3", "Статья периода.", published_at=IN_RANGE)
+    for number in range(5):
+        upstream.publish(f"stray-b-{number}", "Старый пост.", published_at=BEFORE_RANGE)
+    upstream.publish("in-4", "Статья периода.", published_at=IN_RANGE)
+    for number in range(40):
+        upstream.publish(f"old-{number:02}", "Старая статья.", published_at=BEFORE_RANGE)
+    upstream.publish("late", "Статья периода после старых.", published_at=IN_RANGE)
+    service = _service(session_factory, upstream, {}, discovery_limit=100)
+
+    run_id, _, ingestion = _load(service, published_from=date(2026, 9, 1))
+
+    assert [external_id for external_id, _, _ in _stored(session_factory)] == [
+        "in-0",
+        "in-1",
+        "in-2",
+        "in-3",
+        "in-4",
+    ]
+    assert "late" not in upstream.fetches
+    assert "old-39" not in upstream.fetches
+    assert ingestion.failed == 0
+    details = service.repository.get_run_details(run_id)
+    assert details is not None
+    metrics = details.run.stage_metrics[MonitoringStage.INGESTION.value]
+    assert metrics["stopped_before_period"] == 1

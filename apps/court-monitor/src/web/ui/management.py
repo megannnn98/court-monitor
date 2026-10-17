@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from html import escape
 from typing import Literal
 from urllib.parse import parse_qs
@@ -29,6 +29,7 @@ from orchestrator.operations import (
     OperationRunStatus,
 )
 from orchestrator.source_health import layout_suspects
+from processing.junk.purge import since_from_env
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
@@ -563,8 +564,10 @@ def _management_page(
     <summary>Ограничить даты публикаций для шага 1</summary>
     <label>С <input type="date" name="published_from"></label>
     <label>По <input type="date" name="published_to"></label>
-    <p class="muted">Пусто — без ограничения. Фильтр применяется к дате публикации после
-    загрузки статьи; для старых дат увеличьте limit источника.</p>
+    <p class="muted">Пусто — догрузить всё новое с прошлой загрузки. С датой «с» загрузка
+    идёт вглубь, мимо уже сохранённого, и у каждого источника останавливается на статьях
+    старше неё; «с» — не раньше рабочей даты (шаг 2 удаляет более ранние). Telegram — не
+    глубже 30 дней, Коммерсант — только свежая лента.</p>
   </details>
 </form>
 {run_html}
@@ -748,6 +751,37 @@ STALE_CHAIN = (
 )
 
 
+def working_date() -> date | None:
+    """The working date (`PIPELINE_SINCE`): step 2 deletes what was published before it."""
+    since = since_from_env()
+    return since.date() if since is not None else None
+
+
+def period_refusal(
+    published_from: date | None, published_to: date | None, *, today: date | None = None
+) -> str | None:
+    """Why a load cannot be for these dates; None when it can. A period starts on a date:
+    on the working date or after it, or step 2 would delete what was loaded."""
+    if published_from is None and published_to is None:
+        return None
+    if published_from is None:
+        return "Для загрузки за период нужна дата «с»; без дат — догрузить всё новое."
+    since = working_date()
+    if since is not None and published_from < since:
+        return (
+            f"Дата «с» {published_from:%d.%m.%Y} раньше рабочей даты {since:%d.%m.%Y}: "
+            "шаг 2 удалит всё, что опубликовано до неё."
+        )
+    if published_to is not None and published_from > published_to:
+        return "Дата «с» позже даты «по»."
+    # A day of slack: the operator's «today» may already be tomorrow in UTC.
+    if published_to is not None and published_to > (today or datetime.now(UTC).date()) + timedelta(
+        days=1
+    ):
+        return "Дата «по» в будущем: оставьте её пустой — загрузка по настоящее время."
+    return None
+
+
 def start_step(
     registry: OperationRegistry,
     mode: str,
@@ -772,8 +806,16 @@ def start_step(
     # since, it is an old press sent again, answered for another state of the base.
     if chain and after != str(latest_run_id(state)):
         raise StepRefused(STALE_CHAIN, 409)
+    if mode == "load":
+        period = period_refusal(published_from, published_to)
+        if period is not None:
+            raise StepRefused(period, 400)
+    # A load for a period is asked for whatever step the round is at: it adds what was
+    # published then, and the round goes on from it.
     refusal = out_of_turn(state, mode)
-    if refusal is not None:
+    if refusal is not None and not (
+        mode == "load" and published_from is not None and state.live is None
+    ):
         raise StepRefused(refusal, 409)
     stage = _MODES.get(mode)
     if stage is None:

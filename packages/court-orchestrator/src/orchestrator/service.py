@@ -16,7 +16,7 @@ from collections import Counter
 from collections.abc import Iterator, Sequence
 from contextlib import aclosing, contextmanager
 from dataclasses import dataclass, field, replace
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -48,6 +48,10 @@ ENTITY_REVIEW_NOT_CONFIGURED = "not_configured"
 # How deep a regular run goes when it cannot stop at what is stored (a source's first
 # load, the load after one that broke). Deeper is an explicit backfill.
 FIRST_LOAD_LIMIT = 500
+# A load for a period stops reading a source after this many articles in a row published
+# before the period: sources list newest first, so what follows is older still. More than
+# one, for a pinned post or a source whose listing is not quite in order.
+PERIOD_STOP_AFTER_OLDER = 10
 # How many pending decisions a model reviews in one run, at most.
 ENTITY_REVIEW_BATCH = 50
 # A run waiting for a derived-stage lock refreshes its heartbeat at least this often.
@@ -80,6 +84,12 @@ class RunHandle:
             MonitoringTrigger.SCHEDULE,
             MonitoringTrigger.MANUAL,
         )
+
+    @property
+    def is_period(self) -> bool:
+        """A load for a period from a date: it may lie before what is stored, so its
+        discovery goes deep, and its reading stops where the period ends."""
+        return self.published_from is not None
 
 
 @dataclass(frozen=True)
@@ -134,6 +144,14 @@ class PipelineModules:
     resolution: PersonResolutionStage
     analysis: AnalysisService
     results: ResultsService
+
+
+def _before_period(handle: RunHandle, published_at: datetime | None) -> bool:
+    return (
+        handle.published_from is not None
+        and published_at is not None
+        and published_at.date() < handle.published_from
+    )
 
 
 class MonitoringService:
@@ -448,6 +466,7 @@ class MonitoringService:
             # A backfill goes deep on purpose; a regular run only needs what is new.
             stop_at_known = (
                 handle.is_regular
+                and not handle.is_period
                 and not handle.refetch_known
                 and handle.source is not None
                 and self._repository.previous_load_completed(
@@ -455,7 +474,7 @@ class MonitoringService:
                 )
             )
             limit = handle.discovery_limit
-            if handle.is_regular and not stop_at_known:
+            if handle.is_regular and not stop_at_known and not handle.is_period:
                 # A source's first load, or the one after a load that broke: nothing stored
                 # ends the paging, and the ceiling alone would be thousands of publications.
                 limit = min(limit, FIRST_LOAD_LIMIT)
@@ -478,6 +497,8 @@ class MonitoringService:
     ) -> tuple[list[int], Counter[str]]:
         article_ids: list[int] = []
         outcomes: Counter[str] = Counter()
+        # Articles in a row published before the period (`PERIOD_STOP_AFTER_OLDER`).
+        older = 0
         async with (
             self._deps.ingestion.open(
                 source, published_from=handle.published_from, published_to=handle.published_to
@@ -511,6 +532,10 @@ class MonitoringService:
                     self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
                     outcomes["skipped_no_text"] += 1
                     continue
+                if _before_period(handle, document.published_at):
+                    older += 1
+                else:
+                    older = 0
                 if document.skipped is not None:
                     reason = f"skipped_{document.skipped.value}"
                     logger.info(
@@ -522,6 +547,17 @@ class MonitoringService:
                     )
                     self._repository.add_counters(handle.run_id, {"documents_skipped": 1})
                     outcomes[reason] += 1
+                    if older >= PERIOD_STOP_AFTER_OLDER:
+                        logger.info(
+                            "event=monitoring_period_reached run_id=%s source=%s "
+                            "published_from=%s older_in_a_row=%s",
+                            handle.run_id,
+                            source,
+                            handle.published_from,
+                            older,
+                        )
+                        outcomes["stopped_before_period"] += 1
+                        break
                     continue
                 article_ids.append(documents.store(document))
                 self._repository.add_counters(handle.run_id, {"documents_ingested": 1})
