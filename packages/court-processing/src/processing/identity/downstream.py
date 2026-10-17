@@ -14,8 +14,9 @@ hands it to `IdentityService` and to the commands that change a group.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Protocol
 
 from sqlalchemy.orm import Session
@@ -41,9 +42,29 @@ class IdentifiedFigurant:
     published_at: datetime | None
 
 
+@dataclass(frozen=True)
+class FigurantEvidence:
+    """An unnamed figurant joined to a group, as the group's evidence shows it: where its
+    article names it, and the operator's resolution of it as it stands now."""
+
+    key: str
+    article_id: int
+    start_offset: int
+    end_offset: int
+    quote: str
+    resolution: str
+    rf_name: str | None
+    rf_birth_date: date | None
+    decided_at: datetime
+
+
 class IdentityDownstream(Protocol):
     def identified_figurants(self, session: Session) -> list[IdentifiedFigurant]:
         """Every unnamed figurant identified as a real person (`IDENTIFYING_RESOLUTIONS`)."""
+        ...
+
+    def figurants(self, session: Session, keys: Collection[str]) -> dict[str, FigurantEvidence]:
+        """The figurants asked for that have a resolution, whatever it is now."""
         ...
 
     def role_withdrawn(self, session: Session, group_id: int) -> None:

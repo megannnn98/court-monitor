@@ -4,6 +4,7 @@ keeps of an entity group follows the group, in the caller's transaction (ADR 003
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.orm import Session
@@ -14,7 +15,12 @@ from analysis.storage.models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
-from processing.identity.downstream import IDENTIFYING_RESOLUTIONS, IdentifiedFigurant
+from db.arrays import any_text
+from processing.identity.downstream import (
+    IDENTIFYING_RESOLUTIONS,
+    FigurantEvidence,
+    IdentifiedFigurant,
+)
 
 # One list entry matched twice: the stronger level stays.
 _ONE_MATCH_PER_ENTRY = text(
@@ -60,6 +66,32 @@ class GroupFollowers:
             )
             for resolution, figurant in rows
         ]
+
+    def figurants(self, session: Session, keys: Collection[str]) -> dict[str, FigurantEvidence]:
+        if not keys:
+            return {}
+        rows = session.execute(
+            select(UnnamedFigurantRecord, UnnamedIdentityResolutionRecord)
+            .join(
+                UnnamedIdentityResolutionRecord,
+                UnnamedIdentityResolutionRecord.figurant_key == UnnamedFigurantRecord.key,
+            )
+            .where(any_text(UnnamedFigurantRecord.key, keys, name="keys"))
+        ).all()
+        return {
+            figurant.key: FigurantEvidence(
+                key=figurant.key,
+                article_id=figurant.article_id,
+                start_offset=figurant.start_offset,
+                end_offset=figurant.end_offset,
+                quote=figurant.quote,
+                resolution=resolution.resolution,
+                rf_name=resolution.rf_name,
+                rf_birth_date=resolution.rf_birth_date,
+                decided_at=resolution.decided_at,
+            )
+            for figurant, resolution in rows
+        }
 
     def role_withdrawn(self, session: Session, group_id: int) -> None:
         session.execute(

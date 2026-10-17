@@ -84,7 +84,7 @@ def test_only_figurants_sources_are_offered(session_factory: sessionmaker[Sessio
     article_ids = _seed(session_factory)
 
     with session_factory() as session:
-        titles = figurant_titles(session)
+        titles = figurant_titles(session, GroupFollowers())
 
     # Сирош is «mentioned», not a figurant: his article is not a source to classify.
     assert titles == {article_ids["digest"]: "Главное за день"}

@@ -26,11 +26,16 @@ from typing import Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, text
+from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.group_followers import GroupFollowers
 from analysis.politics.classification import POLITICAL
-from analysis.storage.models import EntityGroupNewsRecord, EntityNewsAnswerRecord
+from analysis.storage.models import (
+    EntityGroupNewsRecord,
+    EntityGroupPoliticsRecord,
+    EntityNewsAnswerRecord,
+)
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -41,8 +46,9 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing import read as identity
 from processing.answers import AnswerCache, ask_missing, input_hash
-from processing.evidence.publications import person_evidence_cte
+from processing.evidence.publications import latest_evidence
 
 logger = logging.getLogger("entities")
 
@@ -261,34 +267,6 @@ def news_reader_from_env(env: Mapping[str, str] | None = None) -> NewsReader | N
 
 
 # The political cases.
-_CASES = text(
-    """
-    SELECT g.id, g.key, g.name FROM entity_groups g
-    JOIN entity_group_politics p ON p.group_id = g.id AND p.verdict = :political
-    ORDER BY g.id
-    """
-)
-# Per case, its latest publications, each with one excerpt around its first mention.
-_QUOTES = text(
-    f"""
-    WITH {person_evidence_cte()},
-    mentions AS (
-        SELECT group_id, article_id AS publication, published_at, quote,
-               row_number() OVER (PARTITION BY group_id, article_id ORDER BY start_offset) AS nth
-        FROM person_evidence
-        WHERE group_id = ANY(:groups)
-    ), latest AS (
-        SELECT group_id, publication, published_at, quote,
-               row_number() OVER (
-                   PARTITION BY group_id ORDER BY published_at DESC NULLS LAST, publication DESC
-               ) AS n
-        FROM mentions WHERE nth = 1
-    )
-    SELECT group_id, published_at, quote FROM latest WHERE n <= :quotes
-    ORDER BY group_id, n
-    """
-)
-
 NEWS_CACHE: AnswerCache[NewsAnswer] = AnswerCache(
     record=EntityNewsAnswerRecord,
     field="kind",
@@ -338,14 +316,23 @@ class NewsFinder:
     def run(self) -> NewsResult:
         self._on_stage("reading")
         with self._session_factory() as session:
-            cases = session.execute(_CASES, {"political": POLITICAL}).all()
+            political = session.scalars(
+                select(EntityGroupPoliticsRecord.group_id).where(
+                    EntityGroupPoliticsRecord.verdict == POLITICAL
+                )
+            ).all()
+            cases = list(identity.groups(session, political).values())
             quotes: dict[int, list[Quote]] = {}
-            for group_id, published_at, quote in session.execute(
-                _QUOTES,
-                {"groups": [row.id for row in cases], "context": QUOTE_CONTEXT, "quotes": QUOTES},
-            ).all():
-                quotes.setdefault(group_id, []).append(
-                    Quote(published_at, " ".join((quote or "").split()))
+            # Per case, its latest publications, each with one excerpt around its first mention.
+            for evidence in latest_evidence(
+                session,
+                [row.id for row in cases],
+                GroupFollowers(),
+                context=QUOTE_CONTEXT,
+                per_group=QUOTES,
+            ):
+                quotes.setdefault(evidence.group_id, []).append(
+                    Quote(evidence.published_at, " ".join((evidence.quote or "").split()))
                 )
         items = {row.id: NewsItem(row.id, row.name, tuple(quotes.get(row.id, []))) for row in cases}
         found = ask_missing(

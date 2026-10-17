@@ -491,7 +491,8 @@ def _foreign_storage_imports() -> set[str]:
         for module in _imports(ast.parse(file.read_text(encoding="utf-8"))):
             owner = _storage_owner(module)
             if owner is not None and owner != distribution:
-                if module == "db.models.base":
+                if module.startswith("db.models.base"):
+                    # The one `Base` every model registers on: shared infrastructure.
                     continue
                 found.add(f"{path} -> {module.split('.storage')[0]}.storage")
     return found

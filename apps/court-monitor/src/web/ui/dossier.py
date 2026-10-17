@@ -14,6 +14,7 @@ text names another year); no event date is invented, and the page says so.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -24,9 +25,10 @@ from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import Text, cast, or_, select, text
+from sqlalchemy import Text, cast, or_, select
 from sqlalchemy.orm import Session
 
+from analysis import read as verdicts
 from analysis.news.case_news import KIND_LABELS as NEWS_LABELS
 from analysis.news.case_news import NEW_CASE, SENTENCE
 from analysis.operator_base.known_base import KnownBase, KnownMatch
@@ -36,7 +38,11 @@ from analysis.rosfinmonitoring.rf_articles import listing
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import source_mark
 from analysis.storage.models import EntityGroupPoliticsRecord
-from processing.evidence.publications import person_evidence_cte
+from application import group_followers
+from ingestion import read as articles
+from processing import read as identity
+from processing.evidence.publications import Evidence, latest_first, person_evidence, quoted
+from processing.identity.downstream import IdentityDownstream
 from processing.roles.officials import OFFICIAL_KINDS
 from processing.roles.roles import FIGURANT
 from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
@@ -94,135 +100,53 @@ VERDICT_METHODS = {
 }
 ORG_ROLES = {"court": "суд", "authority": "орган"}
 
-# Q1 — the entity with its role, its verdict and its first and latest publication.
-_ENTITY = text(
-    """
-    SELECT g.id, g.key, g.name, g.variants, g.regions, g.mention_count, g.article_count,
-           g.last_published_at, g.name_source, g.gender, g.event_types,
-           ro.role, ro.kind, ro.method AS role_method, ro.reason AS role_reason,
-           ro.quote AS role_quote,
-           po.verdict, po.method AS verdict_method, po.reason AS verdict_reason,
-           po.quote AS verdict_quote,
-           ne.kind AS news_kind, ne.reason AS news_reason,
-           (WITH """
-    + person_evidence_cte()
-    + """
-            SELECT min(published_at) FROM person_evidence WHERE group_id = g.id) AS first_published_at
-    FROM entity_groups g
-    LEFT JOIN entity_group_roles ro ON ro.group_id = g.id
-    LEFT JOIN entity_group_politics po ON po.group_id = g.id
-    LEFT JOIN entity_group_news ne ON ne.group_id = g.id
-    WHERE g.key = :key
-    """
-)
-# Q2 — the Rosfinmonitoring matches, and the list snapshot the check could last read.
-_RF = text(
-    """
-    SELECT m.level, e.full_name, e.birth_date, e.birth_place, s.snapshot_date, e.inclusion_date,
-           e.inclusion_source
-    FROM entity_group_rf_matches m
-    JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
-    JOIN rosfinmonitoring_snapshots s ON s.id = e.snapshot_id
-    WHERE m.group_id = :group
-    UNION ALL
-    SELECT NULL, NULL, NULL, NULL, max(snapshot_date), NULL, NULL
-    FROM rosfinmonitoring_snapshots
-    ORDER BY 1 NULLS LAST, 2
-    """
-)
-# Q3 — the events whose target this person is, with an excerpt around the trigger.
-_EVENTS = text(
-    """
-    SELECT DISTINCT e.id, e.event_type, e.event_date, e.confidence, e.extractor_name,
-           e.start_offset, e.end_offset,
-           a.id AS article_id, a.title, a.published_at, d.canonical_url, s.name AS source,
-           substr(a.text, greatest(e.start_offset - :context, 0) + 1,
-                  e.end_offset - greatest(e.start_offset - :context, 0) + :context) AS quote,
-           greatest(e.start_offset - :context, 0) AS quote_start
-    FROM entity_group_mentions gm
-    JOIN event_entity_mentions em ON em.mention_id = gm.mention_id AND em.role = 'target'
-    JOIN extracted_events e ON e.id = em.event_id
-    JOIN article_extraction_runs r ON r.id = e.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE gm.group_id = :group
-    ORDER BY a.published_at NULLS LAST, e.id
-    LIMIT :limit
-    """
-)
-# Q4 — the Criminal Code articles of this person's events (step 3's charges).
-_CHARGES = text(
-    """
-    SELECT event_id, publication_id, article, part, other_targets
-    FROM entity_group_charges WHERE group_id = :group
-    """
-)
-# Q5 — the courts and bodies those events name, as the text wrote them.
-_ORGS = text(
-    """
-    SELECT em.event_id, em.role, m.surface_text
-    FROM event_entity_mentions em JOIN entity_mentions m ON m.id = em.mention_id
-    WHERE em.event_id = ANY(:events) AND em.role IN ('court', 'authority')
-    """
-)
-# Q6 — the publications naming this person, the latest first, an excerpt around the
-# first mention in each.
-_PUBLICATIONS = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT * FROM (
-        SELECT DISTINCT ON (article_id) article_id AS id, title, published_at, canonical_url,
-               source, start_offset, end_offset, quote, quote_start, kind,
-               resolution, rf_name, rf_birth_date, decided_at
-        FROM person_evidence
-        WHERE group_id = :group
-        ORDER BY article_id, kind, start_offset
-    ) found
-    ORDER BY published_at DESC NULLS LAST, id DESC
-    LIMIT :limit
-    """
-)
-# Q7 — the other people of these publications.
-_OTHERS = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT DISTINCT e.article_id, g.key, g.name
-    FROM person_evidence e
-    JOIN entity_groups g ON g.id = e.group_id
-    WHERE e.article_id = ANY(:articles) AND e.group_id <> :group
-    """
-)
-# Q8 — the people most often in the same publications.
-_RELATED = text(
-    f"""
-    WITH {person_evidence_cte()},
-    mine AS (
-        SELECT DISTINCT article_id FROM person_evidence
-        WHERE group_id = :group
-    )
-    SELECT g.key, g.name, count(DISTINCT r.article_id) AS shared
-    FROM person_evidence r
-    JOIN entity_groups g ON g.id = r.group_id
-    WHERE r.article_id IN (SELECT article_id FROM mine) AND r.group_id <> :group
-    GROUP BY g.key, g.name ORDER BY shared DESC, g.name LIMIT :limit
-    """
-)
-# Q9 — the publication a verdict's quote comes from (its text, spaces folded).
-_QUOTE_SOURCE = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT e.article_id
-    FROM person_evidence e
-    JOIN parsed_articles a ON a.id = e.article_id
-    WHERE e.group_id = :group
-      AND (
-          (e.kind = 'mention' AND position(:needle IN regexp_replace(a.text, '\\s+', ' ', 'g')) > 0)
-          OR (e.kind <> 'mention' AND position(:needle IN regexp_replace(e.quote, '\\s+', ' ', 'g')) > 0)
-      )
-    ORDER BY e.published_at DESC NULLS LAST LIMIT 1
-    """
-)
+
+@dataclass(frozen=True)
+class Entity:
+    """The group with its role, its verdict and the news of its case, as the header
+    shows them."""
+
+    id: int
+    key: str
+    name: str
+    variants: tuple[tuple[Any, ...], ...]
+    regions: tuple[tuple[Any, ...], ...]
+    mention_count: int
+    article_count: int
+    last_published_at: datetime | None
+    name_source: str
+    gender: str | None
+    event_types: Any
+    role: str | None
+    kind: str | None
+    role_method: str | None
+    role_reason: str | None
+    role_quote: str | None
+    verdict: str | None
+    verdict_method: str | None
+    verdict_reason: str | None
+    verdict_quote: str | None
+    news_kind: str | None
+    news_reason: str | None
+    first_published_at: datetime | None
+
+
+@dataclass(frozen=True)
+class _EventRow:
+    id: int
+    event_type: str
+    event_date: datetime | None
+    confidence: float | None
+    extractor_name: str
+    start_offset: int
+    end_offset: int
+    article_id: int
+    title: str
+    published_at: datetime | None
+    canonical_url: str
+    source: str
+    quote: str | None
+    quote_start: int
 
 
 @dataclass
@@ -303,39 +227,123 @@ def _marked(quote_text: str, start: int, end: int) -> str:
     )
 
 
+def _entity(db: Session, key: str, followers: IdentityDownstream) -> Entity | None:
+    group = identity.groups_by_key(db, [key]).get(key)
+    if group is None:
+        return None
+    role = identity.roles(db, [group.id]).get(group.id)
+    politics = verdicts.politics(db, [group.id]).get(group.id)
+    news = verdicts.case_news(db, [group.id]).get(group.id)
+    published = [
+        item.published_at
+        for item in person_evidence(db, followers, groups=[group.id], quotes=False)
+        if item.published_at is not None
+    ]
+    return Entity(
+        id=group.id,
+        key=group.key,
+        name=group.name,
+        variants=group.variants,
+        regions=group.regions,
+        mention_count=group.mention_count,
+        article_count=group.article_count,
+        last_published_at=group.last_published_at,
+        name_source=group.name_source,
+        gender=group.gender,
+        event_types=group.event_types,
+        role=role.role if role else None,
+        kind=role.kind if role else None,
+        role_method=role.method if role else None,
+        role_reason=role.reason if role else None,
+        role_quote=role.quote if role else None,
+        verdict=politics.verdict if politics else None,
+        verdict_method=politics.method if politics else None,
+        verdict_reason=politics.reason if politics else None,
+        verdict_quote=politics.quote if politics else None,
+        news_kind=news.kind if news else None,
+        news_reason=news.reason if news else None,
+        first_published_at=min(published) if published else None,
+    )
+
+
+def _event_rows(db: Session, group_id: int, *, limit: int) -> list[_EventRow]:
+    """The events whose target this person is, the earliest publication first (unknown
+    dates last), with an excerpt around the trigger."""
+    events = identity.target_events(db, group_id)
+    cards = articles.article_cards(db, {event.article_id for event in events})
+    chosen = sorted(
+        (event for event in events if event.article_id in cards),
+        key=lambda event: (
+            cards[event.article_id].published_at is None,
+            cards[event.article_id].published_at or datetime.min.replace(tzinfo=UTC),
+            event.id,
+        ),
+    )[:limit]
+    starts = [max(event.start_offset - QUOTE_CONTEXT, 0) for event in chosen]
+    quotes = articles.text_windows(
+        db,
+        [
+            articles.TextWindow(event.article_id, start, event.end_offset - start + QUOTE_CONTEXT)
+            for event, start in zip(chosen, starts, strict=True)
+        ],
+    )
+    return [
+        _EventRow(
+            id=event.id,
+            event_type=event.event_type,
+            event_date=event.event_date,
+            confidence=event.confidence,
+            extractor_name=event.extractor_name,
+            start_offset=event.start_offset,
+            end_offset=event.end_offset,
+            article_id=event.article_id,
+            title=cards[event.article_id].title,
+            published_at=cards[event.article_id].published_at,
+            canonical_url=cards[event.article_id].url,
+            source=cards[event.article_id].source_name,
+            quote=quote,
+            quote_start=start,
+        )
+        for event, start, quote in zip(chosen, starts, quotes, strict=True)
+    ]
+
+
+def _first_per_article(evidence: list[Evidence]) -> list[Evidence]:
+    """Each publication once, by its first place: a named mention before an unnamed
+    figurant, then the earliest in the text."""
+    first: dict[int, Evidence] = {}
+    for item in sorted(evidence, key=lambda item: (item.kind, item.start_offset)):
+        first.setdefault(item.article_id, item)
+    return list(first.values())
+
+
 def load(db: Session, key: str) -> Dossier | None:
-    entity = db.execute(_ENTITY, {"key": key, "context": QUOTE_CONTEXT}).first()
+    followers = group_followers()
+    entity = _entity(db, key, followers)
     if entity is None:
         return None
-    rf_rows = db.execute(_RF, {"group": entity.id}).all()
-    matches = [row for row in rf_rows if row.level is not None]
-    snapshot_date = next((row.snapshot_date for row in rf_rows if row.level is None), None)
+    matches, snapshot_date = verdicts.list_matches(db, entity.id)
 
-    event_rows = db.execute(
-        _EVENTS, {"group": entity.id, "context": QUOTE_CONTEXT, "limit": TIMELINE_LIMIT + 1}
-    ).all()
+    event_rows = _event_rows(db, entity.id, limit=TIMELINE_LIMIT + 1)
     events_capped = len(event_rows) > TIMELINE_LIMIT
     event_rows = event_rows[:TIMELINE_LIMIT]
     charges: dict[str, dict[str, Any]] = {}
     articles_by_event: dict[int, set[str]] = defaultdict(set)
     articles_by_publication: dict[int, set[str]] = defaultdict(set)
-    for event_id, publication_id, article, part, others in db.execute(
-        _CHARGES, {"group": entity.id}
-    ).all():
-        charge = charges.setdefault(article, {"parts": set(), "sole": False, "publications": set()})
-        if part:
-            charge["parts"].add(part)
-        charge["sole"] = charge["sole"] or others == 0
-        charge["publications"].add(publication_id)
-        articles_by_event[event_id].add(article)
-        articles_by_publication[publication_id].add(article)
+    for found in identity.charges(db, [entity.id]).get(entity.id, []):
+        charge = charges.setdefault(
+            found.article, {"parts": set(), "sole": False, "publications": set()}
+        )
+        if found.part:
+            charge["parts"].add(found.part)
+        charge["sole"] = charge["sole"] or found.other_targets == 0
+        charge["publications"].add(found.publication_id)
+        articles_by_event[found.event_id].add(found.article)
+        articles_by_publication[found.publication_id].add(found.article)
     orgs_by_event: dict[int, set[tuple[str, str]]] = defaultdict(set)
-    if event_rows:
-        for event_id, role, name in db.execute(
-            _ORGS, {"events": [row.id for row in event_rows]}
-        ).all():
-            if name:
-                orgs_by_event[event_id].add((role, " ".join(str(name).split())))
+    for event_id, role, name in identity.event_orgs(db, [row.id for row in event_rows]):
+        if name:
+            orgs_by_event[event_id].add((role, " ".join(str(name).split())))
 
     items: dict[tuple[str, Any], TimelineItem] = {}
     for row in event_rows:
@@ -370,29 +378,33 @@ def load(db: Session, key: str) -> Dossier | None:
                     row.end_offset,
                 )
             )
+    evidence = person_evidence(
+        db, followers, groups=[entity.id], context=QUOTE_CONTEXT, quotes=False
+    )
+    latest = sorted(
+        _first_per_article(evidence),
+        key=lambda item: (*latest_first(item.published_at), -item.article_id),
+    )[:PUBLICATION_LIMIT]
     publications = [
         Publication(
-            row.id,
-            row.title,
-            row.source,
-            row.canonical_url,
-            row.published_at,
-            row.quote or "",
-            row.start_offset - row.quote_start,
-            row.end_offset - row.quote_start,
-            row.start_offset,
-            row.end_offset,
-            row.kind,
-            row.resolution,
-            row.rf_name,
-            row.rf_birth_date,
-            row.decided_at,
-            articles=set(articles_by_publication.get(row.id, set())),
+            item.article_id,
+            item.title,
+            item.source,
+            item.url,
+            item.published_at,
+            item.quote or "",
+            item.start_offset - item.quote_start,
+            item.end_offset - item.quote_start,
+            item.start_offset,
+            item.end_offset,
+            item.kind,
+            item.resolution,
+            item.rf_name,
+            item.rf_birth_date,
+            item.decided_at,
+            articles=set(articles_by_publication.get(item.article_id, set())),
         )
-        for row in db.execute(
-            _PUBLICATIONS,
-            {"group": entity.id, "context": QUOTE_CONTEXT, "limit": PUBLICATION_LIMIT},
-        ).all()
+        for item in quoted(db, latest, QUOTE_CONTEXT)
     ]
     events_by_publication: dict[int, set[str]] = defaultdict(set)
     for row in event_rows:
@@ -401,23 +413,19 @@ def load(db: Session, key: str) -> Dossier | None:
     for publication in publications:
         publication.events = events_by_publication.get(publication.article_id, set())
     if by_id:
-        for article_id, other_key, other_name in db.execute(
-            _OTHERS, {"articles": list(by_id), "group": entity.id, "context": QUOTE_CONTEXT}
-        ).all():
-            by_id[article_id].others.append((other_key, other_name))
-    related = [
-        (row.key, row.name, row.shared)
-        for row in db.execute(
-            _RELATED, {"group": entity.id, "limit": RELATED_LIMIT, "context": QUOTE_CONTEXT}
-        ).all()
-    ]
+        around = person_evidence(db, followers, articles=list(by_id), quotes=False)
+        pairs = sorted(
+            {(item.article_id, item.group_id) for item in around if item.group_id != entity.id}
+        )
+        names = identity.groups(db, {group_id for _, group_id in pairs})
+        for article_id, group_id in pairs:
+            by_id[article_id].others.append((names[group_id].key, names[group_id].name))
+    related = related_people(db, entity.id, evidence, followers)
 
     verdict_source = None
     needle = " ".join((entity.verdict_quote or "").split())[:80]
     if needle:
-        verdict_source = db.scalar(
-            _QUOTE_SOURCE, {"group": entity.id, "needle": needle, "context": QUOTE_CONTEXT}
-        )
+        verdict_source = _quote_source(db, evidence, needle)
     disputes = [
         pair.right.key if pair.left.key == key else pair.left.key
         for pair in dispute_pairs(db)
@@ -428,7 +436,7 @@ def load(db: Session, key: str) -> Dossier | None:
         known=base.match(entity.name),
         known_loaded=bool(len(base)),
         entity=entity,
-        rf=matches,
+        rf=list(matches),
         snapshot_date=snapshot_date,
         timeline=sorted(
             items.values(),
@@ -445,6 +453,43 @@ def load(db: Session, key: str) -> Dossier | None:
         verdict_source=verdict_source,
         disputes=disputes,
     )
+
+
+def related_people(
+    db: Session,
+    group_id: int,
+    evidence: list[Evidence],
+    followers: IdentityDownstream,
+    *,
+    limit: int = RELATED_LIMIT,
+) -> list[tuple[str, str, int]]:
+    """The people most often in the same publications as the group's `evidence`, the
+    most shared first, then by name: a count, not a connection."""
+    mine = {item.article_id for item in evidence}
+    shared: dict[int, set[int]] = defaultdict(set)
+    for item in person_evidence(db, followers, articles=mine, quotes=False):
+        if item.group_id != group_id:
+            shared[item.group_id].add(item.article_id)
+    order = {other: rank for rank, other in enumerate(identity.by_name(db, shared))}
+    top = sorted(shared, key=lambda other: (-len(shared[other]), order[other]))[:limit]
+    names = identity.groups(db, top)
+    return [(names[other].key, names[other].name, len(shared[other])) for other in top]
+
+
+def _quote_source(db: Session, evidence: list[Evidence], needle: str) -> int | None:
+    """The publication a verdict's quote comes from (its text, spaces folded)."""
+    in_text = articles.texts_containing(
+        db, {item.article_id for item in evidence if item.kind == "mention"}, needle
+    )
+    found = [
+        item
+        for item in evidence
+        if (item.kind == "mention" and item.article_id in in_text)
+        or (item.kind != "mention" and needle in re.sub(r"\s+", " ", item.quote or ""))
+    ]
+    if not found:
+        return None
+    return min(found, key=lambda item: latest_first(item.published_at)).article_id
 
 
 def _day(moment: datetime | None) -> str:

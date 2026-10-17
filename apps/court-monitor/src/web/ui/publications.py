@@ -8,15 +8,16 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from html import escape
-from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
-from sqlalchemy import Row, text
 from sqlalchemy.orm import Session
 
-from processing.evidence.publications import person_evidence_cte
+from application import group_followers
+from ingestion import read as articles
+from processing import read as identity
+from processing.evidence.publications import person_evidence
 from web.dependencies import get_db
 from web.ui.entities import EVENT_LABELS, display_name
 from web.ui.layout import _page, pager
@@ -26,46 +27,6 @@ router = APIRouter()
 PAGE_SIZE = 50
 PEOPLE_SHOWN = 8
 
-_FILTER = """
-    FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE (:q = '' OR a.title ILIKE :pattern OR a.text ILIKE :pattern)
-      AND (:source = 0 OR s.id = :source)
-"""
-_COUNT = text(f"SELECT count(*) {_FILTER}")
-_ROWS = text(
-    f"""
-    SELECT a.id, a.title, a.published_at, s.name AS source, d.canonical_url {_FILTER}
-    ORDER BY a.published_at DESC NULLS LAST, a.id DESC
-    LIMIT :limit OFFSET :offset
-    """
-)
-_SOURCES = text(
-    """
-    SELECT s.id, s.name, count(*) FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id JOIN sources s ON s.id = d.source_id
-    GROUP BY s.id, s.name ORDER BY s.name
-    """
-)
-_PEOPLE = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT DISTINCT e.article_id, g.key, g.name, g.mention_count
-    FROM person_evidence e
-    JOIN entity_groups g ON g.id = e.group_id
-    WHERE e.article_id = ANY(:articles)
-    """
-)
-_EVENTS = text(
-    """
-    SELECT r.article_id, e.event_type, count(*)
-    FROM extracted_events e JOIN article_extraction_runs r ON r.id = e.extraction_run_id
-    WHERE r.article_id = ANY(:articles) AND r.status = 'succeeded'
-    GROUP BY r.article_id, e.event_type
-    """
-)
-
 
 def people_and_events(
     db: Session, article_ids: Sequence[int]
@@ -74,13 +35,19 @@ def people_and_events(
     people: dict[int, list[tuple[str, str, int]]] = defaultdict(list)
     events: dict[int, list[tuple[str, int]]] = defaultdict(list)
     if article_ids:
-        for article_id, key, name, mentions in db.execute(
-            _PEOPLE, {"articles": list(article_ids), "context": 0}
-        ).all():
-            people[article_id].append((key, name, mentions))
-        for article_id, event_type, count in db.execute(
-            _EVENTS, {"articles": list(article_ids)}
-        ).all():
+        pairs = sorted(
+            {
+                (item.article_id, item.group_id)
+                for item in person_evidence(
+                    db, group_followers(), articles=article_ids, quotes=False
+                )
+            }
+        )
+        groups = identity.groups(db, {group_id for _, group_id in pairs})
+        for article_id, group_id in pairs:
+            group = groups[group_id]
+            people[article_id].append((group.key, group.name, group.mention_count))
+        for article_id, event_type, count in identity.event_counts(db, article_ids):
             events[article_id].append((event_type, count))
     return people, events
 
@@ -90,19 +57,19 @@ class PublicationPage:
     """One page of «Публикации»; read by the legacy page and `GET /api/v1/publications`."""
 
     total: int
-    rows: Sequence[Row[Any]]
+    rows: Sequence[articles.ListedArticle]
     people: dict[int, list[tuple[str, str, int]]]
     events: dict[int, list[tuple[str, int]]]
     # Every source with its count of publications, for the filter.
-    sources: Sequence[Row[Any]]
+    sources: Sequence[tuple[int, str, int]]
 
 
 def read_publications(db: Session, *, q: str, source: int, page: int) -> PublicationPage:
-    params = {"q": q.strip(), "pattern": f"%{q.strip()}%", "source": source}
-    total = db.scalar(_COUNT, params) or 0
-    rows = db.execute(_ROWS, {**params, "limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}).all()
+    total, rows = articles.browse(
+        db, q=q.strip(), source_id=source, limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE
+    )
     people, events = people_and_events(db, [row.id for row in rows])
-    return PublicationPage(total, rows, people, events, db.execute(_SOURCES).all())
+    return PublicationPage(total, rows, people, events, articles.source_counts(db))
 
 
 @router.get("/ui/publications", response_class=HTMLResponse)

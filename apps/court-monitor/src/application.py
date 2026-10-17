@@ -132,6 +132,7 @@ def build_processing_service(
         pipeline=extraction_pipeline or default_extraction_pipeline(session_factory),
         documents=SqlAlchemyExtractionDocumentRepository(session_factory),
         pending=SqlAlchemyPendingExtraction(session_factory),
+        downstream=group_followers(),
     )
 
 

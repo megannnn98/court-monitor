@@ -347,12 +347,21 @@ def test_the_xlsx_of_rows_without_matches_says_nothing_about_dates() -> None:
     """A row with no list entry has no entry to date; the column must be empty rather
     than carrying a stray word."""
     from analysis.politics.classification import POLITICAL
-    from processing.storage.models import EntityGroupRecord as Record
+    from analysis.read import Politics
+    from processing.read import Group
 
-    entity = Record(id=1, key="k", name="Анна Смирнова", variants=[], mention_count=1, regions=[])
-    politics = EntityGroupPoliticsRecord(
-        group_id=1, verdict=POLITICAL, method="model", reason="р", quote="ц"
+    entity = Group(
+        id=1,
+        key="k",
+        name="Анна Смирнова",
+        mention_count=1,
+        article_count=0,
+        last_published_at=None,
+        gender=None,
+        name_source="rules",
+        collected_at=datetime(2026, 10, 1, tzinfo=UTC),
     )
+    politics = Politics(group_id=1, verdict=POLITICAL, method="model", reason="р", quote="ц")
     workbook = load_workbook(BytesIO(political_xlsx([named_row(entity, politics)])))
     rows = [
         str(cell.value)

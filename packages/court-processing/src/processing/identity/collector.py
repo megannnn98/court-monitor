@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ from sqlalchemy import delete, distinct, func, insert, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion import read
 from llm.chat import BudgetExceededError, Spend, ask_in_batches
 from processing.answers import input_hash
 from processing.identity.disputes import KeyIndex, merge_decided, same_pairs
@@ -78,46 +80,44 @@ _MENTIONS = text(
         JOIN extracted_events e ON e.extraction_run_id = l.id
         WHERE e.event_type = ANY(:criminal)
     )
-    SELECT m.id, c.article_id, a.published_at,
+    SELECT m.id, c.article_id,
            m.normalized_data->>'first_name',
            m.normalized_data->>'last_name',
            m.normalized_data->>'patronymic',
-           m.surface_text,
-           substr(a.text, greatest(m.start_offset - :context, 0) + 1,
-                  m.end_offset - greatest(m.start_offset - :context, 0) + :context),
-           -- A registry card (memopzk) names its person's region on a line of its own.
-           substring(a.text from '(?:^|\n)Регион: ([^\n]+?)\\.?(?:\n|$)'),
-           -- Around the mention, to tell the author's signature under the text (`byline`).
-           substr(a.text, greatest(m.start_offset - :around, 0) + 1,
-                  least(m.start_offset, :around)),
-           substr(a.text, m.end_offset + 1, :around)
+           m.surface_text, m.start_offset, m.end_offset
     FROM entity_mentions m
     JOIN criminal c ON c.run_id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = c.article_id
     WHERE m.entity_type = 'person'
     """
 )
+# A registry card (memopzk) names its person's region on a line of its own.
+_REGION = "(?:^|\n)Регион: ([^\n]+?)\\.?(?:\n|$)"
 # How much text around a mention `byline` reads: the end of the line before, and whether
 # anything follows.
 _AROUND = 40
 # A person's mention in brackets right after another's: «Дмитрия Пуркина (Дед Архимед)».
 # Offsets are Python's, from 0; `substr` counts from 1.
-_ALIASES = text(
-    r"""
-    SELECT a.id, n.id
+_PERSON_SPANS = text(
+    """
+    SELECT m.id, m.extraction_run_id, r.article_id, m.start_offset, m.end_offset
+    FROM entity_mentions m
+    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
+    WHERE m.entity_type = 'person' AND m.start_offset > 0
+    """
+)
+# The person mentions before a bracketed one, in its extraction run.
+_BEFORE_BRACKETS = text(
+    """
+    SELECT a.id, n.id, r.article_id, n.end_offset, a.start_offset
     FROM entity_mentions a
     JOIN article_extraction_runs r ON r.id = a.extraction_run_id
-    JOIN parsed_articles p ON p.id = r.article_id
     JOIN entity_mentions n
       ON n.extraction_run_id = a.extraction_run_id AND n.entity_type = 'person'
      AND n.end_offset < a.start_offset
-    WHERE a.entity_type = 'person' AND a.start_offset > 0
-      AND substr(p.text, a.start_offset, 1) = '('
-      AND substr(p.text, a.end_offset + 1, 1) = ')'
-      AND substr(p.text, n.end_offset + 1, a.start_offset - n.end_offset) ~ '^[ \t]*\($'
+    WHERE a.id = ANY(:bracketed)
     """
 )
-
+_OPENING_BRACKET = re.compile(r"[ \t]*\(")
 _EVENTS = text(
     """
     SELECT em.mention_id, e.event_type FROM event_entity_mentions em
@@ -169,25 +169,23 @@ CHARGE_QUOTE_LIMIT = 400
 # entity: the extractor makes every person of the sentence a target.
 _CHARGES = text(
     """
-    INSERT INTO entity_group_charges
-        (group_id, event_id, publication_id, article, part, clause, event_type,
-         other_targets, quote)
     SELECT DISTINCT ON (g.group_id, e.id, l.normalized_data->>'article',
                         l.normalized_data->>'part', l.normalized_data->>'clause')
-           g.group_id, e.id, r.article_id, l.normalized_data->>'article',
-           l.normalized_data->>'part', l.normalized_data->>'clause', e.event_type,
+           g.group_id, e.id AS event_id, r.article_id AS publication_id,
+           l.normalized_data->>'article' AS article, l.normalized_data->>'part' AS part,
+           l.normalized_data->>'clause' AS clause, e.event_type,
            (SELECT count(*) FROM event_entity_mentions o
             WHERE o.event_id = e.id AND o.role = 'target'
               AND NOT EXISTS (SELECT 1 FROM entity_group_mentions s
-                              WHERE s.mention_id = o.mention_id AND s.group_id = g.group_id)),
-           substr(a.text, e.start_offset + 1, least(e.end_offset - e.start_offset, :limit))
+                              WHERE s.mention_id = o.mention_id AND s.group_id = g.group_id))
+               AS other_targets,
+           e.start_offset, e.end_offset
     FROM entity_group_mentions g
     JOIN event_entity_mentions t ON t.mention_id = g.mention_id AND t.role = 'target'
     JOIN extracted_events e ON e.id = t.event_id
     JOIN event_entity_mentions b ON b.event_id = e.id AND b.role = 'legal_basis'
     JOIN entity_mentions l ON l.id = b.mention_id
     JOIN article_extraction_runs r ON r.id = e.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
     WHERE l.normalized_data->>'code' IN ('УК РФ', 'УК')
       AND coalesce(l.normalized_data->>'article', '') <> ''
     ORDER BY g.group_id, e.id, l.normalized_data->>'article', l.normalized_data->>'part',
@@ -247,6 +245,128 @@ def _apply_unnamed_resolutions(
     ), evidence
 
 
+@dataclass(frozen=True)
+class _MentionRow:
+    mention_id: int
+    article_id: int
+    published_at: datetime | None
+    first: str | None
+    last: str | None
+    patronymic: str | None
+    surface: str
+    quote: str | None
+    region: str | None
+    before: str | None
+    after: str | None
+
+
+def _mention_rows(session: Session) -> list[_MentionRow]:
+    """The person mentions of the criminal articles, with what the rebuild reads of their
+    article's text: the quote for the model, the card's region, the text around for the
+    byline. The text is the ingestion's (`ingestion.read`)."""
+    rows = session.execute(_MENTIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}).all()
+    articles = {row[1] for row in rows}
+    published = read.published_at(session, articles)
+    # An article deleted since its extraction is no evidence.
+    rows = [row for row in rows if row[1] in published]
+    regions = read.text_pattern(session, articles, _REGION)
+    windows: list[read.TextWindow] = []
+    for row in rows:
+        article_id, start, end = row[1], row[6], row[7]
+        quoted = max(start - QUOTE_CONTEXT, 0)
+        windows += [
+            read.TextWindow(article_id, quoted, end - quoted + QUOTE_CONTEXT),
+            read.TextWindow(article_id, max(start - _AROUND, 0), min(start, _AROUND)),
+            read.TextWindow(article_id, end, _AROUND),
+        ]
+    texts = read.text_windows(session, windows)
+    return [
+        _MentionRow(
+            mention_id,
+            article_id,
+            published[article_id],
+            first,
+            last,
+            patronymic,
+            surface,
+            texts[3 * index],
+            regions.get(article_id),
+            texts[3 * index + 1],
+            texts[3 * index + 2],
+        )
+        for index, (mention_id, article_id, first, last, patronymic, surface, _, _) in enumerate(
+            rows
+        )
+    ]
+
+
+def bracketed_aliases(session: Session) -> list[tuple[int, int]]:
+    """(alias, named): a person's mention in brackets right after another's — «Дмитрия
+    Пуркина (Дед Архимед)». Offsets are Python's, from 0."""
+    spans = session.execute(_PERSON_SPANS).all()
+    around = read.text_windows(
+        session,
+        [
+            window
+            for _, _, article_id, start, end in spans
+            for window in (
+                read.TextWindow(article_id, start - 1, 1),
+                read.TextWindow(article_id, end, 1),
+            )
+        ],
+    )
+    bracketed = [
+        span[0]
+        for index, span in enumerate(spans)
+        if around[2 * index] == "(" and around[2 * index + 1] == ")"
+    ]
+    if not bracketed:
+        return []
+    pairs = session.execute(_BEFORE_BRACKETS, {"bracketed": bracketed}).all()
+    between = read.text_windows(
+        session,
+        [read.TextWindow(article_id, end, start - end) for _, _, article_id, end, start in pairs],
+    )
+    return [
+        (alias, named)
+        for (alias, named, _, _, _), gap in zip(pairs, between, strict=True)
+        if gap is not None and _OPENING_BRACKET.fullmatch(gap)
+    ]
+
+
+def _charge_rows(session: Session) -> list[dict[str, object]]:
+    """The Criminal Code articles the events tie to the groups just written, each with
+    its event's text (at most `CHARGE_QUOTE_LIMIT` characters) as the quote."""
+    rows = session.execute(_CHARGES).all()
+    quotes = read.text_windows(
+        session,
+        [
+            read.TextWindow(
+                row.publication_id,
+                row.start_offset,
+                min(row.end_offset - row.start_offset, CHARGE_QUOTE_LIMIT),
+            )
+            for row in rows
+        ],
+    )
+    return [
+        {
+            "group_id": row.group_id,
+            "event_id": row.event_id,
+            "publication_id": row.publication_id,
+            "article": row.article,
+            "part": row.part,
+            "clause": row.clause,
+            "event_type": row.event_type,
+            "other_targets": row.other_targets,
+            "quote": quote,
+        }
+        for row, quote in zip(rows, quotes, strict=True)
+        # An article deleted since its extraction is no evidence.
+        if quote is not None
+    ]
+
+
 class EntityCollector:
     def __init__(
         self,
@@ -265,31 +385,16 @@ class EntityCollector:
     def run(self) -> CollectResult:
         with self._session_factory() as session:
             self._on_stage("reading")
-            rows = session.execute(
-                _MENTIONS,
-                {
-                    "criminal": list(CRIMINAL_EVENT_TYPES),
-                    "context": QUOTE_CONTEXT,
-                    "around": _AROUND,
-                },
-            ).all()
+            rows = _mention_rows(session)
             published: dict[int, datetime | None] = {}
             quotes: dict[int, str] = {}
             mentions: list[PersonMention] = []
             signatures = 0
-            for (
-                mention_id,
-                article_id,
-                published_at,
-                first,
-                last,
-                patronymic,
-                surface,
-                quote,
-                region,
-                before,
-                after,
-            ) in rows:
+            for row in rows:
+                mention_id, article_id, surface = row.mention_id, row.article_id, row.surface
+                first, last, patronymic, region = row.first, row.last, row.patronymic, row.region
+                quote, before, after = row.quote, row.before, row.after
+                published_at = row.published_at
                 # The journalist's name under the text is no person of the news.
                 if byline(surface, before or "", after or ""):
                     signatures += 1
@@ -319,7 +424,7 @@ class EntityCollector:
             entities = apply_overrides(entities, name_overrides(session))
         # A pseudonym in brackets after a name is that person («Пуркина (Дед Архимед)»).
         with self._session_factory() as session:
-            aliases = [(alias, named) for alias, named in session.execute(_ALIASES).all()]
+            aliases = bracketed_aliases(session)
         entities = attach_aliases(entities, aliases)
         # A surname alone joins the full name of that surname its article names.
         entities = attach_bare(entities, articles)
@@ -382,7 +487,11 @@ class EntityCollector:
                     unnamed_links[start : start + INSERT_CHUNK],
                 )
             self._on_stage("charges")
-            session.execute(_CHARGES, {"limit": CHARGE_QUOTE_LIMIT})
+            charge_rows = _charge_rows(session)
+            for start in range(0, len(charge_rows), INSERT_CHUNK):
+                session.execute(
+                    insert(EntityGroupChargeRecord), charge_rows[start : start + INSERT_CHUNK]
+                )
             session.execute(
                 _UNNAMED_CHARGES,
                 {

@@ -491,7 +491,7 @@ def test_an_rf_entry_resolution_creates_operator_evidence_without_fake_mentions(
         def classify(self, _items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
             raise AssertionError("operator identification must not call the role model")
 
-    FigurantFinder(session_factory, classifier=NeverCalled()).run()
+    FigurantFinder(session_factory, classifier=NeverCalled(), downstream=GroupFollowers()).run()
     PoliticsFinder(session_factory).run()
     NewsFinder(session_factory).run()
 

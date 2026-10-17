@@ -118,7 +118,7 @@ def test_a_manual_figurant_is_counted_in_exactly_one_category(
     with session_factory.begin() as session:
         _seed(session, "мария резова")
 
-    result = FigurantFinder(session_factory, classifier=None).run()
+    result = FigurantFinder(session_factory, classifier=None, downstream=GroupFollowers()).run()
 
     assert result.figurant_manual == 1, "the person's decision has its own counter"
     assert result.figurant_model == 0, "and does not borrow the model's"
@@ -319,7 +319,7 @@ def test_a_decision_does_not_silently_revert_after_a_marked_official(
     assert now is not None
     at_once = (now.role, now.kind, now.method, now.reason)
 
-    FigurantFinder(session_factory, classifier=None).run()
+    FigurantFinder(session_factory, classifier=None, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         after = session.get(EntityGroupRoleRecord, entity.id)

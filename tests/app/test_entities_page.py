@@ -446,7 +446,7 @@ def test_only_the_figurants_are_listed_by_default(
     )
     with _client(session_factory, registry) as client:
         before = client.get("/ui/entities").text
-    FigurantFinder(session_factory, classifier=_Roles()).run()
+    FigurantFinder(session_factory, classifier=_Roles(), downstream=GroupFollowers()).run()
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
@@ -503,7 +503,7 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
     The officials are a reference list on «Справочники», not a page of their own, so
     what this checks is the mark itself and its effect, not where it is listed."""
     _collected(session_factory)
-    FigurantFinder(session_factory, classifier=_Roles()).run()
+    FigurantFinder(session_factory, classifier=_Roles(), downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         moor = session.scalar(text("SELECT id FROM entity_groups WHERE key = 'александр моор'"))
         session.add(

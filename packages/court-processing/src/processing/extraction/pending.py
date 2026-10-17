@@ -6,10 +6,11 @@ the work that is still missing.
 
 from __future__ import annotations
 
-from sqlalchemy import exists, not_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from db.arrays import any_of
+from ingestion import read
 from processing.extraction.pipeline import ExtractionVersions
 from processing.storage.models import ArticleExtractionRunRecord
 
@@ -26,18 +27,19 @@ class SqlAlchemyPendingExtraction:
         A FAILED run counts as processed: its failure is deterministic for this
         content and extractor version, so it is not retried every run.
         """
-        run_exists = exists().where(
-            ArticleExtractionRunRecord.article_id == ParsedArticleRecord.id,
-            ArticleExtractionRunRecord.extractor_name == versions.extractor_name,
-            ArticleExtractionRunRecord.extractor_version == versions.extractor_version,
-            ArticleExtractionRunRecord.normalizer_version == versions.normalizer_version,
-        )
-        query = (
-            select(ParsedArticleRecord.id)
-            .join(SourceDocument, ParsedArticleRecord.document_id == SourceDocument.id)
-            .join(Source, SourceDocument.source_id == Source.id)
-            .where(Source.base_url == source_base_url, not_(run_exists))
-            .order_by(ParsedArticleRecord.id)
-        )
         with self._session_factory() as session:
-            return list(session.scalars(query).all())
+            articles = read.article_ids(session, source_base_url=source_base_url)
+            if not articles:
+                return []
+            done = set(
+                session.scalars(
+                    select(ArticleExtractionRunRecord.article_id).where(
+                        any_of(ArticleExtractionRunRecord.article_id, articles),
+                        ArticleExtractionRunRecord.extractor_name == versions.extractor_name,
+                        ArticleExtractionRunRecord.extractor_version == versions.extractor_version,
+                        ArticleExtractionRunRecord.normalizer_version
+                        == versions.normalizer_version,
+                    )
+                )
+            )
+        return [article_id for article_id in articles if article_id not in done]

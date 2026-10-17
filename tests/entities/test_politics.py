@@ -386,7 +386,7 @@ def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_
             .tuples()
             .all()
         )
-        shown = quotes_of(session, list(ids.values()))
+        shown = quotes_of(session, list(ids.values()), GroupFollowers())
     classifier = ReadingClassifier()
 
     PoliticsFinder(session_factory, classifier=classifier).run()
@@ -427,7 +427,7 @@ def test_an_article_a_model_read_is_shown_once_beside_the_entity_s_other(
             select(EntityGroupRecord.id).where(EntityGroupRecord.name == "Пётр Котов")
         )
         assert group is not None
-        shown = quotes_of(session, [group])[group]
+        shown = quotes_of(session, [group], GroupFollowers())[group]
 
     # Wide, and not once more short: the second place is the other article's.
     assert FAR in shown[0] and shown[1] == "Суд продлил арест Петру Котову."

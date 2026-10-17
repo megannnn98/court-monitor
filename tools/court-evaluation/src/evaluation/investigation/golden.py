@@ -24,7 +24,8 @@ from typing import Any, Literal
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from processing.evidence.publications import person_evidence_cte
+from analysis.service import GroupFollowers
+from processing.evidence.publications import person_evidence
 
 Form = Literal["nominative", "declined", "reversed", "initial"]
 
@@ -88,13 +89,6 @@ _PEOPLE = text(
     LIMIT :limit
     """
 )
-_ARTICLES = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT DISTINCT e.article_id FROM person_evidence e
-    WHERE e.group_id = :group_id
-    """
-)
 _FACTS = text(
     """
     SELECT 'role' AS fact, r.role AS value FROM entity_group_roles r WHERE r.group_id = :id
@@ -145,7 +139,14 @@ def build(
     session.execute(text("SET TRANSACTION READ ONLY"))
     golden = GoldenSet()
     for row in session.execute(_PEOPLE, {"limit": people}):
-        relevant = sorted(session.scalars(_ARTICLES, {"group_id": row.id, "context": 160}))
+        relevant = sorted(
+            {
+                item.article_id
+                for item in person_evidence(
+                    session, GroupFollowers(), groups=[row.id], quotes=False
+                )
+            }
+        )
         facts = {fact: value for fact, value in session.execute(_FACTS, {"id": row.id}) if value}
         given, surname = row.name.split()
         forms: dict[Form, str | None] = {

@@ -26,6 +26,7 @@ from processing.evidence.sentences import SentenceFinder, SentencesResult, sente
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.models import ExtractionRunStatus, ExtractionSaveResult
 from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
+from processing.identity.downstream import IdentityDownstream
 from processing.junk.hold_reader import HoldsRead, hold_reader_from_env, read_holds
 from processing.junk.purge import JunkPurge, JunkPurgeResult, since_from_env
 from processing.junk.screen import screen_from_env
@@ -72,8 +73,11 @@ class ProcessingService:
         pipeline: ExtractionPipeline,
         documents: SqlAlchemyExtractionDocumentRepository,
         pending: PendingExtraction,
+        downstream: IdentityDownstream,
     ) -> None:
         self._session_factory = session_factory
+        # What the analysis keeps of the groups: their unnamed figurants' evidence.
+        self._downstream = downstream
         self._pipeline = pipeline
         self._documents = documents
         self._pending = pending
@@ -133,7 +137,12 @@ class ProcessingService:
         classifier = role_classifier_from_env()
         if classifier is None:
             logger.warning("event=entity_roles_no_model: OPENROUTER_API_KEY is not set")
-        return FigurantFinder(self._session_factory, classifier=classifier, on_stage=on_stage).run()
+        return FigurantFinder(
+            self._session_factory,
+            downstream=self._downstream,
+            classifier=classifier,
+            on_stage=on_stage,
+        ).run()
 
     def read_digests(self, *, on_stage: OnStage) -> DigestResult:
         """Roundup posts («Главное за день») among the figurants' sources, classified
@@ -142,7 +151,7 @@ class ProcessingService:
         if classifier is None:
             logger.warning("event=article_digest_no_model: OPENROUTER_API_KEY is not set")
         with self._session_factory() as session:
-            titles = figurant_titles(session)
+            titles = figurant_titles(session, self._downstream)
         return DigestFinder(self._session_factory, classifier=classifier, on_stage=on_stage).run(
             titles
         )

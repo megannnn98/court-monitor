@@ -18,19 +18,19 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from urllib.parse import quote
 
-from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from analysis import read as verdicts
 from analysis.news.case_news import NEW_CASE, ONGOING, OTHER, SENTENCE
 from analysis.operator_base.known_base import KnownBase, KnownMatch
 from analysis.operator_base.known_nameless import NamelessBase
-from analysis.politics.classification import MEMORIAL_CATEGORIES, POLITICAL
+from analysis.politics.classification import POLITICAL
 from analysis.rosfinmonitoring.rf_articles import AWAITED, Listing, listing
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import strongest_entries
-from analysis.storage.models import EntityGroupNewsRecord, EntityGroupPoliticsRecord
-from processing.evidence.publications import person_evidence_cte
-from processing.storage.models import EntityGroupRecord
+from application import group_followers
+from processing import read as identity
+from processing.evidence.publications import person_evidence
 from results.done_marks import Marks, done_marks, is_done
 from results.queries.unnamed_cases import KEY_PREFIX, Case, political_cases
 from web.ui.entities import _articles_by_group, display_name, regions_text
@@ -59,17 +59,6 @@ _EVENT_NEWS = {
     "other": OTHER,
 }
 _OLDEST = datetime.min.replace(tzinfo=UTC)
-
-_PUBLICATIONS = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT DISTINCT pe.group_id, pe.article_id AS id, pe.title, pe.published_at,
-           pe.canonical_url, pe.source, d.relevant
-    FROM person_evidence pe
-    LEFT JOIN article_digest_answers d ON d.article_id = pe.article_id
-    WHERE pe.group_id = ANY(:groups)
-    """
-)
 
 # (title, url, published, source) of a publication.
 Link = tuple[str, str, datetime | None, str]
@@ -146,9 +135,9 @@ class ListRow:
 
 
 def named_row(
-    entity: EntityGroupRecord,
-    politics: EntityGroupPoliticsRecord,
-    news: EntityGroupNewsRecord | None = None,
+    entity: identity.Group,
+    politics: verdicts.Politics,
+    news: verdicts.CaseNews | None = None,
     *,
     done: bool = False,
 ) -> ListRow:
@@ -158,7 +147,7 @@ def named_row(
         name=entity.name,
         href=f"/ui/investigations/{quote(entity.key)}",
         last_published=entity.last_published_at,
-        regions=regions_text(entity.regions),
+        regions=regions_text(list(entity.regions)),
         basis=Basis(politics.method, politics.reason, politics.quote),
         group_id=entity.id,
         done=done,
@@ -202,13 +191,13 @@ def unnamed_row(case: Case, *, done: bool = False) -> ListRow:
 def _everyone(db: Session, marks: Marks) -> list[ListRow]:
     """Everybody of the result before the filters: the named, latest news first, then the
     unnamed."""
-    named = db.execute(
-        select(EntityGroupRecord, EntityGroupPoliticsRecord, EntityGroupNewsRecord)
-        .join(EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id)
-        .outerjoin(EntityGroupNewsRecord, EntityGroupNewsRecord.group_id == EntityGroupRecord.id)
-        .where(EntityGroupPoliticsRecord.verdict == POLITICAL)
-        .order_by(EntityGroupRecord.last_published_at.desc().nulls_last(), EntityGroupRecord.key)
-    ).all()
+    political = verdicts.politics(db, verdicts.groups_with_verdict(db, POLITICAL))
+    news = verdicts.case_news(db, political)
+    groups = identity.groups(db, political)
+    named = [
+        (groups[group_id], political[group_id], news.get(group_id))
+        for group_id in identity.latest_first_order(db, political)
+    ]
     return [
         *(
             named_row(
@@ -350,16 +339,21 @@ def with_details(db: Session, rows: list[ListRow]) -> list[ListRow]:
         )
     for group_id, articles in _articles_by_group(db, ids).items():
         named[group_id].articles = articles
-    for group_id, category in db.execute(MEMORIAL_CATEGORIES, {"groups": ids}).all():
+    for group_id, category in identity.memorial_categories(db, ids).items():
         named[group_id].memorial = category
     # `relevant` is None for an article the model has not classified yet — falls back to
     # the title keywords (they only catch the digest case, not «иноагент»/pickets, but
     # that is still no worse than showing everything unfiltered).
     publications: dict[int, list[tuple[Link, bool | None]]] = {}
-    for group_id, _id, title, published_at, url, source, relevant in db.execute(
-        _PUBLICATIONS, {"groups": ids, "context": 0}
-    ).all():
-        publications.setdefault(group_id, []).append(((title, url, published_at, source), relevant))
+    evidence = {
+        (item.group_id, item.article_id, item.title, item.published_at, item.url, item.source)
+        for item in person_evidence(db, group_followers(), groups=ids, quotes=False)
+    }
+    relevant_of = identity.digest_relevance(db, {item[1] for item in evidence})
+    for group_id, article_id, title, published_at, url, source in evidence:
+        publications.setdefault(group_id, []).append(
+            ((title, url, published_at, source), relevant_of.get(article_id))
+        )
     for group_id, found in publications.items():
         dates = [link[2] for link, _ in found if link[2] is not None]
         named[group_id].first_published = min(dates) if dates else None
@@ -388,7 +382,7 @@ def latest_news(db: Session, key: str) -> datetime | None:
         if case is None:
             raise LookupError(key)
         return case.last_published_at
-    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    entity = identity.groups_by_key(db, [key]).get(key)
     if entity is None:
         raise LookupError(key)
     return entity.last_published_at

@@ -18,15 +18,23 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.politics.classification import (
-    MEMORIAL_CATEGORIES,
     PoliticsClassifier,
     PoliticsItem,
     verdict_of,
 )
+from analysis.service import GroupFollowers
 from analysis.storage.models import EntityGroupPoliticsRecord
+from processing import read as identity
 from processing.identity.grouping import name_key
 from processing.identity.normalizer import NameItem, NameNormalizer
-from processing.roles.roles import _QUOTES, QUOTE_CONTEXT, QUOTES, RoleClassifier, RoleItem, role_of
+from processing.roles.roles import (
+    QUOTE_CONTEXT,
+    QUOTES,
+    RoleClassifier,
+    RoleItem,
+    latest_quotes,
+    role_of,
+)
 from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 
 logger = logging.getLogger("entities")
@@ -82,10 +90,10 @@ def _sample[T](rows: Sequence[T], size: int, seed: int) -> list[T]:
 
 def _quotes(session: Session, ids: Sequence[int]) -> dict[int, list[str]]:
     quotes: dict[int, list[str]] = {}
-    for group_id, quote, _publication in session.execute(
-        _QUOTES, {"groups": list(ids), "context": QUOTE_CONTEXT, "quotes": QUOTES}
-    ).all():
-        quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+    for (group_id, _publication), quote in latest_quotes(
+        session, list(ids), GroupFollowers(), context=QUOTE_CONTEXT, per_group=QUOTES
+    ).items():
+        quotes.setdefault(group_id, []).append(quote)
     return quotes
 
 
@@ -143,10 +151,7 @@ def compare_politics(
         picked = _sample(rows, size, seed)
         ids = [row.id for row in picked]
         quotes = _quotes(session, ids)
-        memorial = {
-            group_id: category
-            for group_id, category in session.execute(MEMORIAL_CATEGORIES, {"groups": ids}).all()
-        }
+        memorial = identity.memorial_categories(session, ids)
         articles: dict[int, list[str]] = {}
         for group_id, article in session.execute(
             text(
