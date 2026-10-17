@@ -5,6 +5,8 @@ description = "Recovered first vertical slice of court-monitor"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "court-core",
+    "court-platform",
     "alembic>=1.19.1",
     "anthropic>=1.8.0",
     "curl-cffi>=0.16.3,<0.17",
@@ -29,9 +31,19 @@ dependencies = [
     "langgraph>=1.0",
 ]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+court-core = { workspace = true }
+court-platform = { workspace = true }
+
 [tool.ruff]
 target-version = "py313"
 line-length = 100
+# One configuration for the whole workspace. First-party code is every distribution's
+# `src/` (import sorting reads it).
+src = [".", "src", "packages/*/src", "apps/*/src", "tools/*/src"]
 
 [dependency-groups]
 dev = [

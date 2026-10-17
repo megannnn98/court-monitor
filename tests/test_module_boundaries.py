@@ -17,11 +17,9 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
-
-SRC = Path(__file__).parents[1] / "src"
+from support.workspace import SOURCE_ROOTS, module_file, source_files
 
 INGESTION = "ingestion"
 PROCESSING = "processing"
@@ -42,8 +40,8 @@ MODULE_OF: tuple[tuple[str, str], ...] = (
     ("persons/resolution/cli.py", ENTRY_POINT),
     # Person resolution (ER v2): the optional path of ADR 0024, beside processing.
     ("persons/", PROCESSING),
-    ("llm/cli_reviewer.py", PROCESSING),
-    ("llm/entity_reviewer.py", PROCESSING),
+    ("persons/resolution/cli_reviewer.py", PROCESSING),
+    ("persons/resolution/entity_reviewer.py", PROCESSING),
     ("analysis/", ANALYSIS),
     # The operator's reference lists (her Rosfinmonitoring table, her base of known
     # people, officials): data the verdicts are checked against, keyed like mentions.
@@ -238,10 +236,9 @@ def _path_of(imported: str) -> str | None:
     parts = imported.split(".")
     for length in range(len(parts), 0, -1):
         base = "/".join(parts[:length])
-        if (SRC / f"{base}.py").is_file():
-            return f"{base}.py"
-        if (SRC / base).is_dir():
-            return f"{base}/"
+        found = module_file(".".join(parts[:length]))
+        if found is not None:
+            return f"{base}/" if found.is_dir() else f"{base}.py"
     return None
 
 
@@ -276,15 +273,13 @@ def _imports(tree: ast.AST, path: str) -> Iterator[str]:
 
 
 def _files(*prefixes: str) -> Iterator[tuple[str, ast.AST]]:
-    for file in sorted(SRC.rglob("*.py")):
-        path = file.relative_to(SRC).as_posix()
+    for path, file in source_files():
         if not prefixes or path.startswith(prefixes):
             yield path, ast.parse(file.read_text(encoding="utf-8"))
 
 
 def _exists(dotted: str) -> bool:
-    base = SRC / dotted.replace(".", "/")
-    return base.with_suffix(".py").is_file() or base.is_dir()
+    return module_file(dotted) is not None
 
 
 def _provider(dotted: str) -> str | None:
@@ -465,7 +460,7 @@ def test_every_named_module_exists() -> None:
     missing = sorted(
         module
         for module in INTERNAL | ORCHESTRATOR_MAY_IMPORT | INVESTIGATION_MAY_IMPORT
-        if not (SRC / f"{module.replace('.', '/')}.py").is_file()
+        if not any((root / f"{module.replace('.', '/')}.py").is_file() for root in SOURCE_ROOTS)
     )
 
     assert missing == []

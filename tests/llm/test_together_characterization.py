@@ -16,7 +16,6 @@ from typing import Any
 import httpx
 import pytest
 
-from llm.entity_reviewer import LlmEntityMatchReviewer, review_user_message
 from llm.structured import (
     LlmAuthenticationError,
     LlmError,
@@ -37,6 +36,7 @@ from persons.resolution.ai_review import (
     EvidenceExcerpt,
     MentionReviewContext,
 )
+from persons.resolution.entity_reviewer import LlmEntityMatchReviewer, review_user_message
 
 SECRET = "echo of QUERY with secret-key-123"
 CONFIG = TogetherConfig(

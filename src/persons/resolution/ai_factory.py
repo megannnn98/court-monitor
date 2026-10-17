@@ -9,8 +9,6 @@ from __future__ import annotations
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
-from llm.cli_reviewer import CliEntityMatchReviewer
-from llm.entity_reviewer import LlmEntityMatchReviewer
 from llm.together_client import TogetherConfig, TogetherStructuredLlmClient
 from persons.resolution.ai_policy import (
     EntityReviewProvider,
@@ -18,6 +16,8 @@ from persons.resolution.ai_policy import (
 )
 from persons.resolution.ai_review import EntityMatchReviewer
 from persons.resolution.ai_review_service import AutomatedEntityReviewService
+from persons.resolution.cli_reviewer import CliEntityMatchReviewer
+from persons.resolution.entity_reviewer import LlmEntityMatchReviewer
 
 
 def build_entity_review_service(

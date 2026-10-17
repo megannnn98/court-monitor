@@ -19,7 +19,6 @@ import subprocess
 
 from pydantic import ValidationError
 
-from llm.entity_reviewer import review_user_message
 from persons.resolution.ai_review import (
     ENTITY_REVIEW_PROMPT_VERSION,
     ENTITY_REVIEW_SYSTEM_PROMPT,
@@ -27,6 +26,7 @@ from persons.resolution.ai_review import (
     EntityReviewRequest,
     EntityReviewResult,
 )
+from persons.resolution.entity_reviewer import review_user_message
 
 logger = logging.getLogger("person_resolution")
 
