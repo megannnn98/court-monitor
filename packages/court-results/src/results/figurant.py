@@ -13,8 +13,8 @@ from datetime import date, datetime
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from analysis.storage.models import UnnamedFigurantRecord
 from analysis.unnamed.matching import candidates
-from db.orm_models import UnnamedFigurantRecord
 
 
 @dataclass(frozen=True)

@@ -10,11 +10,11 @@ from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipelin
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from db.orm_models import PersonRecord
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.resolution_service import ExtractionResolutionService
+from persons.storage.models import PersonRecord
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor

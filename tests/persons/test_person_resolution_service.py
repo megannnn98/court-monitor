@@ -11,17 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import seed_mentions, seed_person
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonAliasRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    ReviewRecordModel,
-)
+from ingestion.storage.models import ParsedArticleRecord
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateGenerationResult,
@@ -36,6 +26,18 @@ from persons.resolution.service import (
     REVIEW_SUBJECT_TYPE,
     PersonResolutionEngine,
     PersonResolutionService,
+)
+from persons.storage.models import (
+    PersonAliasRecord,
+    PersonRecord,
+    PersonResolutionDecisionRecord,
+    ReviewRecordModel,
+)
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
 )
 
 A = PersonResolutionAction

@@ -21,14 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonResolutionDecisionRecord,
-)
+from ingestion.storage.models import ParsedArticleRecord
 from persons.manual_review_service import SqlAlchemyManualReviewService
 from persons.models import AliasOrigin
 from persons.persistence import SqlAlchemyPersonPersistence
@@ -50,6 +43,13 @@ from persons.resolution.models import (
 )
 from persons.resolution.normalizer import PersonNameNormalizer
 from persons.resolution.scoring import PersonResolutionScorer
+from persons.storage.models import PersonResolutionDecisionRecord
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 logger = logging.getLogger("person_resolution")
 

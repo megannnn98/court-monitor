@@ -30,7 +30,7 @@ from sqlalchemy import delete, insert, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.politics.classification import POLITICAL
-from db.orm_models import EntityGroupNewsRecord, EntityNewsAnswerRecord
+from analysis.storage.models import EntityGroupNewsRecord, EntityNewsAnswerRecord
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,

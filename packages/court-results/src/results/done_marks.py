@@ -14,7 +14,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityDoneMarkRecord
+from results.storage.models import EntityDoneMarkRecord
 
 # The news each mark was made at, by the person's key.
 Marks = Mapping[str, datetime | None]

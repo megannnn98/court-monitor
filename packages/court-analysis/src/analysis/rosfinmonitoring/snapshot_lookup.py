@@ -9,7 +9,7 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.rosfinmonitoring.models import AIRTABLE_SNAPSHOT_SOURCE_URL
-from db.orm_models import (
+from analysis.storage.models import (
     RosfinMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,

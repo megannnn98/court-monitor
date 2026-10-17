@@ -17,18 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    ReviewRecordModel,
-    Source,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from persons.manual_review_service import ReviewStatus, SqlAlchemyManualReviewService
 from persons.models import AliasOrigin, PersonStatus
 from persons.persistence import PersonMergeConflictError, SqlAlchemyPersonPersistence
@@ -42,6 +31,17 @@ from persons.resolution.service import (
     DecisionStatus,
     known_distinct_pairs,
     lock_identity_block_keys,
+)
+from persons.storage.models import (
+    PersonEventLinkRecord,
+    PersonRecord,
+    PersonResolutionDecisionRecord,
+    ReviewRecordModel,
+)
+from processing.storage.models import (
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
 )
 
 logger = logging.getLogger("person_resolution")

@@ -16,12 +16,8 @@ from analysis.rosfinmonitoring.matcher_models import (
     RosfinMatchStatus,
     RosfinmonitoringMatcher,
 )
-from db.orm_models import (
-    PersonAliasRecord,
-    PersonRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+from persons.storage.models import PersonAliasRecord, PersonRecord
 
 
 def _escape_like(value: str) -> str:

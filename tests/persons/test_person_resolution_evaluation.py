@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from cli.person_resolution import run_person_resolution_command
 from db.database import create_database_engine
 from db.maintenance import NotDisposableDatabaseError
-from db.orm_models import PersonRecord, PersonResolutionDecisionRecord
 from evaluation.person_resolution.cli import DEFAULT_ER_CORPUS_PATH, run_evaluate_er
 from evaluation.person_resolution.er_run import load_er_corpus, run_er_evaluation
 from persons.resolution.models import PersonResolutionAction
+from persons.storage.models import PersonRecord, PersonResolutionDecisionRecord
 
 
 def test_corpus_covers_positive_hard_negative_and_ambiguous_cases() -> None:

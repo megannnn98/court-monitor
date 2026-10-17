@@ -13,9 +13,10 @@ from dataclasses import replace
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord, EntityNameOverrideRecord
 from processing.identity.disputes import KeyIndex, merge_groups
+from processing.identity.downstream import IdentityDownstream
 from processing.identity.grouping import REGION_SEP, Entity, given_name_first, name_key, split_key
+from processing.storage.models import EntityGroupRecord, EntityNameOverrideRecord
 
 MANUAL = "manual"
 MAX_NAME = 200
@@ -63,7 +64,9 @@ def apply_overrides(entities: Sequence[Entity], overrides: Mapping[str, str]) ->
     return sorted(by_key.values(), key=lambda entity: (-len(entity.mention_ids), entity.key))
 
 
-def correct_name(session: Session, entity: EntityGroupRecord, name: str) -> str:
+def correct_name(
+    session: Session, entity: EntityGroupRecord, name: str, *, downstream: IdentityDownstream
+) -> str:
     """Keep a correction and apply it now, in the caller's transaction; the name kept.
 
     A name that is another entity's merges the two at once, as the next rebuild will."""
@@ -86,5 +89,5 @@ def correct_name(session: Session, entity: EntityGroupRecord, name: str) -> str:
     )
     if other is not None:
         session.flush()
-        merge_groups(session, entity, other)
+        merge_groups(session, entity, other, downstream=downstream)
     return cleaned

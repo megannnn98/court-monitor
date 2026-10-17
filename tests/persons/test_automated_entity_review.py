@@ -14,12 +14,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
-    EntityMentionRecord,
-    PersonRecord,
-    PersonResolutionAiReviewRecord,
-    PersonResolutionDecisionRecord,
-)
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_policy import (
     EntityReviewOutcome,
@@ -41,6 +35,12 @@ from persons.resolution.review import (
     ResolutionReviewStateError,
 )
 from persons.resolution.service import DecisionStatus
+from persons.storage.models import (
+    PersonRecord,
+    PersonResolutionAiReviewRecord,
+    PersonResolutionDecisionRecord,
+)
+from processing.storage.models import EntityMentionRecord
 
 MODEL = "stub/model"
 SETTINGS = EntityReviewSettings(

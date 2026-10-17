@@ -15,15 +15,17 @@ from typing import Any
 from sqlalchemy import ColumnElement, Row, func, literal, select, text
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
-from db.orm_models import (
-    EntityGroupChargeRecord,
+from analysis.storage.models import (
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityGroupRfMatchRecord,
-    EntityGroupRoleRecord,
 )
 from processing.evidence.publications import person_evidence_cte
+from processing.storage.models import (
+    EntityGroupChargeRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+)
 
 # Characters of an article's text kept on each side of a mention or of a found word.
 QUOTE_CONTEXT = 160

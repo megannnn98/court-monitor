@@ -28,14 +28,6 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import delete, insert, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityOfficialMarkRecord,
-    EntityRoleAnswerRecord,
-    EntityRoleDecisionRecord,
-)
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -50,6 +42,7 @@ from llm.chat import (
 from processing.answers import AnswerCache, ask_missing, input_hash
 from processing.evidence.publications import person_evidence_cte
 from processing.identity.disputes import KeyIndex
+from processing.identity.downstream import IdentityDownstream
 from processing.junk.hold_reader import EXTRACTOR_NAME
 from processing.roles.officials import (
     OFFICIAL_KINDS,
@@ -57,6 +50,13 @@ from processing.roles.officials import (
     official_marks,
     remember_titled,
     titled_entities,
+)
+from processing.storage.models import (
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityOfficialMarkRecord,
+    EntityRoleAnswerRecord,
+    EntityRoleDecisionRecord,
 )
 
 logger = logging.getLogger("entities")
@@ -161,7 +161,9 @@ def role_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
     return {**by_stem, **exact}
 
 
-def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
+def decide_role(
+    session: Session, entity: EntityGroupRecord, role: str, *, downstream: IdentityDownstream
+) -> None:
     """A person's word on the entity's role, applied at once and kept for every rebuild.
     `processing.roles.roles.FigurantFinder` writes it again over whatever step 4 finds.
 
@@ -197,9 +199,7 @@ def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
     if role != FIGURANT:
         # No longer a figurant: the verdict that put it on «Результат» goes with it, as
         # `processing.roles.officials.mark_official` does.
-        session.execute(
-            delete(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == entity.id)
-        )
+        downstream.role_withdrawn(session, entity.id)
 
 
 SYSTEM_PROMPT = """Ты определяешь роль человека в уголовном деле по цитатам из \

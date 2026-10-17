@@ -31,7 +31,6 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ChatQuestionRecord
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -56,6 +55,7 @@ from results.queries.sentence_cases import (
     listing,
     stats,
 )
+from results.storage.models import ChatQuestionRecord
 
 logger = logging.getLogger("entities")
 

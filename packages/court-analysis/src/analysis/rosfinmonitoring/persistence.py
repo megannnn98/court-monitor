@@ -14,7 +14,7 @@ from analysis.rosfinmonitoring.models import (
     RosfinmonitoringIngestionResult,
     RosfinmonitoringSnapshot,
 )
-from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
 
 class RosfinmonitoringPersistence:

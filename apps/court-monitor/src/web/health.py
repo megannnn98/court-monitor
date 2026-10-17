@@ -25,8 +25,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import MonitoringRunRecord
 from orchestrator.models import MonitoringRunStatus
+from orchestrator.storage.models import MonitoringRunRecord
 
 logger = logging.getLogger("health")
 

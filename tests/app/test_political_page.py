@@ -14,18 +14,18 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
-    EntityDoneMarkRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
+from processing.storage.models import EntityGroupRecord
+from results.storage.models import EntityDoneMarkRecord
 from web.app import app
 from web.dependencies import get_db
 from web.ui.political import political_xlsx

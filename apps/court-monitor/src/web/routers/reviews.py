@@ -30,7 +30,7 @@ def list_reviews(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[ReviewResponse]:
     """List reviews."""
-    from db.orm_models import ReviewRecordModel
+    from persons.storage.models import ReviewRecordModel
 
     query = select(ReviewRecordModel).offset(offset).limit(limit)
 

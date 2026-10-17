@@ -7,15 +7,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.persecution.classification_service import PersecutionClassificationService
 from analysis.persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
-from db.orm_models import (
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.storage.models import PersonEventLinkRecord, PersonRecord
+from processing.storage.models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    Source,
-    SourceDocument,
 )
 
 

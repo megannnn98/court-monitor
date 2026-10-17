@@ -23,13 +23,13 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.rosfinmonitoring.rf_entry import entry_included_text
-from db.orm_models import (
+from analysis.storage.models import (
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from processing.storage.models import EntityGroupRecord
 from web.app import app
 from web.dependencies import get_db
 from web.ui.political import political_xlsx
@@ -347,7 +347,7 @@ def test_the_xlsx_of_rows_without_matches_says_nothing_about_dates() -> None:
     """A row with no list entry has no entry to date; the column must be empty rather
     than carrying a stray word."""
     from analysis.politics.classification import POLITICAL
-    from db.orm_models import EntityGroupRecord as Record
+    from processing.storage.models import EntityGroupRecord as Record
 
     entity = Record(id=1, key="k", name="Анна Смирнова", variants=[], mention_count=1, regions=[])
     politics = EntityGroupPoliticsRecord(
@@ -404,7 +404,7 @@ def _charged(session_factory: sessionmaker[Session], charges: dict[str, str]) ->
     one article."""
     from support.db_fixtures import DatabaseSeeder
 
-    from db.orm_models import EntityGroupChargeRecord
+    from processing.storage.models import EntityGroupChargeRecord
 
     now = datetime.now(UTC)
     with session_factory() as session:

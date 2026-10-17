@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import OperatorOperationRunRecord
 from orchestrator.operations import STALE_AFTER, OperationRunStatus
+from orchestrator.storage.models import OperatorOperationRunRecord
 from web.ui.pipeline import STAGES, TITLES, pipeline_current
 from web.ui.workload import Workload, next_operator_task, workload
 

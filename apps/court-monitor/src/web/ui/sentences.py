@@ -19,8 +19,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import Row, func, select, text, update
 from sqlalchemy.orm import Session
 
-from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from processing.evidence.regions import canonical
+from processing.storage.models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from results.ask import KIND_LABELS, REASON_LABELS
 from results.queries.sentence_cases import POLITICAL, Case, Filters, cases
 from results.queries.sentence_cases import select as select_cases

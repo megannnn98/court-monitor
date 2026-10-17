@@ -19,12 +19,10 @@ from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
 from airtable.person_details import details
 from airtable.replace import UntrustedExport, drop_vanished, removal_is_safe
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    ExcludedPersonRecord,
-    Source,
-)
+from analysis.storage.models import AirtableKnownPersonRecord
+from ingestion.storage.models import Source
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.storage.models import ExcludedPersonRecord
 
 logger = logging.getLogger("airtable")
 

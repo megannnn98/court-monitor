@@ -12,8 +12,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRoleRecord, EntityMentionRecord
+from analysis.service import GroupFollowers
+from analysis.storage.models import EntityGroupPoliticsRecord
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityGroupRoleRecord, EntityMentionRecord
 from web.app import app
 from web.dependencies import get_db
 
@@ -86,7 +88,7 @@ def _case(session_factory: sessionmaker[Session]) -> int:
             entity_links=[(moor, "target"), (law, "legal_basis"), (court, "court")],
         )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         group = session.scalar(text("SELECT id FROM entity_groups WHERE key = :key"), {"key": MOOR})
         session.add(

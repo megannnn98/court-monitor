@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.politics.classification import COMMON_CRIME_ARTICLES
-from db.orm_models import (
+from analysis.storage.models import (
     UnnamedAnswerRecord,
     UnnamedDecisionRecord,
     UnnamedFigurantRecord,

@@ -21,13 +21,8 @@ from sqlalchemy.sql.elements import ColumnElement
 from analysis.persecution.classifier import POLITICAL_ARTICLES
 from analysis.politics.classification import CRIMINAL, POLITICAL
 from analysis.rosfinmonitoring.rf_check import FULL
-from db.orm_models import (
-    EntityGroupChargeRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRfMatchRecord,
-    EntityGroupRoleRecord,
-)
+from analysis.storage.models import EntityGroupPoliticsRecord, EntityGroupRfMatchRecord
+from application import build_identity_commands, group_followers
 from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
@@ -35,9 +30,14 @@ from orchestrator.operations import (
     OperationRun,
 )
 from processing.extraction.name_frequency import lookup_gender
-from processing.identity.service import MANUAL, IdentityService
+from processing.identity.service import MANUAL
 from processing.roles.officials import mark_official
 from processing.roles.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, UNCLEAR
+from processing.storage.models import (
+    EntityGroupChargeRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+)
 from web.candidate_rows import surname_first
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page, pager
@@ -245,7 +245,7 @@ async def correct_entity_name(
     if entity is None:
         raise HTTPException(status_code=404, detail="Сущность не найдена")
     try:
-        IdentityService().correct_name(db, entity, (form.get("name") or [""])[0])
+        build_identity_commands().correct_name(db, entity, (form.get("name") or [""])[0])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Пустое имя") from exc
     db.commit()
@@ -263,7 +263,9 @@ async def mark_entity_official(
     entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
     if entity is None:
         raise HTTPException(status_code=404, detail="Сущность не найдена")
-    mark_official(db, entity, (form.get("official") or [""])[0] == "yes")
+    mark_official(
+        db, entity, (form.get("official") or [""])[0] == "yes", downstream=group_followers()
+    )
     db.commit()
     back = (form.get("back") or [""])[0]
     return RedirectResponse(

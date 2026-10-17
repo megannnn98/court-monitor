@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import ArticleSentenceRecord, ChatQuestionRecord
 from llm.chat import Spend
+from processing.storage.models import ArticleSentenceRecord
 from results.ask import (
     ANSWERED,
     FAILED,
@@ -22,6 +22,7 @@ from results.ask import (
     spent_today,
     unverified_numbers,
 )
+from results.storage.models import ChatQuestionRecord
 
 
 class FakeAsker:

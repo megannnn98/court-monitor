@@ -16,7 +16,6 @@ from sqlalchemy import case, func, literal, or_, select, union_all
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from db.orm_models import PersonAliasRecord, PersonRecord
 from persons.models import PersonStatus
 from persons.resolution.models import (
     CandidateSource,
@@ -24,6 +23,7 @@ from persons.resolution.models import (
     PersonResolutionCandidate,
 )
 from persons.resolution.normalizer import PersonNameNormalizer
+from persons.storage.models import PersonAliasRecord, PersonRecord
 
 logger = logging.getLogger("person_resolution")
 

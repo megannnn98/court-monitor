@@ -12,9 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import ArticleSentenceRecord, ChatQuestionRecord
 from llm.chat import Spend
+from processing.storage.models import ArticleSentenceRecord
 from results.ask import Call, Plan
+from results.storage.models import ChatQuestionRecord
 from web.app import app
 from web.dependencies import get_db
 from web.ui import ask as ask_page

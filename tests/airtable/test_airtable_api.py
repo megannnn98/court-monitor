@@ -14,8 +14,9 @@ from support.airtable_fakes import CONFIGURED_ENV, FakeAirtable, fake_source
 
 from airtable.client import AirtableError, AirtableRecord
 from airtable.service import AirtableSyncService
+from analysis.storage.models import AirtableKnownPersonRecord
 from api import app, get_db
-from db.orm_models import AirtableKnownPersonRecord, ExcludedPersonRecord
+from processing.storage.models import ExcludedPersonRecord
 
 SYNC_URL = "/api/admin/airtable/sync"
 

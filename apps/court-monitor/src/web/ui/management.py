@@ -15,7 +15,6 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from application import build_monitoring_runs
-from db.orm_models import MonitoringRunRecord
 from ingestion.sources.source_registry import news_sources
 from llm.chat import Purpose
 from llm.model_choice import chosen_model
@@ -29,6 +28,7 @@ from orchestrator.operations import (
     OperationRunStatus,
 )
 from orchestrator.source_health import layout_suspects
+from orchestrator.storage.models import MonitoringRunRecord
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui import spend
 from web.ui.funnel import funnel, funnel_html

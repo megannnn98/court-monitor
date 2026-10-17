@@ -38,10 +38,10 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import JunkScreenHoldRecord
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
 from processing.junk.article_screen import ArticleScreen, ExplainingScreen
 from processing.junk.screen import HELD, reason
+from processing.storage.models import JunkScreenHoldRecord
 
 logger = logging.getLogger("monitoring")
 # A score under the cutoff but at least this is logged as a warning. On the 2026-10-01

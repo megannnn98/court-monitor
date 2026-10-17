@@ -24,16 +24,16 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.cli_context import SessionContext as Context
 from support.db_fixtures import DatabaseSeeder
 
-from application import build_investigation_service, build_results_service
-from cli.app import main
-from db.database import with_statement_timeout
-from db.investigation_runs import SqlAlchemyInvestigationRuns
-from db.orm_models import (
+from analysis.storage.models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
 )
+from application import build_investigation_service, build_results_service
+from cli.app import main
+from db.database import with_statement_timeout
 from investigation.models import InvestigationQuery, InvestigationResult
+from investigation.run_store import SqlAlchemyInvestigationRuns
 from investigation.service import InvestigationService
 from investigation.services.retrieval import LexicalPublicationsRetriever
 from web.app import app

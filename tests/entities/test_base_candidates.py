@@ -13,8 +13,8 @@ from analysis.operator_base.base_candidates import (
     base_candidate_key,
     base_candidates,
 )
+from analysis.storage.models import AirtableKnownPersonRecord
 from analysis.unnamed.figurants import DIFFERENT, SAME, SUPPLIED_NAME, decide, resolve_identity
-from db.orm_models import AirtableKnownPersonRecord
 
 NEWS = datetime(2026, 6, 11, tzinfo=UTC)
 

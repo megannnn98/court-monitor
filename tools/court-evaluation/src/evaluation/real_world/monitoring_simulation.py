@@ -26,7 +26,6 @@ from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import MonitoringFindingRecord, MonitoringRunRecord
 from evaluation.real_world.corpus_run import (
     CorpusRunner,
     PeriodRun,
@@ -50,9 +49,11 @@ from evaluation.real_world.state_snapshot import (
     table_counts,
 )
 from orchestrator.service import MonitoringService
+from orchestrator.storage.models import MonitoringRunRecord
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
 from results.candidates.service import CandidateQueryService
+from results.storage.models import MonitoringFindingRecord
 
 logger = logging.getLogger("evaluation.real_world")
 

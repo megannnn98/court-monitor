@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.rosfinmonitoring.inclusion_dates import InclusionDates, read_inclusion_dates
 from analysis.rosfinmonitoring.inclusion_store import write_inclusion_dates
-from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
 SNAPSHOT_DATE = datetime(2026, 9, 30, 6, 0, tzinfo=UTC)
 

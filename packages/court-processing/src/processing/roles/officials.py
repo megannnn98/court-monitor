@@ -26,19 +26,19 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
+from processing.identity.disputes import KeyIndex
+from processing.identity.downstream import IdentityDownstream
+from processing.identity.grouping import _fold
+from processing.storage.models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
-from processing.identity.disputes import KeyIndex
-from processing.identity.grouping import _fold
 
 logger = logging.getLogger("entities")
 
@@ -263,7 +263,13 @@ def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]
     return marks
 
 
-def mark_official(session: Session, entity: EntityGroupRecord, official: bool) -> None:
+def mark_official(
+    session: Session,
+    entity: EntityGroupRecord,
+    official: bool,
+    *,
+    downstream: IdentityDownstream,
+) -> None:
     """A person's mark, in the caller's transaction, applied at once: an official leaves
     the figurants and «Результат» now, not at the next step 4."""
     record = session.get(EntityOfficialMarkRecord, entity.key)
@@ -279,9 +285,7 @@ def mark_official(session: Session, entity: EntityGroupRecord, official: bool) -
         kind = role.kind if role.kind in OFFICIAL_KINDS else "official"
         role.role, role.kind, role.method = "mentioned", kind, "official"
         role.reason = "должностное лицо — отмечен вручную"
-        session.execute(
-            delete(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == entity.id)
-        )
+        downstream.role_withdrawn(session, entity.id)
     else:
         role.role, role.kind, role.method = "unclear", None, "manual"
         role.reason = "пометка должностного лица снята вручную; роль определит шаг 5"

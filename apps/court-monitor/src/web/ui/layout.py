@@ -12,12 +12,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    MonitoringRunRecord,
-    ParsedArticleRecord,
-)
+from analysis.storage.models import EntityGroupPoliticsRecord
+from ingestion.storage.models import ParsedArticleRecord
+from orchestrator.storage.models import MonitoringRunRecord
+from processing.storage.models import EntityGroupRecord
 from web.ui import spend
 from web.ui.work_cycle import live_next_action
 from web.ui.workload import Workload, workload

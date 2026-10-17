@@ -23,12 +23,12 @@ from support.monitoring_fixtures import (
 )
 
 from application import build_monitoring_service
-from db.orm_models import ParsedArticleRecord, Source, SourceDocument
 from ingestion.sources.source_registry import SourceDefinition
 from ingestion.sources.sqlalchemy_persistence import (
     SqlAlchemyIngestionPersistence,
     SqlAlchemyPersistenceResult,
 )
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from monitor_core.errors import PermanentFetchError, PersistenceError, TransientFetchError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference
 from monitor_core.ports import DocumentFetcher, SourceAdapter

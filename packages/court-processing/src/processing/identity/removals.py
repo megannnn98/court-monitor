@@ -13,9 +13,9 @@ from collections.abc import Iterable, Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord, EntityRemovalRecord
 from processing.identity.disputes import KeyIndex
 from processing.identity.grouping import Entity
+from processing.storage.models import EntityGroupRecord, EntityRemovalRecord
 
 
 def removed_keys(session: Session) -> list[str]:

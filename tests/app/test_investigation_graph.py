@@ -14,8 +14,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityMentionRecord
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityMentionRecord
 from web import investigation_graph
 from web.app import app
 from web.dependencies import get_db
@@ -137,7 +138,7 @@ def _seed(session_factory: sessionmaker[Session], *, arrests: int = 1) -> dict[s
                 ],
             )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory() as session:
         for key, group in session.execute(text("SELECT key, id FROM entity_groups")).all():
             ids[key] = group
@@ -402,7 +403,7 @@ def _told_again(session_factory: sessionmaker[Session], ids: dict[str, int]) -> 
                 ],
             )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def _mentioned(session_factory: sessionmaker[Session], key: str) -> None:
@@ -660,7 +661,7 @@ def test_a_person_is_named_by_the_key_that_survives_a_rebuild(
     with session_factory() as session:
         before = expand(session, f"person:{PETROV}")
         opened = expand(session, f"event:{ids['detention']}")
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         rebuilt = session.scalar(

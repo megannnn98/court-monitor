@@ -16,7 +16,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from analysis.rosfinmonitoring.rf_check import FULL
-from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
+from analysis.storage.models import EntityGroupRfMatchRecord
+from application import build_identity_commands
 from processing.identity.service import (
     DIFFERENT,
     PATRONYMIC,
@@ -24,10 +25,10 @@ from processing.identity.service import (
     SAME,
     SIMILAR,
     EntityRef,
-    IdentityService,
     Pair,
     key_region,
 )
+from processing.storage.models import EntityGroupRecord
 from web.dependencies import get_db
 from web.ui.entities import (
     _article_links,
@@ -108,7 +109,7 @@ def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
             )
         ).all()
     ]
-    pairs = IdentityService().disputed_pairs(db, refs)
+    pairs = build_identity_commands().disputed_pairs(db, refs)
     if key:
         pairs.sort(key=lambda pair: key not in pair.keys)
     counts = {
@@ -131,7 +132,7 @@ def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
         roles=_roles(db, ids),
         listed=_rf_levels(db, ids),
         charges=_articles_by_group(db, ids),
-        decided=IdentityService().decision_counts(db),
+        decided=build_identity_commands().decision_counts(db),
     )
 
 
@@ -139,7 +140,7 @@ def settle_pair(db: Session, key_a: str, key_b: str, decision: str) -> None:
     """«Один человек» or «Разные люди», committed; HTTPException 400 for a half decision."""
     if not key_a or not key_b or key_a == key_b or decision not in (SAME, DIFFERENT):
         raise HTTPException(status_code=400, detail="Неполное решение")
-    IdentityService().decide_pair(db, key_a, key_b, decision)
+    build_identity_commands().decide_pair(db, key_a, key_b, decision)
     db.commit()
 
 

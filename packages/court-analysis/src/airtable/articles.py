@@ -24,7 +24,7 @@ from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
 from airtable.replace import UntrustedExport, drop_vanished, removal_is_safe
 from airtable.repository import _same, _write
-from db.orm_models import CriminalArticleRecord
+from analysis.storage.models import CriminalArticleRecord
 
 logger = logging.getLogger("airtable")
 

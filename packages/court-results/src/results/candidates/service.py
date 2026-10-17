@@ -6,15 +6,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.persecution.queries import latest_persecution_classification_ids
-from db.orm_models import (
-    ExtractedEventRecord,
+from analysis.storage.models import (
     PersecutionClassificationRecord,
-    PersonAliasRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
     RosfinMatchRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
+from processing.storage.models import ExtractedEventRecord
 from results.candidates.models import (
     DEFAULT_MIN_PERSECUTION_CONFIDENCE,
     CandidateQueryResult,

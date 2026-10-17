@@ -14,9 +14,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
+from analysis.service import GroupFollowers
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
-    EntityMentionRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
@@ -24,6 +24,7 @@ from db.orm_models import (
 )
 from orchestrator.operations import OperationRegistry
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityMentionRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 from web.ui.workload import workload
@@ -453,7 +454,7 @@ def test_a_card_shows_who_another_publication_names_and_takes_a_word(
             entity_links=[(mention, "target")],
         )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         key = session.scalar(text("SELECT key FROM entity_groups"))
         session.execute(

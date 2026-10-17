@@ -9,6 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.service import GroupFollowers
+from analysis.storage.models import UnnamedFigurantRecord
 from analysis.unnamed.figurants import (
     DIFFERENT,
     EXISTING_PERSON,
@@ -18,8 +20,8 @@ from analysis.unnamed.figurants import (
     resolve_identity,
 )
 from analysis.unnamed.named_candidates import named_candidates, person_candidate_key
-from db.orm_models import EntityMentionRecord, UnnamedFigurantRecord
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityMentionRecord
 
 COURT = "Суд вынес приговор 53-летней жительнице Якутии."
 KEY = "u" * 64
@@ -147,7 +149,7 @@ def _seed(session_factory: sessionmaker[Session], **told: Any) -> UnnamedFiguran
         )
         session.add(figurant)
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         session.execute(
             text(

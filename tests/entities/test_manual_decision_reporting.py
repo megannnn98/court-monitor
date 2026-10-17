@@ -24,15 +24,15 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.politics.classification import POLITICAL, PoliticsFinder
-from db.orm_models import (
+from analysis.service import GroupFollowers
+from analysis.storage.models import EntityGroupPoliticsRecord, EntityPoliticsDecisionRecord
+from processing.roles.roles import FIGURANT, FigurantFinder
+from processing.storage.models import (
     EntityGroupChargeRecord,
-    EntityGroupPoliticsRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
-    EntityPoliticsDecisionRecord,
     EntityRoleDecisionRecord,
 )
-from processing.roles.roles import FIGURANT, FigurantFinder
 from web.app import app
 from web.dependencies import get_db
 
@@ -158,13 +158,8 @@ def test_a_manual_political_verdict_is_counted_in_exactly_one_category(
 
 def _seed_political_charge(session: Session, entity: EntityGroupRecord, article: str) -> None:
     """A charge from the political list, with the event and publication it points at."""
-    from db.orm_models import (
-        ArticleExtractionRunRecord,
-        ExtractedEventRecord,
-        ParsedArticleRecord,
-        Source,
-        SourceDocument,
-    )
+    from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+    from processing.storage.models import ArticleExtractionRunRecord, ExtractedEventRecord
 
     source = Source(name="Источник", base_url="https://example.test")
     session.add(source)
@@ -316,8 +311,8 @@ def test_a_decision_does_not_silently_revert_after_a_marked_official(
 
     with session_factory.begin() as session:
         entity = _seed(session, "мария резова")
-        mark_official(session, entity, True)
-        decide_role(session, entity, FIGURANT)
+        mark_official(session, entity, True, downstream=GroupFollowers())
+        decide_role(session, entity, FIGURANT, downstream=GroupFollowers())
         session.flush()
         now = session.get(EntityGroupRoleRecord, entity.id)
 
@@ -349,7 +344,7 @@ def test_dropping_a_figurant_to_mentioned_takes_it_off_the_political_list(
 
     with session_factory.begin() as session:
         entity = _seed(session, "мария резова")
-        decide_role(session, entity, MENTIONED)
+        decide_role(session, entity, MENTIONED, downstream=GroupFollowers())
 
     with session_factory() as session:
         left = session.get(EntityGroupPoliticsRecord, entity.id)

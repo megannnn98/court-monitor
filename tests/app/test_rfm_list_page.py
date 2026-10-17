@@ -20,12 +20,12 @@ from openpyxl import load_workbook
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityGroupRecord,
+from analysis.storage.models import (
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from processing.storage.models import EntityGroupRecord
 from web.app import app
 from web.dependencies import get_db
 from web.ui.rfm_list import ListFilters, _export_name, _period
@@ -448,7 +448,7 @@ def test_the_page_reads_a_hundred_rows_and_not_the_whole_list(
     fill in one table is a query the operator waits on for nothing."""
     import datetime as dt
 
-    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+    from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
     _seed(session_factory)
     with session_factory.begin() as session:

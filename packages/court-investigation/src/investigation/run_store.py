@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import Connection, select, text, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.models.investigation import InvestigationRunRecord
+from investigation.storage.models import InvestigationRunRecord
 
 # One lock per run id, in the advisory lock space; `hashtextextended` gives the bigint.
 _TRY_LOCK = text("SELECT pg_try_advisory_lock(hashtextextended(:run_id, 0))")

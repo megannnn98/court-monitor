@@ -13,9 +13,11 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
-from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from processing.identity.service import EntityRef, IdentityService, Pair
+from analysis.storage.models import EntityGroupPoliticsRecord
+from application import build_identity_commands
+from processing.identity.service import EntityRef, Pair
 from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 
 
 def dispute_pairs(db: Session) -> list[Pair]:
@@ -31,7 +33,7 @@ def dispute_pairs(db: Session) -> list[Pair]:
             )
         ).all()
     ]
-    return IdentityService().disputed_pairs(db, refs)
+    return build_identity_commands().disputed_pairs(db, refs)
 
 
 @dataclass(frozen=True)

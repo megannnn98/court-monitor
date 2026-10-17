@@ -36,7 +36,6 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -51,6 +50,7 @@ from llm.chat import (
 )
 from processing.evidence.regions import canonical
 from processing.identity.grouping import name_key
+from processing.storage.models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 
 logger = logging.getLogger("entities")
 

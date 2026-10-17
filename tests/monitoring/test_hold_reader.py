@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import ExtractedEventRecord, JunkScreenHoldRecord, ParsedArticleRecord
+from ingestion.storage.models import ParsedArticleRecord
 from llm.chat import ModelError, Spend
 from processing.junk.hold_reader import (
     EXTRACTOR_NAME,
@@ -22,6 +22,7 @@ from processing.junk.hold_reader import (
 from processing.junk.holds import mark_junk
 from processing.junk.purge import JunkPurge
 from processing.junk.screen import HELD
+from processing.storage.models import ExtractedEventRecord, JunkScreenHoldRecord
 
 TEXTS = {
     "donation": "Наталью Голощукову признали виновной\nСуд назначил ей срок за донаты ФБК.",

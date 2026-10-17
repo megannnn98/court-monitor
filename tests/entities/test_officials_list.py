@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, sessionmaker
 
 from airtable.client import AirtableRecord
-from db.orm_models import ExcludedPersonRecord
 from processing.roles.officials import official_entity_ids
+from processing.storage.models import ExcludedPersonRecord
 
 
 def _official(session: Session, name: str, **fields: object) -> ExcludedPersonRecord:

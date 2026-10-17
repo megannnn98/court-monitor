@@ -469,6 +469,7 @@ name = "court-analysis"
 version = "0.1.0"
 source = { editable = "packages/court-analysis" }
 dependencies = [
+    { name = "court-ingestion" },
     { name = "court-platform" },
     { name = "court-processing" },
     { name = "curl-cffi" },
@@ -481,6 +482,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
     { name = "court-platform", editable = "packages/court-platform" },
     { name = "court-processing", editable = "packages/court-processing" },
     { name = "curl-cffi", specifier = ">=0.16.3,<0.17" },
@@ -588,6 +590,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "pydantic" },
     { name = "pymorphy3" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
@@ -600,6 +603,7 @@ requires-dist = [
     { name = "langgraph", specifier = ">=1.0" },
     { name = "pydantic", specifier = ">=2.11.0" },
     { name = "pymorphy3", specifier = ">=2.0.6" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
 ]
 
 [[package]]

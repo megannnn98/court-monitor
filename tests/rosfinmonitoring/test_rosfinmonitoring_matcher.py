@@ -15,12 +15,8 @@ from analysis.rosfinmonitoring.matcher_models import (
     RosfinMatchStatus,
 )
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
-from db.orm_models import (
-    PersonAliasRecord,
-    PersonRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+from persons.storage.models import PersonAliasRecord, PersonRecord
 
 
 @pytest.fixture

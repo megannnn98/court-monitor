@@ -9,16 +9,15 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
+from analysis.storage.models import RosfinmonitoringSnapshotRecord
+from ingestion.storage.models import ParsedArticleRecord, SourceDocument
+from persons.storage.models import PersonEventLinkRecord
+from processing.extraction.name_frequency import lookup_gender
+from processing.storage.models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonEventLinkRecord,
-    RosfinmonitoringSnapshotRecord,
-    SourceDocument,
 )
-from processing.extraction.name_frequency import lookup_gender
 from results.candidates.models import (
     DEFAULT_MIN_PERSECUTION_CONFIDENCE,
     PoliticalPersecutionCandidate,

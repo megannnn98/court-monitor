@@ -28,8 +28,9 @@ from analysis.politics.classification import MEMORIAL_CATEGORIES, POLITICAL
 from analysis.rosfinmonitoring.rf_articles import AWAITED, Listing, listing
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import strongest_entries
-from db.orm_models import EntityGroupNewsRecord, EntityGroupPoliticsRecord, EntityGroupRecord
+from analysis.storage.models import EntityGroupNewsRecord, EntityGroupPoliticsRecord
 from processing.evidence.publications import person_evidence_cte
+from processing.storage.models import EntityGroupRecord
 from results.done_marks import Marks, done_marks, is_done
 from results.queries.unnamed_cases import KEY_PREFIX, Case, political_cases
 from web.ui.entities import _articles_by_group, display_name, regions_text

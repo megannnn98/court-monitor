@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import IVANOV, PETROV, SIDOROV, import_rf_snapshot
 
 import cli_batches
+from analysis.storage.models import RosfinMatchRecord
 from cli_batches import (
     BatchWorkerError,
     extract_articles,
@@ -21,16 +22,13 @@ from cli_batches import (
     worker_count,
 )
 from db.maintenance import truncate_disposable_tables
-from db.orm_models import (
-    EntityMentionRecord,
-    ParsedArticleRecord,
-    PersonRecord,
-    RosfinMatchRecord,
-)
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from ingestion.storage.models import ParsedArticleRecord
 from monitor_core.model import ParsedArticle, RawDocument
 from persons.resolution.parallel_resolution import resolve_runs
+from persons.storage.models import PersonRecord
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
+from processing.storage.models import EntityMentionRecord
 
 TEXTS = [SIDOROV, PETROV, IVANOV]
 

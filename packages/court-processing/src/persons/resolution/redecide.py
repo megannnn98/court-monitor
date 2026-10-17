@@ -14,11 +14,6 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    PersonResolutionDecisionRecord,
-)
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.factory import build_person_resolution_engine
 from persons.resolution.models import PersonResolutionAction, PersonResolutionReason
@@ -28,6 +23,8 @@ from persons.resolution.service import (
     PersonResolutionEngine,
     identity_from_mention,
 )
+from persons.storage.models import PersonResolutionDecisionRecord
+from processing.storage.models import ArticleExtractionRunRecord, EntityMentionRecord
 
 logger = logging.getLogger("person_resolution")
 

@@ -10,6 +10,15 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.storage.models import (
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+    UnnamedAnswerRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
+    UnnamedKeepRecord,
+    UnnamedScreenedRecord,
+)
 from analysis.unnamed.figurants import (
     DIFFERENT,
     RF_ENTRY,
@@ -21,15 +30,6 @@ from analysis.unnamed.figurants import (
     resolve_identity,
 )
 from analysis.unnamed.matching import candidates
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-    UnnamedAnswerRecord,
-    UnnamedFigurantRecord,
-    UnnamedIdentityResolutionRecord,
-    UnnamedKeepRecord,
-    UnnamedScreenedRecord,
-)
 from processing.answers import input_hash
 from processing.evidence.unnamed import (
     UnnamedAnswer,

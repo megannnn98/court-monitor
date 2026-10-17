@@ -10,7 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import TextClause
 
-from db.orm_models import EntityGroupRecord, ParsedArticleRecord
+from ingestion.storage.models import ParsedArticleRecord
+from processing.storage.models import EntityGroupRecord
 from web.build_info import build_info
 from web.response_models import AboutResponse
 

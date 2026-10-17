@@ -16,8 +16,8 @@ from sqlalchemy.orm import Session
 
 from analysis.news.case_news import NEW_CASE, SENTENCE
 from analysis.politics.classification import POLITICAL
+from analysis.storage.models import UnnamedFigurantRecord
 from analysis.unnamed.matching import Candidates, candidates
-from db.orm_models import UnnamedFigurantRecord
 from web.dependencies import get_db
 from web.ui.entities import display_name
 from web.ui.layout import _page

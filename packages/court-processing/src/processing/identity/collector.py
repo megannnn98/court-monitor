@@ -7,6 +7,7 @@ its id.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
@@ -17,18 +18,10 @@ from sqlalchemy import delete, distinct, func, insert, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityGroupChargeRecord,
-    EntityGroupMentionRecord,
-    EntityGroupRecord,
-    EntityGroupUnnamedMentionRecord,
-    EntityNameNormalizationRecord,
-    UnnamedFigurantRecord,
-    UnnamedIdentityResolutionRecord,
-)
 from llm.chat import BudgetExceededError, Spend, ask_in_batches
 from processing.answers import input_hash
 from processing.identity.disputes import KeyIndex, merge_decided, same_pairs
+from processing.identity.downstream import IdentifiedFigurant, IdentityDownstream
 from processing.identity.grouping import (
     Entity,
     GivenName,
@@ -55,6 +48,13 @@ from processing.identity.normalizer import (
 from processing.identity.overrides import apply_overrides, name_overrides
 from processing.identity.removals import removed_keys, without_removed
 from processing.junk.purge import CRIMINAL_EVENT_TYPES
+from processing.storage.models import (
+    EntityGroupChargeRecord,
+    EntityGroupMentionRecord,
+    EntityGroupRecord,
+    EntityGroupUnnamedMentionRecord,
+    EntityNameNormalizationRecord,
+)
 
 logger = logging.getLogger("entities")
 
@@ -134,13 +134,18 @@ _UNNAMED_CHARGES = text(
         WHERE status = 'succeeded'
         ORDER BY article_id, id DESC
     )
+    , u AS (
+        -- The identified figurants just linked to the groups, one row per article of
+        -- their event: the analysis hands them over (`IdentityDownstream`).
+        SELECT * FROM jsonb_to_recordset(CAST(:figurants AS jsonb))
+            AS x(group_id integer, article_id integer, event_type text, quote text,
+                 article text)
+    )
     INSERT INTO entity_group_charges
         (group_id, event_id, publication_id, article, part, clause, event_type,
          other_targets, quote)
-    SELECT gum.group_id, e.id, u.article_id, article.value, NULL, NULL, u.event_type, 0, u.quote
-    FROM entity_group_unnamed_mentions gum
-    JOIN unnamed_figurants u ON u.key = gum.figurant_key
-    JOIN LATERAL jsonb_array_elements_text(u.articles) AS article ON true
+    SELECT u.group_id, e.id, u.article_id, u.article, NULL, NULL, u.event_type, 0, u.quote
+    FROM u
     JOIN LATERAL (
         SELECT e.id FROM latest r
         JOIN extracted_events e ON e.extraction_run_id = r.id
@@ -148,7 +153,7 @@ _UNNAMED_CHARGES = text(
           AND e.event_type = u.event_type
         ORDER BY e.id DESC LIMIT 1
     ) e ON true
-    WHERE coalesce(article.value, '') <> ''
+    WHERE coalesce(u.article, '') <> ''
     """
 )
 
@@ -209,31 +214,19 @@ class CollectResult:
 
 
 def _apply_unnamed_resolutions(
-    entities: Sequence[Entity], session: Session
-) -> tuple[list[Entity], dict[str, list[UnnamedFigurantRecord]]]:
+    entities: Sequence[Entity], identified: Sequence[IdentifiedFigurant]
+) -> tuple[list[Entity], dict[str, list[IdentifiedFigurant]]]:
     """Add operator-identified unnamed figurants as evidence of their real person."""
     by_key = {entity.key: entity for entity in entities}
     index = KeyIndex(by_key)
-    evidence: dict[str, list[UnnamedFigurantRecord]] = defaultdict(list)
-    rows = session.execute(
-        select(UnnamedIdentityResolutionRecord, UnnamedFigurantRecord)
-        .join(
-            UnnamedFigurantRecord,
-            UnnamedFigurantRecord.key == UnnamedIdentityResolutionRecord.figurant_key,
-        )
-        .where(
-            UnnamedIdentityResolutionRecord.resolution.in_(
-                ("rf_entry", "existing_person", "supplied_name")
-            )
-        )
-    ).all()
-    for resolution, figurant in rows:
-        if resolution.resolution == "existing_person":
-            target_key = index.today(resolution.existing_person_key or "")
+    evidence: dict[str, list[IdentifiedFigurant]] = defaultdict(list)
+    for figurant in identified:
+        if figurant.resolution == "existing_person":
+            target_key = index.today(figurant.existing_person_key or "")
             if target_key is None:
                 continue
         else:
-            name = given_name_first((resolution.normalized_name or "").strip())
+            name = given_name_first((figurant.normalized_name or "").strip())
             if not name:
                 continue
             target_key = name_key(name)
@@ -261,10 +254,13 @@ class EntityCollector:
         *,
         on_stage: Callable[[str], None] = lambda _stage: None,
         normalizer: NameNormalizer | None = None,
+        downstream: IdentityDownstream,
     ) -> None:
         self._session_factory = session_factory
         self._on_stage = on_stage
         self._normalizer = normalizer
+        # The operator's identifications of unnamed figurants, the analysis's data.
+        self._downstream = downstream
 
     def run(self) -> CollectResult:
         with self._session_factory() as session:
@@ -328,7 +324,9 @@ class EntityCollector:
         # A surname alone joins the full name of that surname its article names.
         entities = attach_bare(entities, articles)
         with self._session_factory() as session:
-            entities, unnamed = _apply_unnamed_resolutions(entities, session)
+            entities, unnamed = _apply_unnamed_resolutions(
+                entities, self._downstream.identified_figurants(session)
+            )
             # A person's «there is no such person» takes an entity out, last of all: what
             # the steps above join to it goes with it.
             entities = without_removed(entities, removed_keys(session))
@@ -338,6 +336,7 @@ class EntityCollector:
             session.execute(delete(EntityGroupRecord))
             links: list[dict[str, int]] = []
             unnamed_links: list[dict[str, int | str]] = []
+            linked_figurants: list[tuple[dict[str, int], IdentifiedFigurant]] = []
             for entity in entities:
                 dates = [d for m in entity.mention_ids if (d := published[m]) is not None]
                 unnamed_rows = unnamed.get(entity.key, [])
@@ -370,6 +369,9 @@ class EntityCollector:
                     {"group_id": group_id, "figurant_key": figurant.key}
                     for figurant in unnamed_rows
                 ]
+                linked_figurants += [
+                    ({"group_id": group_id}, figurant) for figurant in unnamed_rows
+                ]
             for start in range(0, len(links), INSERT_CHUNK):
                 session.execute(
                     insert(EntityGroupMentionRecord), links[start : start + INSERT_CHUNK]
@@ -381,7 +383,24 @@ class EntityCollector:
                 )
             self._on_stage("charges")
             session.execute(_CHARGES, {"limit": CHARGE_QUOTE_LIMIT})
-            session.execute(_UNNAMED_CHARGES)
+            session.execute(
+                _UNNAMED_CHARGES,
+                {
+                    "figurants": json.dumps(
+                        [
+                            {
+                                "group_id": link["group_id"],
+                                "article_id": figurant.article_id,
+                                "event_type": figurant.event_type,
+                                "quote": figurant.quote,
+                                "article": article,
+                            }
+                            for link, figurant in linked_figurants
+                            for article in figurant.articles
+                        ]
+                    )
+                },
+            )
             charges, charged = session.execute(
                 select(
                     func.count(), func.count(distinct(EntityGroupChargeRecord.group_id))

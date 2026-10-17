@@ -1,18 +1,23 @@
-"""Automated monitoring runs, items, source checkpoints and findings (ADR 0013)."""
+"""The orchestrator's tables: monitoring runs, their failed items, each source's checkpoint, operator operation runs.
+
+Internal: only this package reads and writes them; others go through its public
+API (docs/architecture/data-ownership.md). Every class registers its table on
+`db.models.base.Base`; `migrations/model_registry.py` composes them for Alembic.
+"""
+
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
-    Boolean,
+    CheckConstraint,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
-    UniqueConstraint,
     func,
     text,
 )
@@ -128,85 +133,41 @@ class SourceMonitoringStateRecord(Base):
     )
 
 
-class MonitoringFindingRecord(Base):
-    """An actionable monitoring result about a person; not a Person status."""
+class OperatorOperationRunRecord(Base):
+    """One run of a routine operation started from the operator console.
 
-    __tablename__ = "monitoring_findings"
+    The database is the source of truth: every API process sees the same runs, and a
+    restart keeps the history. At most one live run per operation, across processes.
+    """
+
+    __tablename__ = "operator_operation_runs"
     __table_args__ = (
-        UniqueConstraint(
-            "finding_type",
-            "person_id",
-            "criteria_version",
-            name="uq_monitoring_findings_type_person_criteria",
+        CheckConstraint(
+            "status IN ('pending', 'running', 'succeeded', 'failed', 'interrupted')",
+            name="ck_operator_operation_runs_status",
         ),
-        Index("ix_monitoring_findings_first_seen_run", "first_seen_run_id"),
-        Index("ix_monitoring_findings_active", "active"),
+        Index("ix_operator_operation_runs_created_at", "created_at"),
+        Index(
+            "uq_operator_operation_runs_active_operation",
+            "operation_name",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'running')"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    finding_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    person_id: Mapped[int] = mapped_column(
-        ForeignKey("persons.id", ondelete="CASCADE"), nullable=False
-    )
-    criteria_version: Mapped[str] = mapped_column(String(32), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    # False once the person stopped satisfying the criterion; history is kept.
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    first_seen_run_id: Mapped[int | None] = mapped_column(
-        ForeignKey("monitoring_runs.id", ondelete="SET NULL"), nullable=True
-    )
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    last_seen_run_id: Mapped[int | None] = mapped_column(
-        ForeignKey("monitoring_runs.id", ondelete="SET NULL"), nullable=True
-    )
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    inactive_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Provenance at last sighting; evidence and sources are reachable through the person.
-    snapshot_id: Mapped[int | None] = mapped_column(
-        ForeignKey("rosfinmonitoring_snapshots.id", ondelete="SET NULL"), nullable=True
-    )
-    persecution_classification_id: Mapped[int | None] = mapped_column(
-        ForeignKey("persecution_classifications.id", ondelete="SET NULL"), nullable=True
-    )
-    rosfin_match_id: Mapped[int | None] = mapped_column(
-        ForeignKey("rosfin_matches.id", ondelete="SET NULL"), nullable=True
-    )
+    operation_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    command: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class JunkScreenHoldRecord(Base):
-    """An article the junk purge would delete (no criminal-case event extracted) that the
-    embedding screen held back for a person to look at (`processing.junk.screen`).
-
-    `held`: kept out of every purge until a person decides; `junk`: a person said it is
-    junk, the next purge deletes it (and this row with it); `released`: a model read a
-    case in it and wrote the event the rules missed (`processing.junk.hold_reader`). An article
-    a new extraction found the event of loses the row.
-    """
-
-    __tablename__ = "junk_screen_holds"
-
-    article_id: Mapped[int] = mapped_column(
-        ForeignKey("parsed_articles.id", ondelete="CASCADE"), primary_key=True
-    )
-    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="held")
-    score: Mapped[float] = mapped_column(Float, nullable=False)
-    cutoff: Mapped[float] = mapped_column(Float, nullable=False)
-    screen: Mapped[str] = mapped_column(String(100), nullable=False)
-    reason: Mapped[str] = mapped_column(Text, nullable=False)
-    # What a person or a new extraction said last.
-    note: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # What a model read of the article (`processing.junk.hold_reader`): who read, `case` (the
-    # hold is then `released`) or `junk` (left to a person), and the event it named.
-    reader: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    reader_verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    reader_event: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    return_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    stdout: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    stderr: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)

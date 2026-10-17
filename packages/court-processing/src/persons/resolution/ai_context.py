@@ -12,17 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    Source,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from persons.resolution.ai_review import (
     EVIDENCE_EXCERPTS_PER_SIDE,
     CandidateReviewContext,
@@ -32,6 +22,13 @@ from persons.resolution.ai_review import (
     MentionReviewContext,
 )
 from persons.resolution.models import PersonResolutionReason
+from persons.storage.models import PersonRecord, PersonResolutionDecisionRecord
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 # Characters of article text quoted around a mention: the sentence it appears in.
 QUOTE_RADIUS = 200

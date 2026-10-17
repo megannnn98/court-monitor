@@ -30,18 +30,15 @@ from airtable.service import (
     build_sync_service,
     build_sync_source,
 )
+from analysis.storage.models import AirtableKnownPersonRecord, CriminalArticleRecord
 from application import build_analysis_service
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    CriminalArticleRecord,
-    ExcludedPersonRecord,
-    Source,
-)
+from ingestion.storage.models import Source
 from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
 )
+from processing.storage.models import ExcludedPersonRecord
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _page
 from web.ui.officials_list import REFERENCE_URL as OFFICIALS_URL

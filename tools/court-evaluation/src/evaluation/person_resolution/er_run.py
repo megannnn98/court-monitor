@@ -21,7 +21,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import PersonAliasRecord, PersonRecord
 from evaluation.person_resolution.corpus import CorpusPerson, ErEvaluationCorpus, seed_corpus
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
@@ -38,6 +37,7 @@ from persons.resolution.models import (
 )
 from persons.resolution.service import PersonResolutionEngine
 from persons.resolution.surface import pipeline_identity
+from persons.storage.models import PersonAliasRecord, PersonRecord
 
 A = PersonResolutionAction
 RECALL_KS = (1, 5, 10)

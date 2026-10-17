@@ -30,9 +30,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.operator_base.known_base import TrackedCase, TrackedCases
 from analysis.persecution.classifier import POLITICAL_ARTICLES
-from db.orm_models import (
+from analysis.storage.models import (
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityPoliticsAnswerRecord,
     EntityPoliticsDecisionRecord,
 )
@@ -49,6 +48,7 @@ from llm.chat import (
 from processing.answers import AnswerCache, AskResult, ask_missing, input_hash
 from processing.identity.service import KeyIndex
 from processing.roles.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
+from processing.storage.models import EntityGroupRecord
 
 logger = logging.getLogger("entities")
 

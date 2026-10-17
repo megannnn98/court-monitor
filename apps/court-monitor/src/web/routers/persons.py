@@ -5,18 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from analysis.persecution.queries import latest_persecution_classification_ids
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonAliasRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    RosfinMatchRecord,
-    Source,
-    SourceDocument,
-)
+from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
+from processing.storage.models import ArticleExtractionRunRecord, ExtractedEventRecord
 from web.dependencies import get_db
 from web.response_models import (
     EvidenceSpanResponse,

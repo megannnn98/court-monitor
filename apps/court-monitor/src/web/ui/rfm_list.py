@@ -32,10 +32,8 @@ from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import INCLUSION_NOTES, source_mark
 from analysis.service import RosfinmonitoringSnapshotSummary
+from analysis.storage.models import RosfinmonitoringEntryRecord
 from application import build_analysis_service
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-)
 from web.dependencies import get_db, session_factory_for
 from web.exports import XLSX, workbook_bytes, write_notes, write_sheet
 from web.ui.layout import _page, copy_button
@@ -178,7 +176,8 @@ def _with_our_matches(db: Session, rows: list[ListRow]) -> None:
     group in the database to look up a handful of links, which on a real database is
     tens of thousands of rows read to fill in two columns of a hundred rows.
     """
-    from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
+    from analysis.storage.models import EntityGroupRfMatchRecord
+    from processing.storage.models import EntityGroupRecord
 
     if not rows:
         return

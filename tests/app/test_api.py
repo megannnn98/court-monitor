@@ -131,8 +131,8 @@ def test_person_persecution_is_null_without_classification(
 def _pending_person_resolution(session_factory: sessionmaker[Session]) -> tuple[int, int]:
     from support.person_resolution_fixtures import seed_mentions, seed_person
 
-    from db.orm_models import EntityMentionRecord
     from persons.resolution.factory import build_person_resolution_service
+    from processing.storage.models import EntityMentionRecord
 
     ivan = seed_person(session_factory, "Иван Иванов")
     seed_person(session_factory, "Илья Иванов")

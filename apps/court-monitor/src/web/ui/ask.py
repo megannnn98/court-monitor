@@ -18,7 +18,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import ChatQuestionRecord
 from results.ask import (
     FAILED,
     LIST,
@@ -33,6 +32,7 @@ from results.ask import (
     spent_today,
     unverified_numbers,
 )
+from results.storage.models import ChatQuestionRecord
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page
 

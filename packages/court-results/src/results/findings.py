@@ -17,14 +17,11 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.persecution.queries import latest_persecution_classification_ids
-from db.orm_models import (
-    MonitoringFindingRecord,
-    PersecutionClassificationRecord,
-    RosfinMatchRecord,
-)
+from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
 from results.candidates.models import DEFAULT_MIN_PERSECUTION_CONFIDENCE, RosfinmonitoringStatus
 from results.candidates.service import CandidateQueryService
 from results.models import MonitoringFindingStatus, MonitoringFindingView
+from results.storage.models import MonitoringFindingRecord
 
 logger = logging.getLogger("monitoring")
 

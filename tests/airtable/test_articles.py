@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from airtable.articles import article_key, sync_articles
 from airtable.client import AirtableRecord
-from db.orm_models import CriminalArticleRecord
+from analysis.storage.models import CriminalArticleRecord
 
 
 def _texts(session_factory: sessionmaker[Session]) -> list[str]:

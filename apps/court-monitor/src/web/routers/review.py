@@ -6,7 +6,7 @@ irreversible and stays on the legacy page."""
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord
+from processing.storage.models import EntityGroupRecord
 from web.dependencies import get_db
 from web.response_models import (
     DecisionResponse,

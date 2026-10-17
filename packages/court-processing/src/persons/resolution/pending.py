@@ -5,17 +5,12 @@ from __future__ import annotations
 from sqlalchemy import exists, not_, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ParsedArticleRecord,
-    PersonResolutionDecisionRecord,
-    Source,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from persons.resolution.service import RESOLVER_VERSION
+from persons.storage.models import PersonResolutionDecisionRecord
 from processing.extraction.models import ExtractionRunStatus
 from processing.extraction.pipeline import ExtractionVersions
+from processing.storage.models import ArticleExtractionRunRecord, EntityMentionRecord
 
 
 class SqlAlchemyPendingResolution:

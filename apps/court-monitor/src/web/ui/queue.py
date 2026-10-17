@@ -18,10 +18,11 @@ from sqlalchemy.orm import Session
 
 from analysis.politics.classification import CRIMINAL, POLITICAL, decide_politics
 from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
-from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
-from processing.identity.service import IdentityService
+from analysis.storage.models import EntityGroupPoliticsRecord
+from application import build_identity_commands, group_followers
 from processing.roles.roles import FIGURANT, MENTIONED, POSSIBLE, decide_role
 from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 from web.dependencies import get_db
 from web.ui.entities import display_name
 from web.ui.layout import _page
@@ -157,7 +158,7 @@ def settle_role(db: Session, key: str, role: str) -> EntityGroupRecord:
     HTTPException 400/404 for no key, an unknown person or an unknown role."""
     entity = entity_by_key(db, key)
     try:
-        decide_role(db, entity, role)
+        decide_role(db, entity, role, downstream=group_followers())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Неизвестная роль") from exc
     db.commit()
@@ -244,7 +245,7 @@ def legacy_queue(request: Request) -> RedirectResponse:
 @router.post("/ui/pairs/reset-decisions", response_model=None)
 def reset_pair_decisions(db: Session = Depends(get_db)) -> RedirectResponse:  # noqa: B008
     """Forget every decision on a pair: the operator starts the pairs over."""
-    deleted = IdentityService().reset_decisions(db)
+    deleted = build_identity_commands().reset_decisions(db)
     db.commit()
     logger.info("event=pair_decisions_reset deleted=%d", deleted)
     return RedirectResponse(f"/ui/pairs?reset={deleted}", status_code=303)

@@ -21,6 +21,12 @@ from sqlalchemy.orm import Session
 
 from analysis.operator_base.base_candidates import BaseCandidates, base_candidates
 from analysis.operator_base.jurisdiction import CourtHints, Jurisdiction
+from analysis.storage.models import (
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+    UnnamedFigurantRecord,
+    UnnamedScreenedRecord,
+)
 from analysis.unnamed.figurants import (
     CANDIDATE_KEY_LENGTH,
     COMMON_CRIME,
@@ -46,14 +52,8 @@ from analysis.unnamed.named_candidates import (
     named_candidates,
     person_candidate_key,
 )
-from db.orm_models import (
-    EntityGroupRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-    UnnamedFigurantRecord,
-    UnnamedScreenedRecord,
-)
 from processing.evidence.unnamed import EVENT_LABELS
+from processing.storage.models import EntityGroupRecord
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
 from web.ui.entities import display_name

@@ -22,15 +22,14 @@ from typing import Any
 from sqlalchemy import Select, Subquery, and_, func, or_, select, union_all
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    PersecutionClassificationRecord,
+from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
+from persons.models import PersonStatus
+from persons.storage.models import (
     PersonAliasRecord,
     PersonEventLinkRecord,
     PersonRecord,
     PersonResolutionDecisionRecord,
-    RosfinMatchRecord,
 )
-from persons.models import PersonStatus
 
 # Longer than any ER / review transaction plus clock skew between hosts.
 EVIDENCE_SETTLE_INTERVAL = timedelta(minutes=10)

@@ -13,20 +13,22 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
-    EntityDoneMarkRecord,
-    EntityGroupChargeRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityGroupRfMatchRecord,
-    EntityGroupRoleRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
+from processing.storage.models import (
+    EntityGroupChargeRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+)
+from results.storage.models import EntityDoneMarkRecord
 from web.app import app
 from web.dependencies import get_db
 

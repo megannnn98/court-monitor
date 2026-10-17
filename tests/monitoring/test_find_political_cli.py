@@ -16,13 +16,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import analysis.service
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 from cli.cycle import add_cycle_arguments, run_cycle_command
-from db.orm_models import (
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 
 
 def _parse(*argv: str) -> argparse.Namespace:

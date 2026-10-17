@@ -25,16 +25,12 @@ from analysis.politics.classification import (
     verdict_of,
 )
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityMentionRecord,
-)
+from analysis.service import GroupFollowers
+from analysis.storage.models import AirtableKnownPersonRecord, EntityGroupPoliticsRecord
 from processing.identity.collector import EntityCollector
 from processing.junk.hold_reader import add_event
 from processing.roles.roles import quotes_of
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, EntityMentionRecord
 
 RF_PAGE = """<!doctype html><html>
 <div class="panel-heading"><h4>Физические лица</h4></div>
@@ -121,7 +117,7 @@ def _seed(
             _person(session, seed, run, surface, name)
             seed.event(run, text_[:10], event_type="sentence", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         session.execute(
             text("UPDATE entity_groups SET name = 'Олег Иванович Орлов' WHERE name = 'Олег Орлов'")

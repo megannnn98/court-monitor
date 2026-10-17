@@ -30,10 +30,7 @@ from analysis.rosfinmonitoring.inclusion_dates import (
     match_inclusion_date,
     normalize_name,
 )
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
 logger = logging.getLogger("entities")
 

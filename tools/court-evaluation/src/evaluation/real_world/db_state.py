@@ -15,22 +15,21 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from analysis.persecution.queries import latest_persecution_classification_ids
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ExtractedEventRecord,
-    MonitoringFindingRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
+from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
+from evaluation.real_world.models import article_key
+from ingestion.sources.source_registry import SOURCES
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.storage.models import (
     PersonEventLinkRecord,
     PersonRecord,
     PersonResolutionDecisionRecord,
-    RosfinMatchRecord,
-    Source,
-    SourceDocument,
 )
-from evaluation.real_world.models import article_key
-from ingestion.sources.source_registry import SOURCES
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    ExtractedEventRecord,
+)
+from results.storage.models import MonitoringFindingRecord
 
 _SOURCE_NAMES_BY_BASE_URL = {definition.base_url: name for name, definition in SOURCES.items()}
 

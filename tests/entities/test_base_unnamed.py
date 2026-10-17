@@ -22,12 +22,12 @@ from analysis.operator_base.base_unnamed import (
     record_age,
     say,
 )
-from analysis.unnamed.figurants import DIFFERENT, SAME
-from db.orm_models import (
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from analysis.unnamed.figurants import DIFFERENT, SAME
 
 OPENED = date(2025, 6, 9)
 

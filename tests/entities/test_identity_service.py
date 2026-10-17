@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityGroupRecord, EntityMentionRecord
+from analysis.service import GroupFollowers
 from processing.identity.service import (
     DIFFERENT,
     MANUAL,
@@ -17,6 +17,7 @@ from processing.identity.service import (
     identity_service_from_env,
     key_region,
 )
+from processing.storage.models import EntityGroupRecord, EntityMentionRecord
 
 
 def _people(session_factory: sessionmaker[Session], *names: tuple[str, str, str | None]) -> None:
@@ -50,13 +51,13 @@ def _refs(session: Session) -> list[EntityRef]:
 
 
 def test_without_a_key_the_groups_keep_the_names_the_rules_gave() -> None:
-    assert identity_service_from_env({}).names_by_model is False
+    assert identity_service_from_env(GroupFollowers(), {}).names_by_model is False
 
 
 def test_a_rebuild_makes_one_group_of_a_person(session_factory: sessionmaker[Session]) -> None:
     _people(session_factory, ("Иван", "Сидоров", None), ("Пётр", "Кузнецов", None))
 
-    result = IdentityService().rebuild_groups(session_factory)
+    result = IdentityService(downstream=GroupFollowers()).rebuild_groups(session_factory)
 
     assert (result.mentions, result.entities) == (2, 2)
     with session_factory() as session:
@@ -67,7 +68,7 @@ def test_a_pair_is_disputed_until_a_person_decides_it(
     session_factory: sessionmaker[Session],
 ) -> None:
     _people(session_factory, ("Иван", "Сидоров", None), ("Иван", "Сидоров", "Петрович"))
-    identity = IdentityService()
+    identity = IdentityService(downstream=GroupFollowers())
     identity.rebuild_groups(session_factory)
 
     with session_factory() as session:
@@ -84,7 +85,7 @@ def test_a_pair_is_disputed_until_a_person_decides_it(
 
 def test_one_person_is_merged_at_once(session_factory: sessionmaker[Session]) -> None:
     _people(session_factory, ("Иван", "Сидоров", None), ("Иван", "Сидоров", "Петрович"))
-    identity = IdentityService()
+    identity = IdentityService(downstream=GroupFollowers())
     identity.rebuild_groups(session_factory)
 
     with session_factory() as session:
@@ -100,7 +101,7 @@ def test_a_removed_group_stays_out_until_it_is_restored(
     session_factory: sessionmaker[Session],
 ) -> None:
     _people(session_factory, ("Иван", "Сидоров", None))
-    identity = IdentityService()
+    identity = IdentityService(downstream=GroupFollowers())
     identity.rebuild_groups(session_factory)
 
     with session_factory() as session:
@@ -121,7 +122,7 @@ def test_a_removed_group_stays_out_until_it_is_restored(
 
 def test_a_corrected_name_survives_a_rebuild(session_factory: sessionmaker[Session]) -> None:
     _people(session_factory, ("Иван", "Сидоров", None))
-    identity = IdentityService()
+    identity = IdentityService(downstream=GroupFollowers())
     identity.rebuild_groups(session_factory)
 
     with session_factory() as session:

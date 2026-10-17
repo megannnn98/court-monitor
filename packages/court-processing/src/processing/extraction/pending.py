@@ -9,13 +9,9 @@ from __future__ import annotations
 from sqlalchemy import exists, not_, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    ParsedArticleRecord,
-    Source,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from processing.extraction.pipeline import ExtractionVersions
+from processing.storage.models import ArticleExtractionRunRecord
 
 
 class SqlAlchemyPendingExtraction:

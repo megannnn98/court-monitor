@@ -23,10 +23,11 @@ from analysis.politics.classification import (
     PoliticsItem,
     verdict_of,
 )
-from db.orm_models import EntityGroupPoliticsRecord, EntityGroupRecord, EntityGroupRoleRecord
+from analysis.storage.models import EntityGroupPoliticsRecord
 from processing.identity.grouping import name_key
 from processing.identity.normalizer import NameItem, NameNormalizer
 from processing.roles.roles import _QUOTES, QUOTE_CONTEXT, QUOTES, RoleClassifier, RoleItem, role_of
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 
 logger = logging.getLogger("entities")
 

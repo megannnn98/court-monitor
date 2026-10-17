@@ -6,7 +6,6 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import matching_key, seed_person
 
-from db.orm_models import PersonRecord
 from persons.models import PersonStatus
 from persons.resolution.candidates import (
     CandidateConfig,
@@ -18,6 +17,7 @@ from persons.resolution.models import (
     CandidateSource,
     PersonIdentityInput,
 )
+from persons.storage.models import PersonRecord
 
 
 def _identity(name: str) -> PersonIdentityInput:

@@ -8,10 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityGroupRecord, EntityMentionRecord, EntityRemovalRecord
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
 from processing.identity.grouping import Entity
 from processing.identity.removals import removals, remove, restore, without_removed
+from processing.storage.models import EntityGroupRecord, EntityMentionRecord, EntityRemovalRecord
 
 
 def test_a_removal_takes_the_entity_out_and_holds_after_the_region_entered_the_key() -> None:
@@ -56,7 +57,7 @@ def test_a_removal_survives_a_rebuild_and_keeps_the_mentions(
     session_factory: sessionmaker[Session],
 ) -> None:
     _two_people(session_factory)
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     assert _names(session_factory) == ["Дмитрий Путин", "Пётр Петров"]
     with session_factory.begin() as session:
         entity = session.scalars(
@@ -66,7 +67,7 @@ def test_a_removal_survives_a_rebuild_and_keeps_the_mentions(
 
     # At once, and after the next rebuild.
     assert _names(session_factory) == ["Пётр Петров"]
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     assert _names(session_factory) == ["Пётр Петров"]
     with session_factory() as session:
@@ -81,7 +82,7 @@ def test_a_removal_taken_back_returns_the_entity_at_the_next_rebuild(
     session_factory: sessionmaker[Session],
 ) -> None:
     _two_people(session_factory)
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         entity = session.scalars(
             select(EntityGroupRecord).where(EntityGroupRecord.name == "Дмитрий Путин")
@@ -92,7 +93,7 @@ def test_a_removal_taken_back_returns_the_entity_at_the_next_rebuild(
         assert restore(session, "дмитрий путин") is True
         assert restore(session, "никто никтов") is False
     assert _names(session_factory) == ["Пётр Петров"]
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     assert _names(session_factory) == ["Дмитрий Путин", "Пётр Петров"]
     with session_factory() as session:

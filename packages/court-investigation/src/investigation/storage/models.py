@@ -1,8 +1,11 @@
-"""Stored investigation runs (`investigation.runs`): a question's progress and result.
+"""The investigation's table: stored, resumable runs (ADR 0027).
 
-Not a second model of the data: a run holds the evidence it showed, as JSON, so it can
-be read again and resumed. Canonical identity stays `entity_groups` (ADR 0024).
+Internal: only this package reads and writes them; others go through its public
+API (docs/architecture/data-ownership.md). Every class registers its table on
+`db.models.base.Base`; `migrations/model_registry.py` composes them for Alembic.
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any

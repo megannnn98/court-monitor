@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Analysis of court-monitor: politics, persecution, the Rosfinmonitoring list, case news, unnamed figurants, the operator's reference lists (airtable)"
 requires-python = ">=3.13"
 dependencies = [
+    "court-ingestion",
     "court-platform",
     "court-processing",
     # Requests sent with a browser's TLS fingerprint: Airtable share links, the list's archive.
@@ -25,5 +26,6 @@ build-backend = "hatchling.build"
 packages = ["src/analysis", "src/airtable"]
 
 [tool.uv.sources]
+court-ingestion = { workspace = true }
 court-platform = { workspace = true }
 court-processing = { workspace = true }

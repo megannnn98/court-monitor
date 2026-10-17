@@ -5,7 +5,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from db.orm_models import ParsedArticleRecord
+from ingestion.storage.models import ParsedArticleRecord
 from web.dependencies import get_db
 from web.response_models import (
     ArticleMentionsResponse,

@@ -4,11 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    ParsedArticleRecord,
-    Source,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from web.dependencies import get_db
 from web.response_models import ArticleResponse
 

@@ -18,12 +18,6 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    MonitoringFindingRecord,
-    MonitoringRunItemRecord,
-    MonitoringRunRecord,
-    SourceMonitoringStateRecord,
-)
 from orchestrator.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
@@ -39,6 +33,12 @@ from orchestrator.models import (
     classify_failure,
 )
 from orchestrator.source_health import LayoutSuspect, layout_suspects
+from orchestrator.storage.models import (
+    MonitoringRunItemRecord,
+    MonitoringRunRecord,
+    SourceMonitoringStateRecord,
+)
+from results.storage.models import MonitoringFindingRecord
 
 logger = logging.getLogger("monitoring")
 

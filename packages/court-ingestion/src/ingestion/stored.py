@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import Source, SourceDocument
+from ingestion.storage.models import Source, SourceDocument
 
 
 class SqlAlchemyStoredDocuments:

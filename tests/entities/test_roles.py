@@ -10,13 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
-from db.orm_models import (
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityMentionRecord,
-    EntityOfficialMarkRecord,
-    ExcludedPersonRecord,
-)
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import (
     FIGURANT,
@@ -27,6 +21,13 @@ from processing.roles.roles import (
     decide_role,
     matched_answers,
     role_of,
+)
+from processing.storage.models import (
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityMentionRecord,
+    EntityOfficialMarkRecord,
+    ExcludedPersonRecord,
 )
 
 RF_PAGE = """<!doctype html><html>
@@ -82,7 +83,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
         _person(session, seed, run, "Олега Орлова", "Олег Орлов")
         seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         session.execute(
             text("UPDATE entity_groups SET name = 'Олег Иванович Орлов' WHERE name = 'Олег Орлов'")
@@ -289,7 +290,7 @@ def _seed_officials(session_factory: sessionmaker[Session], *, titles: bool = Tr
             _person(session, seed, run, surface, name)
             seed.event(run, text_[:10], event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def test_officials_are_named_in_cases_never_their_figurants(
@@ -487,11 +488,11 @@ def test_a_person_s_mark_wins_either_way_and_survives_a_rebuild(
     FigurantFinder(session_factory, classifier=classifier).run()
     with session_factory.begin() as session:
         entities = {entity.name: entity for entity in session.scalars(select(EntityGroupRecord))}
-        mark_official(session, entities["Иван Иванов"], True)
-        mark_official(session, entities["Ольга Минакова"], False)
+        mark_official(session, entities["Иван Иванов"], True, downstream=GroupFollowers())
+        mark_official(session, entities["Ольга Минакова"], False, downstream=GroupFollowers())
     marked = _roles(session_factory)
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     FigurantFinder(session_factory, classifier=classifier).run()
 
     assert marked["Иван Иванов"] == ("mentioned", "official", "official")
@@ -643,7 +644,7 @@ def test_a_person_s_word_on_a_role_survives_the_next_run(
             select(EntityGroupRecord).where(EntityGroupRecord.name == "Фёдор Сирош")
         )
         assert sirosh is not None
-        decide_role(session, sirosh, FIGURANT)
+        decide_role(session, sirosh, FIGURANT, downstream=GroupFollowers())
 
     again = FakeClassifier(KINDS)
     FigurantFinder(session_factory, classifier=again).run()

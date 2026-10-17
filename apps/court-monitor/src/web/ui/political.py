@@ -30,9 +30,7 @@ from analysis.rosfinmonitoring.rf_entry import (
     entry_included_text,
     rf_word,
 )
-from db.orm_models import (
-    EntityDoneMarkRecord,
-)
+from results.storage.models import EntityDoneMarkRecord
 from web.dependencies import get_db
 from web.exports import (
     XLSX,

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
-from db.orm_models import Base
+from db.models.base import Base
 from ingestion.sources.source_registry import SourceDefinition
 from monitor_core.errors import NoTextError, ParseError
 from monitor_core.model import ParsedArticle, RawDocument, SourceReference

@@ -16,10 +16,12 @@ from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
-from db.orm_models import EntityGroupPoliticsRecord, EntityMentionRecord
+from analysis.service import GroupFollowers
+from analysis.storage.models import EntityGroupPoliticsRecord
 from orchestrator.operations import OperationRegistry, OperationRunStatus
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import FigurantFinder, Kind, RoleAnswer, RoleItem
+from processing.storage.models import EntityMentionRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
@@ -86,7 +88,7 @@ def _collected(session_factory: sessionmaker[Session]) -> None:
         _person(session, seed, run, "Александру Моору", "Александр", "Моору")
         seed.event(run, "вынесли приговор", event_type="sentence", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
@@ -314,7 +316,7 @@ def _charged(session_factory: sessionmaker[Session]) -> None:
             ],
         )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def test_a_card_lists_the_criminal_code_articles_with_their_publications(

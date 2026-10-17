@@ -14,12 +14,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
-from db.orm_models import JunkScreenHoldRecord, OperatorOperationRunRecord
 from ingestion.sources.source_registry import news_sources
 from monitor_core.errors import ParseError
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.operations import OperationParameters, OperationRegistry, OperationRunStatus
 from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.storage.models import OperatorOperationRunRecord
+from processing.storage.models import JunkScreenHoldRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 from web.ui import spend

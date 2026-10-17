@@ -13,22 +13,24 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import matching_key, seed_mentions, seed_person
 
 from cli.person_resolution import format_review
-from db.orm_models import (
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    PersonEventLinkRecord,
-    PersonMergeRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    ReviewRecordModel,
-)
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.factory import build_person_resolution_service
 from persons.resolution.review import (
     PersonResolutionReviewService,
     ResolutionReviewAction,
     ResolutionReviewStateError,
+)
+from persons.storage.models import (
+    PersonEventLinkRecord,
+    PersonMergeRecord,
+    PersonRecord,
+    PersonResolutionDecisionRecord,
+    ReviewRecordModel,
+)
+from processing.storage.models import (
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
 )
 
 Action = ResolutionReviewAction
@@ -397,13 +399,13 @@ def test_redeciding_name_only_reviews_links_only_the_corroborated_ones(
     run writes nothing."""
     from datetime import UTC, datetime
 
-    from db.orm_models import (
+    from ingestion.storage.models import ParsedArticleRecord
+    from persons.resolution.redecide import redecide_name_only_reviews
+    from processing.storage.models import (
         ArticleExtractionRunRecord,
         EventEntityMentionRecord,
         ExtractedEventRecord,
-        ParsedArticleRecord,
     )
-    from persons.resolution.redecide import redecide_name_only_reviews
 
     def mention(surface: str, published_at: datetime, *, event: bool, person: int | None) -> int:
         run_id, (mention_id,) = seed_mentions(session_factory, surface)

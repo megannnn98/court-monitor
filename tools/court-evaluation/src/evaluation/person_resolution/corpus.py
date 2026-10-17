@@ -8,18 +8,14 @@ from datetime import UTC, date, datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
+from analysis.storage.models import PersecutionClassificationRecord
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
+from processing.storage.models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     EventEntityMentionRecord,
     ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonAliasRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    Source,
-    SourceDocument,
 )
 
 CORPUS_FETCHED_AT = datetime(2026, 1, 1, tzinfo=UTC)

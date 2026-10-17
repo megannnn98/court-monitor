@@ -35,14 +35,11 @@ from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_A
 from analysis.rosfinmonitoring.rf_articles import listing
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import source_mark
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-)
+from analysis.storage.models import EntityGroupPoliticsRecord
 from processing.evidence.publications import person_evidence_cte
 from processing.roles.officials import OFFICIAL_KINDS
 from processing.roles.roles import FIGURANT
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 from web.dependencies import get_db
 from web.ui.entities import (
     EVENT_LABELS,

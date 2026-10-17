@@ -6,8 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityGroupChargeRecord, EntityGroupRecord, EntityMentionRecord
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
+from processing.storage.models import (
+    EntityGroupChargeRecord,
+    EntityGroupRecord,
+    EntityMentionRecord,
+)
 
 
 def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name: str) -> int:
@@ -126,9 +131,9 @@ def test_an_event_ties_its_criminal_code_article_to_its_target(
 ) -> None:
     _seed(session_factory)
 
-    result = EntityCollector(session_factory).run()
+    result = EntityCollector(session_factory, downstream=GroupFollowers()).run()
     charges = _charges(session_factory)
-    again = EntityCollector(session_factory).run()
+    again = EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     assert (result.charges, result.charged_entities) == (3, 3)
     [(article, part, event_type, others, quote)] = charges["Иван Петров"]

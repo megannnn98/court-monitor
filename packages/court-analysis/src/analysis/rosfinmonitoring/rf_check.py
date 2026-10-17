@@ -24,6 +24,7 @@ import httpx
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.group_followers import GroupFollowers
 from analysis.rosfinmonitoring.download import (
     ListPage,
     RosfinmonitoringDownloadError,
@@ -51,12 +52,9 @@ from analysis.rosfinmonitoring.operator_table import store as store_operator_tab
 from analysis.rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from db.orm_models import (
-    EntityGroupRecord,
-    EntityGroupRfMatchRecord,
-    RosfinmonitoringEntryRecord,
-)
+from analysis.storage.models import EntityGroupRfMatchRecord, RosfinmonitoringEntryRecord
 from processing.identity.service import BY_REGION, BY_RF, IdentityService
+from processing.storage.models import EntityGroupRecord
 
 logger = logging.getLogger("entities")
 
@@ -193,7 +191,10 @@ class EntityRfCheck:
                     insert(EntityGroupRfMatchRecord), rows[start : start + INSERT_CHUNK]
                 )
             self._on_stage("merging")
-            merged = IdentityService().merge_confirmed_pairs(session, listed_level=FULL)
+            listed = {group_id for group_id, level in levels.items() if level == FULL}
+            merged = IdentityService(downstream=GroupFollowers()).merge_confirmed_pairs(
+                session, listed=listed
+            )
         full = sum(level == FULL for level in levels.values())
         result = RfCheckResult(
             snapshot_id=latest.snapshot_id,

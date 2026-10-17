@@ -8,8 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from analysis.rosfinmonitoring.rf_check import FULL
-from db.orm_models import EntityGroupRecord
-from processing.identity.service import MANUAL, IdentityService
+from application import build_identity_commands
+from processing.identity.service import MANUAL
+from processing.storage.models import EntityGroupRecord
 from web.dependencies import get_db
 from web.response_models import (
     EntityArticleResponse,
@@ -126,7 +127,7 @@ def list_removals(db: Session = Depends(get_db)) -> RemovalListResponse:  # noqa
     return RemovalListResponse(
         items=[
             RemovalResponse(key=record.key, name=display_name(record.name), removed=True)
-            for record in IdentityService().removed_groups(db)
+            for record in build_identity_commands().removed_groups(db)
         ]
     )
 
@@ -143,9 +144,9 @@ def set_removal(
         if entity is None:
             raise HTTPException(status_code=404, detail="Человек не найден")
         name = entity.name
-        IdentityService().remove_group(db, entity)
+        build_identity_commands().remove_group(db, entity)
     else:
-        identity = IdentityService()
+        identity = build_identity_commands()
         kept = next(
             (record.name for record in identity.removed_groups(db) if record.key == body.key),
             None,

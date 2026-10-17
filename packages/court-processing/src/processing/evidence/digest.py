@@ -30,7 +30,6 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ArticleDigestAnswerRecord
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -44,6 +43,7 @@ from llm.chat import (
     endpoint_from_env,
 )
 from processing.evidence.publications import person_evidence_cte
+from processing.storage.models import ArticleDigestAnswerRecord
 
 logger = logging.getLogger("entities")
 

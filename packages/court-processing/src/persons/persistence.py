@@ -6,14 +6,14 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityMentionRecord,
+from persons.models import AliasOrigin, MergeStatus, PersonStatus
+from persons.storage.models import (
     PersonAliasRecord,
     PersonEventLinkRecord,
     PersonMergeRecord,
     PersonRecord,
 )
-from persons.models import AliasOrigin, MergeStatus, PersonStatus
+from processing.storage.models import EntityMentionRecord
 
 
 class PersonMergeConflictError(ValueError):

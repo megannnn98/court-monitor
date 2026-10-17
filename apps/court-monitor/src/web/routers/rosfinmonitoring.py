@@ -4,10 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 from web.dependencies import get_db
 from web.response_models import RosfinmonitoringEntryResponse, RosfinmonitoringSnapshotResponse
 

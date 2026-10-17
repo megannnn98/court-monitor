@@ -11,13 +11,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityGroupRecord,
+from analysis.storage.models import (
     EntityGroupRfMatchRecord,
-    EntityPairDecisionRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from processing.storage.models import EntityGroupRecord, EntityPairDecisionRecord
 from web.app import app
 from web.dependencies import get_db
 

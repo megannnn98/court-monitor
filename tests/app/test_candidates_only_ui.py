@@ -13,8 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.storage.models import RosfinmonitoringSnapshotRecord
 from api import app, get_db
-from db.orm_models import RosfinmonitoringSnapshotRecord
 from web.candidate_rows import latest_snapshot_id
 
 REMOVED_PAGES = [

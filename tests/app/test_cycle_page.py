@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.pipeline_runs import finish_steps
 
-from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, JunkScreenHoldRecord
 from orchestrator.operations import OperationParameters, OperationRegistry
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, JunkScreenHoldRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 

@@ -10,15 +10,15 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.persecution.classifier import RuleBasedPersecutionClassifier
 from analysis.persecution.models import PersecutionClassification
-from db.orm_models import (
+from analysis.storage.models import PersecutionClassificationRecord
+from ingestion.storage.models import ParsedArticleRecord
+from persons.storage.models import PersonEventLinkRecord
+from processing.extraction.events import NON_SUBJECT_ROLES
+from processing.storage.models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonEventLinkRecord,
 )
-from processing.extraction.events import NON_SUBJECT_ROLES
 
 # How far (in characters, on each side) around a person's own mention/event
 # to look for political context. Text outside this window belongs to

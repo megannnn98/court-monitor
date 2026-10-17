@@ -37,9 +37,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
 from processing.roles.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
 from processing.roles.roles import KIND_LABELS
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
 from web.dependencies import get_db
 from web.ui.layout import _page
 

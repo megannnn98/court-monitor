@@ -24,19 +24,10 @@ from analysis.persecution.models import PersecutionClassificationStatus
 from analysis.persecution.queries import latest_persecution_classification_ids
 from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
+from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
 from application import build_monitoring_service
 from db.database import create_session_factory
 from db.maintenance import require_disposable_database, truncate_disposable_tables
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    MonitoringFindingRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonResolutionDecisionRecord,
-    RosfinMatchRecord,
-    SourceDocument,
-)
 from evaluation.final.corpus import (
     RF_NO_MATCH_RECORD,
     RF_NO_SNAPSHOT,
@@ -47,11 +38,15 @@ from evaluation.final.corpus import (
 )
 from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
+from ingestion.storage.models import ParsedArticleRecord, SourceDocument
 from orchestrator.models import MonitoringSettings
 from persons.persistence import SqlAlchemyPersonPersistence
+from persons.storage.models import PersonResolutionDecisionRecord
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.storage.models import ArticleExtractionRunRecord, EntityMentionRecord
 from results.candidates.models import RosfinmonitoringStatus
 from results.candidates.service import CandidateQueryService
+from results.storage.models import MonitoringFindingRecord
 
 logger = logging.getLogger("evaluation")
 

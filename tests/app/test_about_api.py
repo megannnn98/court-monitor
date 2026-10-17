@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import OperatorOperationRunRecord
+from orchestrator.storage.models import OperatorOperationRunRecord
 from web.app import app
 from web.build_info import build_info
 from web.dependencies import get_db

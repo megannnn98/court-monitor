@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ParsedArticleRecord, Source, SourceDocument
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from monitor_core.errors import PersistenceError
 from monitor_core.model import ParsedArticle, RawDocument
 
