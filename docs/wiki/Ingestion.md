@@ -36,7 +36,7 @@ uv run court-monitor ingest "https://ovd.info/news/example"
 
 Все реализуют один и тот же `Protocol SourceAdapter` (`monitor_core.ports`) и берут загрузку листинга из общего `ingestion/sources/discovery_pagination.py`: `fetch_listing_page_with_retry` (retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry). Обход страниц общий — `discover_paginated_references` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок) — только у `ovd-info` и `sota-vision`: они нумеруют страницы подряд. Telegram листает по `?before=<id>` до границы по дате, а `sudrf` — по годовым архивам, ссылки на которые читает с уже загруженной страницы, поэтому у обоих свой цикл обхода.
 
-`apps/court-monitor/src/main.py discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
+`uv run court-monitor discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
 
 ### Telegram-каналы
 

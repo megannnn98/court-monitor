@@ -60,7 +60,7 @@ from web.ui.workload import dispute_pairs
 
 router = APIRouter()
 
-_STATIC = Path(__file__).resolve().parents[2] / "static"
+_STATIC = Path(__file__).resolve().parents[1] / "static"
 # The graph's scripts, in the order they load: the library, the logic, the page.
 _GRAPH_SCRIPTS = (
     "vendor/vis-network/vis-network.min.js",

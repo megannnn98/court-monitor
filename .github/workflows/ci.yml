@@ -69,9 +69,10 @@ jobs:
         run: uv run mypy --strict
 
   packages:
-    # Each distribution installed alone from uv.lock, with only what it declares: every
-    # module it ships imports there (python -I, outside the checkout) and its own tests
-    # pass. The development environment installs every member and cannot see an
+    # Each distribution's built wheel installed alone, with only what it declares (the
+    # wheels of its workspace dependencies, their libraries from uv.lock): every file of
+    # its src/ is in the wheel, every module it ships imports there (python -I, outside
+    # the checkout) and its own tests pass. The development environment installs every member and cannot see an
     # undeclared import; this can. Then the production install the image makes.
     name: packages (each installed alone)
     runs-on: ubuntu-latest

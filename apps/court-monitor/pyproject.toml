@@ -45,8 +45,9 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# The application runs from the repository (docs/wiki, migrations, alembic.ini and
-# `static/` are read from it), as the image does: an editable install.
+# The image installs the application editable and runs it from the repository, where it
+# reads docs/wiki, migrations and alembic.ini. The wheel carries all of its own code and
+# files (`web/static/` is package data of `web`).
 packages = [
     "src/application.py",
     "src/settings.py",

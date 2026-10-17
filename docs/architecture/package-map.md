@@ -17,8 +17,10 @@ distribution's name (`court-ingestion`) is not its import name (`ingestion`).
 dependencies of each distribution (`MAY_DEPEND_ON`), no cycle, every import declared by
 the distribution that makes it. `tests/test_module_boundaries.py` keeps the finer rules
 between modules (public APIs, internals, the console's read models), as before.
-`scripts/check_package_isolation.py` (CI job `packages`) installs each distribution alone
-from `uv.lock` and imports every module it ships there.
+`scripts/check_package_isolation.py` (CI job `packages`) builds every wheel and checks
+it carries every file of its `src/`, then installs each distribution's wheel alone (with
+the wheels of its workspace dependencies and their locked libraries, not the checkout),
+imports every module it ships there and runs its own tests.
 
 ## Layout
 
@@ -36,7 +38,7 @@ packages/
   court-orchestrator/     src/orchestrator
 apps/
   court-monitor/          src/application.py, settings.py, main.py, api.py,
-                          cli/, web/, static/, cli_batches.py, cli_progress.py,
+                          cli/, web/ (+ web/static/), cli_batches.py, cli_progress.py,
                           dagster_location/
 tools/
   court-evaluation/       src/evaluation
@@ -237,8 +239,11 @@ application's command line) by the app; it does not know where the app is instal
 | Entry points | `court-monitor <command>` (console script) = `python apps/court-monitor/src/main.py <command>`; `uvicorn api:app`; `dagster … -m dagster_location.definitions` (`docker/dagster/workspace.yaml`); `alembic upgrade head` |
 | Owns | the composition root (`application.py`, `settings.py`): the only place that knows the concrete classes (`SqlAlchemy…`, `RuleBased…`, `OpenRouter…`, `WebsiteAdapter`) |
 
-It runs from the repository: `docs/wiki`, `migrations`, `alembic.ini` and `static/`
-are read from the checkout, so it is installed editable (`uv sync`), as the image does.
+Its wheel carries all of its code and `web/static/` (package data), and imports from a
+plain install.
+Deployed, it runs from the repository: `docs/wiki`, `migrations` and `alembic.ini` are
+read from the checkout, so the image installs it editable (`uv sync`), as a working copy
+does.
 
 ### court-evaluation (tooling)
 
@@ -269,7 +274,8 @@ Not in the image. Before the split its commands were part of `python src/main.py
 | `src/orchestrator` | `packages/court-orchestrator/src/orchestrator` | |
 | `src/orchestrator/dagster/definitions.py`, `resources.py` | `apps/court-monitor/src/dagster_location/` | they build the application graph: wiring, not orchestration (they were `ENTRY_POINT` in the boundary test) |
 | `OperationRegistry` computing `src/main.py` from its own path | `CommandLine` given by `web.dependencies` | the orchestrator knew where the app is installed |
-| `src/application.py`, `settings.py`, `main.py`, `api.py`, `cli/`, `web/`, `static/`, `cli_batches.py`, `cli_progress.py` | `apps/court-monitor/src/…` | |
+| `src/application.py`, `settings.py`, `main.py`, `api.py`, `cli/`, `web/`, `cli_batches.py`, `cli_progress.py` | `apps/court-monitor/src/…` | |
+| `src/static/` | `apps/court-monitor/src/web/static/` | package data of `web`: the wheel carries it, an editable install reads it in place |
 | `src/evaluation` | `tools/court-evaluation/src/evaluation` | |
 | evaluation commands of `python src/main.py` | `court-evaluation` | production must not depend on the evaluation |
 

@@ -2,28 +2,35 @@
 
     uv run python scripts/check_package_isolation.py [court-ingestion ...]
 
-For every member (or the ones named), a fresh environment gets that member and its
-declared dependencies from `uv.lock` (`uv sync --package <member> --no-default-groups`),
-and every module the member ships is imported there with `python -I` from an empty
-directory: no PYTHONPATH, no working copy on the path, no other member installed by
+Every member's wheel is built first, and each must carry every file of its `src/`
+(code, data, `py.typed`, the application's `static/`): a file the build configuration
+leaves out shows here.
+
+Then for every member (or the ones named), a fresh environment gets the third-party
+libraries of that member and of its workspace dependencies from `uv.lock`
+(`uv sync --package <member> --no-install-workspace`), and the built wheels of the member
+and of those dependencies, not the working copy. Every module the member ships is
+imported there with `python -I` from an empty directory, and must come from that
+environment: no PYTHONPATH, no checkout on the path, no other member installed by
 accident. An import of something the member does not declare fails here, though it
 passes in the development environment, where every member is installed.
 
 A module may fail to import only for a library of one of the member's extras (the
-optional `semantic` one): that is reported and skipped. Every member's wheel is built
-first, so a module missing from `[tool.hatch.build.targets.wheel]` shows as well. A
-member with tests of its own (`<member>/tests`) runs them there too, with the locked
-pytest and nothing of the repository's `tests/`.
+optional `semantic` one): that is reported and skipped. A member with tests of its own
+(`<member>/tests`) runs them there too, against its wheel, with the locked pytest and
+nothing of the repository's `tests/`.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import tomllib
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +56,8 @@ for name in names:
         failed[name] = ["missing", (exc.name or "").split(".")[0]]
     except Exception as exc:
         failed[name] = ["error", f"{type(exc).__name__}: {exc}"]
-print(json.dumps({"imported": len(names), "failed": failed}))
+files = {top: getattr(sys.modules[top], "__file__", None) for top in sys.argv[1:]}
+print(json.dumps({"imported": len(names), "failed": failed, "files": files}))
 """
 
 # Import name of a library an extra brings -> its distribution (as tests/test_package_graph.py).
@@ -79,6 +87,44 @@ def _project(path: Path) -> dict[str, Any]:
 def _modules(path: Path) -> list[str]:
     packages = _project(path)["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"]
     return sorted(Path(item).name.removesuffix(".py") for item in packages)
+
+
+def _name(requirement: str) -> str:
+    match = re.match(r"[A-Za-z0-9._-]+", requirement)
+    assert match is not None, requirement
+    return match.group(0).lower()
+
+
+def _workspace_closure(name: str, members: dict[str, Path]) -> set[str]:
+    """The member and every workspace distribution it requires, transitively."""
+    found = {name}
+    pending = [name]
+    while pending:
+        project = _project(members[pending.pop()])["project"]
+        for dependency in (_name(item) for item in project.get("dependencies", [])):
+            if dependency in members and dependency not in found:
+                found.add(dependency)
+                pending.append(dependency)
+    return found
+
+
+def _wheel(name: str, dist: Path) -> Path:
+    [wheel] = dist.glob(f"{name.replace('-', '_')}-*.whl")
+    return wheel
+
+
+def _missing_from_wheel(name: str, path: Path, wheel: Path) -> list[str]:
+    """Every file of the member's `src/` the wheel does not carry, at the same path."""
+    with zipfile.ZipFile(wheel) as archive:
+        shipped = set(archive.namelist())
+    src = path / "src"
+    return sorted(
+        f"{name}: not in the wheel: {file.relative_to(src).as_posix()}"
+        for file in src.rglob("*")
+        if file.is_file()
+        and "__pycache__" not in file.parts
+        and file.relative_to(src).as_posix() not in shipped
+    )
 
 
 def _extras(path: Path) -> set[str]:
@@ -119,15 +165,26 @@ def _run_own_tests(name: str, path: Path, python: Path, cwd: Path) -> list[str]:
     return [] if result.returncode == 0 else [f"{name}: own tests failed: {summary}"]
 
 
-def _check(name: str, path: Path, scratch: Path) -> list[str]:
+def _check(name: str, members: dict[str, Path], scratch: Path) -> list[str]:
+    path = members[name]
     environment = scratch / name
     subprocess.run(
-        ["uv", "sync", "--frozen", "--package", name, "--no-default-groups", "--quiet"],
+        ["uv", "sync", "--frozen", "--package", name, "--no-default-groups", "--quiet"]
+        + ["--no-install-workspace"],
         cwd=REPOSITORY,
         env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(environment)},
         check=True,
     )
     python = environment / "bin" / "python"
+    wheels = [
+        str(_wheel(member, scratch / "dist"))
+        for member in sorted(_workspace_closure(name, members))
+    ]
+    subprocess.run(
+        ["uv", "pip", "install", "--quiet", "--no-deps", "--python", str(python), *wheels],
+        cwd=REPOSITORY,
+        check=True,
+    )
     empty = scratch / f"{name}-cwd"
     empty.mkdir()
     result = subprocess.run(
@@ -142,7 +199,11 @@ def _check(name: str, path: Path, scratch: Path) -> list[str]:
         return [f"{name}: {result.stderr.strip().splitlines()[-1]}"]
     report = json.loads(result.stdout)
     extras = _extras(path)
-    problems = []
+    problems = [
+        f"{name}: {module} imported from {file}, not from its installed wheel"
+        for module, file in sorted(report["files"].items())
+        if file is None or not Path(file).resolve().is_relative_to(environment.resolve())
+    ]
     skipped = []
     for module, (kind, detail) in sorted(report["failed"].items()):
         if kind == "missing" and _EXTRA_LIBRARIES.get(detail) in extras:
@@ -173,7 +234,12 @@ def main() -> int:
             cwd=REPOSITORY,
             check=True,
         )
-        problems = [line for name in chosen for line in _check(name, members[name], scratch)]
+        problems = [
+            line
+            for name in chosen
+            for line in _missing_from_wheel(name, members[name], _wheel(name, scratch / "dist"))
+        ]
+        problems += [line for name in chosen for line in _check(name, members, scratch)]
     for line in problems:
         print(line, file=sys.stderr)
     return 1 if problems else 0

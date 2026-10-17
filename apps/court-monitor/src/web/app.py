@@ -106,11 +106,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-# The application's own `static/`, wherever it is run from (it was `src/static` of the
+# The package's own `web/static/`, wherever it is run from (it was `src/static` of the
 # working directory before the workspace split).
 app.mount(
     "/static",
-    StaticFiles(directory=Path(__file__).resolve().parents[1] / "static"),
+    StaticFiles(directory=Path(__file__).resolve().parent / "static"),
     name="static",
 )
 # No CORS middleware: the API is meant for private deployment behind a reverse

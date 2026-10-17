@@ -72,7 +72,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # The workspace's code, then the members themselves (editable: the application reads
-# docs/wiki, migrations and its static files from /app, as a working copy does).
+# docs/wiki and migrations from /app, as a working copy does).
 COPY packages ./packages
 COPY apps ./apps
 # `python src/main.py <command>` (and `docker exec -w /app/src`), as before the split.

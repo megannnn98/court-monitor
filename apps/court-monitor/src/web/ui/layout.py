@@ -27,17 +27,17 @@ router = APIRouter()
 # The stylesheet URL changes with its content: a browser never keeps a stale copy
 # after a deployment and never re-downloads an unchanged one.
 _CSS_VERSION = hashlib.sha256(
-    (Path(__file__).resolve().parents[2] / "static" / "local-ui.css").read_bytes()
+    (Path(__file__).resolve().parents[1] / "static" / "local-ui.css").read_bytes()
 ).hexdigest()[:12]
 
 
 _JS_VERSION = hashlib.sha256(
-    (Path(__file__).resolve().parents[2] / "static" / "local-ui.js").read_bytes()
+    (Path(__file__).resolve().parents[1] / "static" / "local-ui.js").read_bytes()
 ).hexdigest()[:12]
 # Sorting a table by a press on its header: the order, then the headers and the rows.
 _SORT_VERSION = hashlib.sha256(
     b"".join(
-        (Path(__file__).resolve().parents[2] / "static" / name).read_bytes()
+        (Path(__file__).resolve().parents[1] / "static" / name).read_bytes()
         for name in ("table-sort-core.js", "table-sort.js")
     )
 ).hexdigest()[:12]

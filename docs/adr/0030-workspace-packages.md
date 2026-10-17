@@ -50,7 +50,8 @@ Each coupling above was fixed by its owner, not by moving it into shared code:
 
 `tests/test_package_graph.py` holds the distributions to the layering of ADR 0025 and
 every import to a declared dependency; `scripts/check_package_isolation.py` installs each
-distribution alone and imports all of it.
+distribution's built wheel alone, checks it carries every file of its `src/`, and
+imports all of it.
 
 ## Consequences
 
@@ -65,5 +66,7 @@ distribution alone and imports all of it.
   `python src/main.py`, which still works through a launcher left in `src/`.
 - Tests that need nothing of `tests/` live next to their distribution
   (`packages/*/tests`); the rest stay where they were.
-- The application runs from the checkout (it reads `docs/wiki`, `migrations` and its
-  `static/` from there), so it is installed editable, in the image too.
+- The application's wheel carries its code and `web/static/` (moved there from
+  `src/static/` to be package data), but deployed it runs from the
+  checkout (it reads `docs/wiki`, `migrations` and `alembic.ini` from there), so it is
+  installed editable, in the image too.

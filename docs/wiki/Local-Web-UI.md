@@ -140,7 +140,7 @@
 | результат, Excel | `apps/court-monitor/src/web/ui/political.py` |
 | журнал запусков, шаги, воронка | `apps/court-monitor/src/web/ui/management.py`, `apps/court-monitor/src/web/ui/pipeline.py`, `apps/court-monitor/src/web/ui/funnel.py` |
 | вики | `apps/court-monitor/src/web/ui/wiki.py`, `apps/court-monitor/src/web/wiki.py` |
-| стили | `apps/court-monitor/src/static/local-ui.css` |
+| стили | `apps/court-monitor/src/web/static/local-ui.css` |
 
 ## Проверка
 
@@ -182,7 +182,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
   остаются свои кнопки. Одной фамилии для повтора мало. Имя в разных падежах («Александра
   Кынева» и «Александр Кынев») может не совпасть — тогда публикация останется отдельно.
 
-Скрипт — `apps/court-monitor/src/static/local-ui.js`.
+Скрипт — `apps/court-monitor/src/web/static/local-ui.js`.
 
 ## Сортировка таблиц (05.10.2026)
 
@@ -194,8 +194,8 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 («Результат», «Публикации», «Перечень РФМ» — первые 100), упорядочивается эта часть, а не
 весь список. «Все люди» сортируются сервером по всему списку, как и раньше.
 
-Код — `apps/court-monitor/src/static/table-sort-core.js` (порядок, проверяется тестами под node) и
-`apps/court-monitor/src/static/table-sort.js` (заголовки и строки).
+Код — `apps/court-monitor/src/web/static/table-sort-core.js` (порядок, проверяется тестами под node) и
+`apps/court-monitor/src/web/static/table-sort.js` (заголовки и строки).
 
 ## Журнал запусков (05.10.2026)
 
@@ -271,7 +271,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
   страница показывает под заголовком, стоит между метками `<!--piece-->` и
   `<!--/piece-->` (`apps/court-monitor/src/web/ui/layout.py`).
 - Кусок показывается в стилях старого интерфейса: `frontend/src/legacy-html.css` — это
-  `apps/court-monitor/src/static/local-ui.css`, целиком помещённый под класс `.legacy-html`. Файл
+  `apps/court-monitor/src/web/static/local-ui.css`, целиком помещённый под класс `.legacy-html`. Файл
   генерируется: `npm run generate:legacy-css --prefix frontend`; тест проверяет, что он
   не устарел.
 - Кусок работает на месте (`frontend/src/components/LegacyHtml.tsx`): форма-фильтр и ссылка

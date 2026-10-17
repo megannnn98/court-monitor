@@ -2,7 +2,7 @@
 // (`tests/app/test_investigation_graph_js.py` runs every file here with the Python suite).
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const core = require("../../apps/court-monitor/src/static/table-sort-core.js");
+const core = require("../../apps/court-monitor/src/web/static/table-sort-core.js");
 
 const sorted = (texts, descending) => core.order(texts, descending).map((index) => texts[index]);
 
