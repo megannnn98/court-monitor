@@ -115,12 +115,12 @@ C --> F : слияние, фильтры, панель
 
 ## Кодовые точки входа
 
-- Модель чтения: `src/web/investigation_graph.py` (`initial_graph`, `expand`).
-- API: `src/web/routers/investigations.py`.
-- Логика без страницы (слияние, фильтры, панель, ссылки): `src/static/investigation-graph-core.js`.
-- Страница: `src/static/investigation-graph.js`; место графа в досье — `_event_graph` в
-  `src/web/ui/dossier.py`.
-- Библиотека: `src/static/vendor/vis-network/` (vis-network 10.1.2, Apache-2.0 или MIT),
+- Модель чтения: `apps/court-monitor/src/web/investigation_graph.py` (`initial_graph`, `expand`).
+- API: `apps/court-monitor/src/web/routers/investigations.py`.
+- Логика без страницы (слияние, фильтры, панель, ссылки): `apps/court-monitor/src/web/static/investigation-graph-core.js`.
+- Страница: `apps/court-monitor/src/web/static/investigation-graph.js`; место графа в досье — `_event_graph` в
+  `apps/court-monitor/src/web/ui/dossier.py`.
+- Библиотека: `apps/court-monitor/src/web/static/vendor/vis-network/` (vis-network 10.1.2, Apache-2.0 или MIT),
   отдаётся с этого же сайта. Сборки JavaScript в проекте нет.
 
 ## Проверка
@@ -151,4 +151,4 @@ node --test tests/js
 - После пересборки шага 3 исчезнувший человек или событие дают «Этого узла больше нет» —
   страницу нужно обновить.
 - Версия скриптов в адресе (`?v=`) считается при запуске сервера: правка файла в
-  `src/static` видна после перезапуска.
+  `apps/court-monitor/src/web/static` видна после перезапуска.

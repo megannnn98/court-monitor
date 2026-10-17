@@ -53,7 +53,7 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile production restart 
 
 ## Почему именно так
 
-**Оба compose-файла.** `compose.gpu.yaml` собирает образ с группой `semantic`
+**Оба compose-файла.** `compose.gpu.yaml` собирает образ с extra `semantic` (court-monitor → court-processing)
 (sentence-transformers и torch с CUDA) и отдаёт контейнерам видеокарту. Команда без
 него пересоздаст контейнеры без GPU и без модели отсева мусора (`JUNK_SCREEN=1`). Чтобы не
 писать `-f` каждый раз, можно добавить в `.env`:
@@ -71,8 +71,8 @@ COMPOSE_FILE=compose.yaml:compose.gpu.yaml
 
 | что изменилось | что пересобирается | время |
 |---|---|---|
-| только код в `src/`, `migrations/`, `docs/wiki/` | последние слои (копирование кода) | 1–2 мин |
-| `pyproject.toml` или `uv.lock` | слой зависимостей целиком (torch, CUDA, модели) | 10–20 мин, ~10 ГБ загрузки |
+| только код в `packages/`, `apps/`, `migrations/`, `docs/wiki/` | последние слои (копирование кода) | 1–2 мин |
+| `pyproject.toml` любого участника workspace или `uv.lock` | слой зависимостей целиком (torch, CUDA, модели) | 10–20 мин, ~10 ГБ загрузки |
 | `Dockerfile` | начиная с изменённой строки | по ситуации |
 
 Поэтому зависимости без нужды не трогают. Готовый образ весит около 11 ГБ.
@@ -148,7 +148,7 @@ docker builder du --builder default | tail -1                    # скольк�
 - `compose.yaml` — базовые сервисы и production profile.
 - `compose.gpu.yaml` — зависимости отсева мусора, GPU.
 - `migrations/` — Alembic шаг `migrate`.
-- `src/web/health.py`, `src/web/routers/health.py` — readiness/liveness.
+- `apps/court-monitor/src/web/health.py`, `apps/court-monitor/src/web/routers/health.py` — readiness/liveness.
 
 ## Ограничения и типичные ошибки
 

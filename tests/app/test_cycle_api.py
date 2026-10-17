@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from orchestrator.operations import OperationRegistry, OperationRunStatus
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
 
 @contextmanager
@@ -34,7 +34,9 @@ def _client(
 
 
 def test_a_fresh_base_waits_for_step_one(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         cycle = client.get("/api/v1/cycle").json()
@@ -60,7 +62,9 @@ def test_a_fresh_base_waits_for_step_one(session_factory: sessionmaker[Session])
 def test_do_all_starts_once_and_a_stale_press_is_refused(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         started = client.post("/api/v1/cycle/start", json={"after": 0})
@@ -90,7 +94,9 @@ def test_do_all_starts_once_and_a_stale_press_is_refused(
 def test_stop_ends_a_live_run_and_says_when_it_had_ended(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         run_id = client.post("/api/v1/cycle/start", json={"after": 0}).json()["run_id"]

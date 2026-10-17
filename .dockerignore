@@ -8,6 +8,10 @@
 .aider*
 .qwen
 tests
+packages/*/tests
+# The evaluation tooling is not in the image; its manifest is (the workspace).
+tools/*/src
+scripts
 docs/*
 !docs/wiki/
 !docs/wiki/**

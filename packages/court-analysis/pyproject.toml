@@ -1,0 +1,29 @@
+[project]
+name = "court-analysis"
+version = "0.1.0"
+description = "Analysis of court-monitor: politics, persecution, the Rosfinmonitoring list, case news, unnamed figurants, the operator's reference lists (airtable)"
+requires-python = ">=3.13"
+dependencies = [
+    "court-platform",
+    "court-processing",
+    # Requests sent with a browser's TLS fingerprint: Airtable share links, the list's archive.
+    "curl-cffi>=0.16.3,<0.17",
+    "httpx>=0.28.0",
+    # Reads the ОВД-Инфо copy of the перечень (a single parquet file) to learn when each
+    # entry was included. See `analysis.rosfinmonitoring.inclusion_dates`.
+    "pyarrow>=21.0.0",
+    "pydantic>=2.11.0",
+    "rapidfuzz>=3.14",
+    "sqlalchemy>=2.0,<3.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/analysis", "src/airtable"]
+
+[tool.uv.sources]
+court-platform = { workspace = true }
+court-processing = { workspace = true }

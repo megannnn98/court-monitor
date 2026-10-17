@@ -1,0 +1,23 @@
+[project]
+name = "court-platform"
+version = "0.1.0"
+description = "Shared infrastructure of court-monitor: the database (ORM, sessions, locks), the model clients, observability"
+requires-python = ">=3.13"
+dependencies = [
+    "court-core",
+    # `socks`: outgoing requests honour a SOCKS proxy from the environment.
+    "httpx[socks]>=0.28.0",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.11.0",
+    "sqlalchemy>=2.0,<3.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/db", "src/llm", "src/observability.py"]
+
+[tool.uv.sources]
+court-core = { workspace = true }

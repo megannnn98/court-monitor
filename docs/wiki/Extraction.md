@@ -10,9 +10,9 @@ Extraction не создает Person. Она только говорит: “в
 ## Быстрый сценарий
 
 ```bash
-uv run python src/main.py extract-entities --article-id 123
-uv run python src/main.py extract-entities --source ovd-info --limit 100
-uv run python src/main.py evaluate-extraction
+uv run court-monitor extract-entities --article-id 123
+uv run court-monitor extract-entities --source ovd-info --limit 100
+uv run court-monitor evaluate-extraction
 ```
 
 После этого проверять `article_extraction_runs`, `entity_mentions`,
@@ -193,11 +193,11 @@ Extractor сохраняет `surface_text`. Normalizer не раскрывае�
 ## CLI
 
 ```bash
-uv run python src/main.py extract-entities --article-id 123
-uv run python src/main.py extract-entities --source ovd-info --limit 100
-uv run python src/main.py extract-entities --source sota-vision --limit 100
-uv run python src/main.py extract-entities --source memopzk-figurants --limit 10000
-uv run python src/main.py evaluate-extraction
+uv run court-monitor extract-entities --article-id 123
+uv run court-monitor extract-entities --source ovd-info --limit 100
+uv run court-monitor extract-entities --source sota-vision --limit 100
+uv run court-monitor extract-entities --source memopzk-figurants --limit 10000
+uv run court-monitor evaluate-extraction
 ```
 
 ## Golden dataset и метрики
@@ -221,13 +221,13 @@ Golden corpus: `tests/fixtures/extraction_golden_corpus.json`.
 
 | Сценарий | Код |
 |---|---|
-| extraction models | `src/processing/extraction/models.py` |
-| rule-based mentions | `src/processing/extraction/extractors.py` |
-| normalization | `src/processing/extraction/normalizers.py`, `src/processing/extraction/name_morphology.py` |
-| events | `src/processing/extraction/events.py` |
-| pipeline | `src/processing/extraction/pipeline.py` |
-| persistence | `src/processing/extraction/persistence.py` |
-| CLI/evaluation | `src/processing/extraction/cli.py`, `src/processing/extraction/metrics.py` |
+| extraction models | `packages/court-processing/src/processing/extraction/models.py` |
+| rule-based mentions | `packages/court-processing/src/processing/extraction/extractors.py` |
+| normalization | `packages/court-processing/src/processing/extraction/normalizers.py`, `packages/court-processing/src/processing/extraction/name_morphology.py` |
+| events | `packages/court-processing/src/processing/extraction/events.py` |
+| pipeline | `packages/court-processing/src/processing/extraction/pipeline.py` |
+| persistence | `packages/court-processing/src/processing/extraction/persistence.py` |
+| CLI/evaluation | `packages/court-processing/src/processing/extraction/cli.py`, `packages/court-processing/src/processing/extraction/metrics.py` |
 
 ## Ограничения
 

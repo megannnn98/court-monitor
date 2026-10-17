@@ -1,0 +1,71 @@
+[project]
+name = "court-monitor"
+version = "0.1.0"
+description = "The court-monitor application: the composition root, the command line, the API and console, Dagster's code location"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.19.1",
+    "court-analysis",
+    "court-core",
+    "court-ingestion",
+    "court-investigation",
+    "court-orchestrator",
+    "court-platform",
+    "court-processing",
+    "court-results",
+    "dagster>=1.13.22",
+    # Dagster's run, event and schedule storage in PostgreSQL (docker/dagster/dagster.yaml).
+    "dagster-postgres>=0.29.22",
+    "dagster-webserver>=1.13.22",
+    "fastapi>=0.115.0",
+    "httpx>=0.28.0",
+    # The wiki's Markdown (`web.wiki`).
+    "markdown-it-py>=4.0",
+    "openpyxl>=3.1.5",
+    "pydantic>=2.11.0",
+    "sqlalchemy>=2.0,<3.0",
+    "uvicorn>=0.32.0",
+    # Prints the wiki to PDF (`web.wiki`).
+    "weasyprint>=70.0",
+]
+
+[project.optional-dependencies]
+# The junk screen's embedding mode (JUNK_SCREEN=1): `docker compose build --build-arg
+# INSTALL_SEMANTIC=1`, or `uv sync --group semantic` in a working copy.
+semantic = [
+    "court-processing[semantic]",
+]
+
+[project.scripts]
+# The same as `python apps/court-monitor/src/main.py <command>`.
+court-monitor = "cli.app:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The image installs the application editable and runs it from the repository, where it
+# reads docs/wiki, migrations and alembic.ini. The wheel carries all of its own code and
+# files (`web/static/` is package data of `web`).
+packages = [
+    "src/application.py",
+    "src/settings.py",
+    "src/main.py",
+    "src/api.py",
+    "src/cli_batches.py",
+    "src/cli_progress.py",
+    "src/cli",
+    "src/web",
+    "src/dagster_location",
+]
+
+[tool.uv.sources]
+court-analysis = { workspace = true }
+court-core = { workspace = true }
+court-ingestion = { workspace = true }
+court-investigation = { workspace = true }
+court-orchestrator = { workspace = true }
+court-platform = { workspace = true }
+court-processing = { workspace = true }
+court-results = { workspace = true }

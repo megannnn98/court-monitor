@@ -16,7 +16,7 @@ from support.pipeline_runs import finish_steps
 from db.orm_models import EntityGroupRecord, EntityGroupRoleRecord, JunkScreenHoldRecord
 from orchestrator.operations import OperationParameters, OperationRegistry
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
 
 @contextmanager
@@ -63,7 +63,9 @@ def _held(session_factory: sessionmaker[Session]) -> None:
 def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         response = client.get("/ui/cycle")
@@ -92,7 +94,9 @@ def test_cycle_menu_count_includes_junk_held_for_a_decision(
 ) -> None:
     _held(session_factory)
 
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     with _client(session_factory, registry) as client:
         page = client.get("/ui/cycle").text
 
@@ -106,7 +110,9 @@ def test_cycle_menu_count_includes_junk_held_for_a_decision(
 def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         started = client.post("/ui/management/run?back=cycle", follow_redirects=False)
@@ -120,7 +126,9 @@ def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
 def test_every_page_names_the_same_live_next_station(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load")
 
     with _client(session_factory, registry) as client:
@@ -136,7 +144,9 @@ def test_cycle_makes_the_highest_priority_review_the_only_primary_action(
     session_factory: sessionmaker[Session],
 ) -> None:
     _held(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge")
 
     with _client(session_factory, registry) as client:
@@ -173,7 +183,9 @@ def test_cycle_shows_unclear_roles_after_higher_priority_queues_are_empty(
             )
         )
         session.commit()
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
@@ -188,7 +200,9 @@ def test_cycle_shows_unclear_roles_after_higher_priority_queues_are_empty(
 def test_cycle_describes_an_active_automatic_run_without_an_operator_cta(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
 
     with _client(session_factory, registry) as client:
@@ -202,7 +216,9 @@ def test_cycle_describes_an_active_automatic_run_without_an_operator_cta(
 def test_common_next_action_does_not_wait_for_a_stale_run(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     run = registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
     with session_factory.begin() as session:
         session.execute(
@@ -223,7 +239,9 @@ def test_common_next_action_does_not_wait_for_a_stale_run(
 def test_do_all_starts_a_chain_from_the_step_that_is_due(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     done = finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
@@ -248,7 +266,9 @@ def test_do_all_starts_a_chain_from_the_step_that_is_due(
 def test_a_live_chained_step_says_what_starts_after_it(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load")
     registry.start("monitor", OperationParameters(mode="purge", chain=True))
 
@@ -264,7 +284,9 @@ def test_a_live_chained_step_says_what_starts_after_it(
 
 
 def test_a_live_single_step_says_nothing_of_a_chain(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
 
     with _client(session_factory, registry) as client:
@@ -272,7 +294,9 @@ def test_a_live_single_step_says_nothing_of_a_chain(session_factory: sessionmake
 
 
 def test_a_chain_that_stopped_says_where_and_why(session_factory: sessionmaker[Session]) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     def chained(mode: str, status: str) -> int:
         run = registry.start(
@@ -324,7 +348,9 @@ def test_a_chain_that_stopped_says_where_and_why(session_factory: sessionmaker[S
 def test_a_chain_that_reached_the_last_step_says_nothing(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
     run = registry.start("monitor", OperationParameters(mode="political", chain=True))
     with session_factory.begin() as session:
@@ -340,7 +366,9 @@ def test_a_chain_that_reached_the_last_step_says_nothing(
 def test_the_same_press_cannot_start_a_second_chain(session_factory: sessionmaker[Session]) -> None:
     """The form sent again from the browser's history after the cycle went round: the
     first step is due again, and the old press would delete and spend with nobody asked."""
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         first = client.post("/ui/management/run?chain=1&after=0&back=cycle", follow_redirects=False)
@@ -369,7 +397,9 @@ def test_the_same_press_cannot_start_a_second_chain(session_factory: sessionmake
 def test_an_old_press_is_refused_on_every_step_and_stop_reaches_the_chain(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     (loaded,) = finish_steps(session_factory, registry, "load")
 
     with _client(session_factory, registry) as client:

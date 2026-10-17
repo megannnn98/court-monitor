@@ -58,13 +58,51 @@ jobs:
         run: uv sync --frozen
 
       - name: Ruff check
-        run: uv run ruff check src tests
+        run: uv run ruff check .
 
       - name: Ruff format
-        run: uv run ruff format --check src tests
+        run: uv run ruff format --check packages apps tools tests scripts src
 
+      # Every member's src/ and tests, the cross-module tests and scripts
+      # (`[tool.mypy] files` in pyproject.toml).
       - name: Mypy
-        run: uv run mypy --strict src tests
+        run: uv run mypy --strict
+
+  packages:
+    # Each distribution's built wheel installed alone, with only what it declares (the
+    # wheels of its workspace dependencies, their libraries from uv.lock): every file of
+    # its src/ is in the wheel, every module it ships imports there (python -I, outside
+    # the checkout) and its own tests pass. The development environment installs every member and cannot see an
+    # undeclared import; this can. Then the production install the image makes.
+    name: packages (each installed alone)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Each distribution alone
+        run: uv run python scripts/check_package_isolation.py
+
+      - name: The production install (the image's)
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/production
+        run: |
+          uv sync --frozen --no-default-groups --package court-monitor
+          cd "$RUNNER_TEMP"
+          "$UV_PROJECT_ENVIRONMENT/bin/court-monitor" --help > /dev/null
+          "$UV_PROJECT_ENVIRONMENT/bin/python" -I -c "import api, dagster_location.definitions"
+          # Nothing in production depends on the evaluation tooling: it is not installed.
+          if "$UV_PROJECT_ENVIRONMENT/bin/python" -I -c "import evaluation" 2>/dev/null; then
+            echo "the production install has the evaluation tooling" >&2
+            exit 1
+          fi
 
   tests:
     name: tests (no database)
@@ -84,6 +122,26 @@ jobs:
       # PostgreSQL tests skip without TEST_DATABASE_URL.
       - name: Pytest
         run: uv run pytest
+
+  image:
+    # The Dockerfile copies each member's manifest by name: a member it misses fails here.
+    name: image (docker build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build -t court-monitor:ci .
+
+      - name: Smoke
+        run: |
+          docker run --rm court-monitor:ci python -c "import api, dagster_location.definitions"
+          docker run --rm court-monitor:ci court-monitor --help > /dev/null
+          docker run --rm court-monitor:ci python apps/court-monitor/src/main.py validate-config > /dev/null
+          # The code location as the image loads it; DAGSTER_HOME away from dagster.yaml, whose
+          # storage needs the PostgreSQL settings of compose.yaml.
+          docker run --rm -w /tmp -e DAGSTER_HOME=/tmp court-monitor:ci \
+            dagster definitions validate -w /opt/dagster/dagster_home/workspace.yaml
 
   integration:
     name: integration (PostgreSQL)

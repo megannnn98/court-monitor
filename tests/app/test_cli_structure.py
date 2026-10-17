@@ -1,6 +1,6 @@
 """The CLI after splitting `main.py` into the `cli` package: every command's help works
 offline, commands open the database only through the one composition root, and the
-evaluations with a disposable database never reach DATABASE_URL."""
+evaluations are not its commands (`tests/evaluation/test_evaluation_cli.py`)."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from support.workspace import APP_SRC
 
 from cli.app import build_parser, main
 from cli.context import CliContext
@@ -28,8 +29,18 @@ ENGINE_FACTORIES = {
     "create_engine",
     "sessionmaker",
 }
-# Commands that run on their own disposable database (EVALUATION_DATABASE_URL).
-DISPOSABLE_DATABASE_COMMANDS = ("evaluate-er", "evaluate-final")
+# The evaluations' commands: tooling, with their own command line (`evaluation.cli`).
+EVALUATION_COMMANDS = frozenset(
+    {
+        "evaluate-er",
+        "evaluate-final",
+        "build-real-world-corpus",
+        "real-world-corpus-status",
+        "real-world-golden",
+        "evaluate-real-world",
+        "compare-entity-models",
+    }
+)
 
 
 def _subparsers() -> dict[str, argparse.ArgumentParser]:
@@ -69,7 +80,7 @@ class UntouchableContext(CliContext):
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
     env = {key: value for key, value in os.environ.items() if key != "DATABASE_URL"}
     return subprocess.run(
-        [sys.executable, "src/main.py", *args],
+        [sys.executable, str(APP_SRC / "main.py"), *args],
         cwd=ROOT,
         env=env,
         capture_output=True,
@@ -96,7 +107,7 @@ def test_validate_config_runs_without_a_database() -> None:
 def test_every_command_is_registered_once_with_a_handler() -> None:
     subparsers = _subparsers()
 
-    assert len(subparsers) == 33
+    assert len(subparsers) == 26
     for command, parser in subparsers.items():
         assert callable(parser.get_default("handler")), command
     # The command that built the vector index went with the vectors (ADR 0028).
@@ -111,18 +122,9 @@ def test_every_command_help_works_offline(command: str, offline: None) -> None:
     assert exit_info.value.code == 0
 
 
-@pytest.mark.parametrize("command", DISPOSABLE_DATABASE_COMMANDS)
-def test_evaluations_never_reach_the_working_database(
-    command: str, monkeypatch: pytest.MonkeyPatch, offline: None
-) -> None:
-    """With DATABASE_URL set and no evaluation database, they refuse instead of using it."""
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:secret@127.0.0.1:1/court_monitor")
-    monkeypatch.delenv("EVALUATION_DATABASE_URL", raising=False)
-
-    with pytest.raises(SystemExit) as exit_info:
-        main([command], context=UntouchableContext())
-
-    assert "EVALUATION_DATABASE_URL" in str(exit_info.value.code)
+def test_no_evaluation_is_a_command_of_the_application() -> None:
+    # Production does not depend on the evaluation tooling (docs/architecture/package-map.md).
+    assert EVALUATION_COMMANDS & set(_subparsers()) == set()
 
 
 def test_a_database_command_without_database_url_reports_it(offline: None) -> None:
@@ -133,7 +135,7 @@ def test_a_database_command_without_database_url_reports_it(offline: None) -> No
 
 
 def test_the_context_is_the_only_place_that_builds_the_engine() -> None:
-    for path in sorted((ROOT / "src/cli").glob("*.py")):
+    for path in sorted((APP_SRC / "cli").glob("*.py")):
         if path.name == "context.py":
             continue
         calls = {
@@ -145,7 +147,7 @@ def test_the_context_is_the_only_place_that_builds_the_engine() -> None:
 
 
 def test_main_py_only_dispatches() -> None:
-    tree = ast.parse((ROOT / "src/main.py").read_text(encoding="utf-8"))
+    tree = ast.parse((APP_SRC / "main.py").read_text(encoding="utf-8"))
     imported = {
         node.module
         for node in ast.walk(tree)

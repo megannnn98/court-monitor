@@ -10,11 +10,12 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from support.workspace import APP_SRC
 
 from web.app import app
 
 ROOT = Path(__file__).resolve().parents[2]
-STATIC = ROOT / "src" / "static"
+STATIC = APP_SRC / "web" / "static"
 
 
 def test_the_logic_of_the_graph_passes_its_own_tests() -> None:

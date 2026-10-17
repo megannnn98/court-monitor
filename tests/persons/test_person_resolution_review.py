@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.person_resolution_fixtures import matching_key, seed_mentions, seed_person
 
+from cli.person_resolution import format_review
 from db.orm_models import (
     EntityMentionRecord,
     EventEntityMentionRecord,
@@ -23,7 +24,6 @@ from db.orm_models import (
     ReviewRecordModel,
 )
 from persons.persistence import SqlAlchemyPersonPersistence
-from persons.resolution.cli import format_review
 from persons.resolution.factory import build_person_resolution_service
 from persons.resolution.review import (
     PersonResolutionReviewService,

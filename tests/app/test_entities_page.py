@@ -21,7 +21,7 @@ from orchestrator.operations import OperationRegistry, OperationRunStatus
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import FigurantFinder, Kind, RoleAnswer, RoleItem
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
 MOOR = quote("александр моор")
 
@@ -93,7 +93,9 @@ def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
     session_factory: sessionmaker[Session],
 ) -> None:
     _collected(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
@@ -112,7 +114,9 @@ def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
     session_factory: sessionmaker[Session],
 ) -> None:
     _collected(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         card = client.get(f"/ui/entities/{MOOR}")
@@ -132,7 +136,9 @@ def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
 def test_the_button_rebuilds_in_the_background_and_can_be_stopped(
     session_factory: sessionmaker[Session],
 ) -> None:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         early = client.get("/ui/entities").text
@@ -175,7 +181,9 @@ def test_a_name_a_model_gave_is_marked(session_factory: sessionmaker[Session]) -
                 "WHERE key = 'александр моор'"
             )
         )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
@@ -203,7 +211,9 @@ def test_names_read_surname_first_and_sort_by_surname(
                 ),
                 {"key": key, "name": name},
             )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities", params={"sort": "name"}).text
@@ -247,7 +257,9 @@ def test_initials_sort_by_the_name_as_shown(session_factory: sessionmaker[Sessio
                 ),
                 {"key": key, "name": name},
             )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities", params={"sort": "name"}).text
@@ -309,7 +321,9 @@ def test_a_card_lists_the_criminal_code_articles_with_their_publications(
     session_factory: sessionmaker[Session],
 ) -> None:
     _charged(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         moor = client.get(f"/ui/entities/{MOOR}").text
@@ -332,7 +346,9 @@ def test_the_list_shows_the_articles_and_filters_by_one(
     session_factory: sessionmaker[Session],
 ) -> None:
     _charged(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
@@ -372,7 +388,9 @@ def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidde
             {"key": "александр моор"},
         )
     EntityRfCheck(session_factory, download=lambda: RF_PAGE).run()
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
@@ -421,7 +439,9 @@ def test_only_the_figurants_are_listed_by_default(
     session_factory: sessionmaker[Session],
 ) -> None:
     _collected(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
     with _client(session_factory, registry) as client:
         before = client.get("/ui/entities").text
     FigurantFinder(session_factory, classifier=_Roles()).run()
@@ -452,7 +472,9 @@ def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Se
             ),
             {"key": "александр моор"},
         )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/entities").text
@@ -487,7 +509,9 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
                 group_id=moor, verdict="political", method="model", reason="—", quote=""
             )
         )
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         card = client.get(f"/ui/entities/{MOOR}").text
@@ -529,7 +553,9 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
 
 def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session]) -> None:
     _collected(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         card = client.get(f"/ui/entities/{MOOR}").text
@@ -558,7 +584,9 @@ def test_a_corrected_name_that_is_another_entity_s_merges_them(
     session_factory: sessionmaker[Session],
 ) -> None:
     _collected(session_factory)
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     with _client(session_factory, registry) as client:
         client.post(f"/ui/entities/{MOOR}/name", data={"name": "Иван Иванов"})

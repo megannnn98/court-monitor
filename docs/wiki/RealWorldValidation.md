@@ -4,15 +4,15 @@
 
 Real-World Validation v1 — отдельный evaluation контур для проверки pipeline на реальных публикациях из source adapters. Он не заменяет unit/integration tests и final synthetic evaluation: цель — измерить качество на зафиксированном корпусе, golden annotations и safety gates.
 
-Код: `src/evaluation/real_world/`. Данные: `evaluation/real_world/`. Локальный raw cache не коммитится: `var/real_world/`. Отчёты пишутся в `reports/real_world_validation_v1.{json,md}`.
+Код: `tools/court-evaluation/src/evaluation/real_world/`. Данные: `evaluation/real_world/`. Локальный raw cache не коммитится: `var/real_world/`. Отчёты пишутся в `reports/real_world_validation_v1.{json,md}`.
 
 ## Быстрый сценарий
 
 ```bash
-uv run python src/main.py real-world-corpus-status
-uv run python src/main.py real-world-golden validate
+uv run court-evaluation real-world-corpus-status
+uv run court-evaluation real-world-golden validate
 EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval \
-  uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+  uv run court-evaluation evaluate-real-world --split dev --no-fail-on-gates
 ```
 
 Результат может быть `PRELIMINARY`: это значит, что pipeline измерен, но
@@ -68,10 +68,10 @@ Eval --> Reports
 Команды:
 
 ```bash
-uv run python src/main.py build-real-world-corpus
-uv run python src/main.py build-real-world-corpus --offline
-uv run python src/main.py build-real-world-corpus --from-manifest
-uv run python src/main.py real-world-corpus-status
+uv run court-evaluation build-real-world-corpus
+uv run court-evaluation build-real-world-corpus --offline
+uv run court-evaluation build-real-world-corpus --from-manifest
+uv run court-evaluation real-world-corpus-status
 ```
 
 `build-real-world-corpus` refuses `--min-interval` ниже 1.0 second per domain. Exit code `2` значит infrastructure/data problem: missing manifest/cache, changed content hash, invalid annotations, unsafe database URL, unavailable disposable DB.
@@ -96,16 +96,16 @@ Current draft dataset:
 Identity uses `golden_person_id`, never database IDs. Mentions/events/evidence are character spans over parsed article text. `VERIFIED` can only be set by explicit reviewer command.
 
 ```bash
-uv run python src/main.py real-world-golden validate
+uv run court-evaluation real-world-golden validate
 
-uv run python src/main.py real-world-golden locate \
+uv run court-evaluation real-world-golden locate \
   --key ovd-info:/express-news/... \
   --text "Иван Петров"
 
-uv run python src/main.py real-world-golden review-sheet \
+uv run court-evaluation real-world-golden review-sheet \
   --case-id rw-20260301-00
 
-uv run python src/main.py real-world-golden verify \
+uv run court-evaluation real-world-golden verify \
   --case-id rw-20260301-00 \
   --reviewer "Name" \
   --confirm-checked-against-source
@@ -165,7 +165,7 @@ Manifest уже содержит детерминированный stratified s
 
 ```bash
 export EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval
-uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+uv run court-evaluation evaluate-real-world --split dev --no-fail-on-gates
 ```
 
 Options:
@@ -184,7 +184,7 @@ Exit codes: `0` — все обязательные gates прошли (или `
 Полный прогон:
 
 ```bash
-uv run python src/main.py evaluate-real-world --split all --full
+uv run court-evaluation evaluate-real-world --split all --full
 ```
 
 ## CI
@@ -195,7 +195,7 @@ uv run python src/main.py evaluate-real-world --split all --full
 
 ## Report Contract
 
-Stable JSON schema lives in `src/evaluation/real_world/results.py`.
+Stable JSON schema lives in `tools/court-evaluation/src/evaluation/real_world/results.py`.
 
 Important statuses:
 

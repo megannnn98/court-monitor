@@ -11,7 +11,6 @@ import sys
 
 import pytest
 
-from llm.cli_reviewer import ANSWER_INSTRUCTION, CliEntityMatchReviewer, parse_cli_answer
 from persons.resolution.ai_review import (
     CandidateReviewContext,
     EntityReviewDecision,
@@ -19,6 +18,11 @@ from persons.resolution.ai_review import (
     EntityReviewRequest,
     EvidenceExcerpt,
     MentionReviewContext,
+)
+from persons.resolution.cli_reviewer import (
+    ANSWER_INSTRUCTION,
+    CliEntityMatchReviewer,
+    parse_cli_answer,
 )
 
 ANSWER = (

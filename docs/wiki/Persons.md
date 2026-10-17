@@ -10,9 +10,9 @@ Rosfinmonitoring matching, candidates — работают уже вокруг P
 ## Быстрый сценарий
 
 ```bash
-uv run python src/main.py extract-entities --limit 20000
-uv run python src/main.py resolve-people --limit 20000
-uv run python src/main.py person-resolution-reviews list
+uv run court-monitor extract-entities --limit 20000
+uv run court-monitor resolve-people --limit 20000
+uv run court-monitor person-resolution-reviews list
 ```
 
 Если список review пуст, все обработанные mentions либо связаны, либо получили
@@ -50,13 +50,13 @@ decision: REVIEW, reason=multiple_plausible_candidates
 
 | Сценарий | Код |
 |---|---|
-| persistence Persons/Aliases | `src/persons/persistence.py` |
-| ER orchestration | `src/persons/resolution/service.py` |
-| candidates | `src/persons/resolution/candidates.py` |
-| scoring/decision | `src/persons/resolution/features.py`, `src/persons/resolution/decision.py` |
-| manual review | `src/persons/resolution/review.py`, `src/web/ui/reviews.py` |
-| CLI | `src/persons/resolution/cli.py` |
-| API/UI cards | `src/web/routers/persons.py`, `src/web/ui/persons.py` |
+| persistence Persons/Aliases | `packages/court-processing/src/persons/persistence.py` |
+| ER orchestration | `packages/court-processing/src/persons/resolution/service.py` |
+| candidates | `packages/court-processing/src/persons/resolution/candidates.py` |
+| scoring/decision | `packages/court-processing/src/persons/resolution/features.py`, `packages/court-processing/src/persons/resolution/decision.py` |
+| manual review | `packages/court-processing/src/persons/resolution/review.py`, `apps/court-monitor/src/web/ui/reviews.py` |
+| CLI | `apps/court-monitor/src/cli/person_resolution.py` |
+| API/UI cards | `apps/court-monitor/src/web/routers/persons.py`, `apps/court-monitor/src/web/ui/persons.py` |
 
 ## Данные и артефакты
 
@@ -69,11 +69,11 @@ decision: REVIEW, reason=multiple_plausible_candidates
 ## Команды и API
 
 ```bash
-uv run python src/main.py resolve-people --limit 100
-uv run python src/main.py resolve-person "Иван Иванов"
-uv run python src/main.py person-resolution-reviews list
-uv run python src/main.py person-resolution-reviews show 42
-uv run python src/main.py evaluate-er
+uv run court-monitor resolve-people --limit 100
+uv run court-monitor resolve-person "Иван Иванов"
+uv run court-monitor person-resolution-reviews list
+uv run court-monitor person-resolution-reviews show 42
+uv run court-evaluation evaluate-er
 ```
 
 UI:
@@ -95,7 +95,7 @@ curl http://localhost:8001/persons/42/events
 
 ```bash
 uv run pytest tests/persons
-uv run python src/main.py evaluate-er
+uv run court-evaluation evaluate-er
 ```
 
 ## Ограничения и типичные ошибки

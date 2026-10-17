@@ -12,9 +12,9 @@ unit, PostgreSQL integration, model tests и real-world validation.
 
 ```bash
 uv sync --frozen
-uv run ruff check src tests migrations
-uv run ruff format --check src tests migrations
-uv run mypy --strict src tests
+uv run ruff check .
+uv run ruff format --check packages apps tools tests scripts migrations
+uv run mypy --strict
 uv run pytest
 ```
 
@@ -51,7 +51,9 @@ env -u DATABASE_URL uv run pytest
 
 ## Что покрыто
 
-Тесты разложены по тем же пакетам, что и `src/`:
+Код разложен по дистрибутивам workspace ([package map](../architecture/package-map.md)).
+Тесты, которым не нужно ничего из `tests/` (без БД, фикстур и `support`), лежат рядом со
+своим дистрибутивом: `packages/*/tests/`. Остальные — в `tests/`, по старым пакетам:
 
 - `tests/sources/` — source adapters, parsers, ingestion, retry;
 - `tests/extraction/` — mentions, normalization, events, persistence;
@@ -79,22 +81,22 @@ env -u DATABASE_URL uv run pytest
 ## Линтеры и типы
 
 ```bash
-uv run ruff check src tests migrations
-uv run ruff format --check src tests migrations
-uv run mypy --strict src tests
+uv run ruff check .
+uv run ruff format --check packages apps tools tests scripts migrations
+uv run mypy --strict
 ```
 
-`ruff` отвечает за lint + format. `mypy --strict` нужен для `src` и `tests`.
+`ruff` отвечает за lint + format. `mypy --strict` (без аргументов: список в `[tool.mypy] files`) проверяет `src/` каждого участника workspace, их `tests/`, `tests/` и `scripts/`.
 
 ## Опциональные проверки
 
 Real-world validation:
 
 ```bash
-uv run python src/main.py real-world-corpus-status
-uv run python src/main.py real-world-golden validate
+uv run court-evaluation real-world-corpus-status
+uv run court-evaluation real-world-golden validate
 EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval \
-  uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+  uv run court-evaluation evaluate-real-world --split dev --no-fail-on-gates
 ```
 
 ## Данные и артефакты

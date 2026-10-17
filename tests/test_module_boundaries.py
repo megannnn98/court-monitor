@@ -1,6 +1,7 @@
 """The import rules between the modules (ADR 0025, `docs/architecture/modularization-plan.md`).
 
-Every file under `src/` belongs to one module (`MODULE_OF`). Three kinds of rule:
+Every file of the workspace's code (each distribution's `src/`, named relative to it:
+`tests/support/workspace.py`) belongs to one module (`MODULE_OF`). Three kinds of rule:
 
 - the layering: an earlier stage never imports a later one, a domain module never
   imports an orchestrator, tooling or an entry point (`FORBIDDEN`);
@@ -10,18 +11,17 @@ Every file under `src/` belongs to one module (`MODULE_OF`). Three kinds of rule
   (`INTERNAL`).
 
 `KNOWN_VIOLATIONS` is empty and stays empty: a new import that breaks a rule is fixed,
-not listed.
+not listed. The distributions are held to the same layering by
+`tests/test_package_graph.py`.
 """
 
 from __future__ import annotations
 
 import ast
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
-
-SRC = Path(__file__).parents[1] / "src"
+from support.workspace import SOURCE_ROOTS, module_file, source_files
 
 INGESTION = "ingestion"
 PROCESSING = "processing"
@@ -33,25 +33,20 @@ SHARED = "shared"
 TOOLING = "tooling"
 ENTRY_POINT = "entry_point"
 
-# Path prefix under `src/` -> module. The first match wins, so files come before their
+# Path prefix under a distribution's `src/` -> module. The first match wins, so files come before their
 # package.
 MODULE_OF: tuple[tuple[str, str], ...] = (
     ("ingestion/", INGESTION),
     ("processing/", PROCESSING),
-    # A command-line entry: it runs the evaluation tooling of the resolver.
-    ("persons/resolution/cli.py", ENTRY_POINT),
     # Person resolution (ER v2): the optional path of ADR 0024, beside processing.
     ("persons/", PROCESSING),
-    ("llm/cli_reviewer.py", PROCESSING),
-    ("llm/entity_reviewer.py", PROCESSING),
+    ("persons/resolution/cli_reviewer.py", PROCESSING),
+    ("persons/resolution/entity_reviewer.py", PROCESSING),
     ("analysis/", ANALYSIS),
     # The operator's reference lists (her Rosfinmonitoring table, her base of known
     # people, officials): data the verdicts are checked against, keyed like mentions.
     ("airtable/", ANALYSIS),
     ("results/", RESULTS),
-    # Dagster's code location and its resource build the application: wiring.
-    ("orchestrator/dagster/definitions.py", ENTRY_POINT),
-    ("orchestrator/dagster/resources.py", ENTRY_POINT),
     ("orchestrator/", ORCHESTRATOR),
     ("investigation/", INVESTIGATION),
     ("db/", SHARED),
@@ -218,6 +213,7 @@ MODULE_TOOLS: dict[str, frozenset[str]] = {
     "cli/ingestion.py": frozenset({"ingestion"}),
     "cli/extraction.py": frozenset({"processing.extraction", "ingestion.sources.source_registry"}),
     "cli/persons.py": frozenset({"persons", "processing.extraction"}),
+    "cli/person_resolution.py": frozenset({"persons"}),
     "cli/persecution.py": frozenset({"analysis.persecution", "persons"}),
     "cli/rosfinmonitoring.py": frozenset({"analysis.rosfinmonitoring"}),
     "cli/candidates.py": frozenset({"results.candidates"}),
@@ -229,19 +225,18 @@ def _module_of(path: str) -> str:
     for prefix, module in MODULE_OF:
         if path.startswith(prefix):
             return module
-    # Everything else at the top of `src/` wires the application.
+    # Everything else at the top of a `src/` wires the application.
     return ENTRY_POINT
 
 
 def _path_of(imported: str) -> str | None:
-    """The file or package under `src/` an absolute import names; None for a library."""
+    """The file or package of the workspace an absolute import names; None for a library."""
     parts = imported.split(".")
     for length in range(len(parts), 0, -1):
         base = "/".join(parts[:length])
-        if (SRC / f"{base}.py").is_file():
-            return f"{base}.py"
-        if (SRC / base).is_dir():
-            return f"{base}/"
+        found = module_file(".".join(parts[:length]))
+        if found is not None:
+            return f"{base}/" if found.is_dir() else f"{base}.py"
     return None
 
 
@@ -276,19 +271,17 @@ def _imports(tree: ast.AST, path: str) -> Iterator[str]:
 
 
 def _files(*prefixes: str) -> Iterator[tuple[str, ast.AST]]:
-    for file in sorted(SRC.rglob("*.py")):
-        path = file.relative_to(SRC).as_posix()
+    for path, file in source_files():
         if not prefixes or path.startswith(prefixes):
             yield path, ast.parse(file.read_text(encoding="utf-8"))
 
 
 def _exists(dotted: str) -> bool:
-    base = SRC / dotted.replace(".", "/")
-    return base.with_suffix(".py").is_file() or base.is_dir()
+    return module_file(dotted) is not None
 
 
 def _provider(dotted: str) -> str | None:
-    """The module or package of `src/` that a dotted name lives in; None for a library."""
+    """The module or package of the workspace that a dotted name lives in; None for a library."""
     parts = dotted.split(".")
     for length in range(len(parts), 0, -1):
         if _exists(".".join(parts[:length])):
@@ -297,7 +290,7 @@ def _provider(dotted: str) -> str | None:
 
 
 def _imported_modules(tree: ast.AST, path: str) -> set[str]:
-    """What of `src/` a file imports, each as the module or the package it is: a
+    """What of the workspace a file imports, each as the module or the package it is: a
     package imported whole is named as the package, so it cannot pass for the one
     public module inside it."""
     found: set[str | None] = set()
@@ -403,12 +396,27 @@ def test_an_investigation_runs_no_sql_of_its_own() -> None:
 
 
 def test_dagster_only_schedules_the_orchestrator() -> None:
-    # An asset calls one stage of `MonitoringService`; no domain stage lives in Dagster.
+    # An asset calls one stage of `MonitoringService`; no domain stage lives in Dagster,
+    # and nothing of Dagster's in the orchestrator builds the application.
     offenders = sorted(
         f"{path} -> {module}"
         for path, tree in _files("orchestrator/dagster/")
         for module in _imported_modules(tree, path)
-        if module.split(".")[0] not in ("orchestrator", "application", "settings")
+        if module.split(".")[0] != "orchestrator"
+    )
+
+    assert offenders == []
+
+
+def test_the_dagster_code_location_only_wires_the_orchestrator() -> None:
+    # The code location builds the application and hands its `MonitoringService` to the
+    # orchestrator's assets: it reaches no domain module itself.
+    offenders = sorted(
+        f"{path} -> {module}"
+        for path, tree in _files("dagster_location/")
+        for module in _imported_modules(tree, path)
+        if module.split(".")[0]
+        not in ("orchestrator", "application", "settings", "dagster_location")
     )
 
     assert offenders == []
@@ -465,7 +473,7 @@ def test_every_named_module_exists() -> None:
     missing = sorted(
         module
         for module in INTERNAL | ORCHESTRATOR_MAY_IMPORT | INVESTIGATION_MAY_IMPORT
-        if not (SRC / f"{module.replace('.', '/')}.py").is_file()
+        if not any((root / f"{module.replace('.', '/')}.py").is_file() for root in SOURCE_ROOTS)
     )
 
     assert missing == []
@@ -581,7 +589,7 @@ def _dynamic_imports(tree: ast.AST) -> list[int]:
 
 def test_no_module_is_loaded_by_a_computed_name() -> None:
     """The boundary rules see `import` statements only. Rather than guess what a string
-    names, no file of `src/` loads a module by one."""
+    names, no file of the workspace loads a module by one."""
     found = sorted(f"{path}:{line}" for path, tree in _files() for line in _dynamic_imports(tree))
 
     assert found == []

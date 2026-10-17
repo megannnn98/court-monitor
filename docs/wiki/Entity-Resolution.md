@@ -9,9 +9,9 @@ classification, events, RF matching и candidates не знают, о каком
 ## Быстрый сценарий
 
 ```bash
-uv run python src/main.py resolve-people --limit 20000
-uv run python src/main.py person-resolution-reviews list
-uv run python src/main.py resolve-person "Иван Иванов"
+uv run court-monitor resolve-people --limit 20000
+uv run court-monitor person-resolution-reviews list
+uv run court-monitor resolve-person "Иван Иванов"
 ```
 
 `resolve-person` — dry-run: показывает кандидатов, score и решение, но ничего не
@@ -44,7 +44,7 @@ stop
 @enduml
 ```
 
-## Модули (`src/persons/resolution/`)
+## Модули (`packages/court-processing/src/persons/resolution/`)
 
 | Модуль | Роль |
 |---|---|
@@ -80,7 +80,7 @@ stop
 ## Примеры (`resolve-person`, корпус evaluation)
 
 ```text
-$ uv run python src/main.py resolve-person "Иванов Иван Иванович"
+$ uv run court-monitor resolve-person "Иванов Иван Иванович"
   candidate #1: Иван Иванович Иванов   resolution_score 0.90   sources trigram
     surname: exact   given name: exact   patronymic: exact
     order: different   alias: no
@@ -89,22 +89,22 @@ $ uv run python src/main.py resolve-person "Иванов Иван Иванови
     patronymic: mismatch   conflicts: patronymic_mismatch
 Decision: auto_link → person #1 (strong_unique_match, margin 0.90)
 
-$ uv run python src/main.py resolve-person "Алексей Сергеевич Иванов"   # две active Person-тёзки
+$ uv run court-monitor resolve-person "Алексей Сергеевич Иванов"   # две active Person-тёзки
   candidate #10: Алексей Сергеевич Иванов   resolution_score 1.00   sources exact_key, trigram
   candidate #42: Алексей Сергеевич Иванов   resolution_score 1.00   sources exact_key, trigram
 Decision: review (low_decision_margin, multiple_plausible_candidates, multiple_exact_name_matches, possible_duplicate_persons, margin 0.00)
 
-$ uv run python src/main.py resolve-person "И. Иванов"
+$ uv run court-monitor resolve-person "И. Иванов"
   4 кандидата (Иван Иванович, Иван Петрович, Илья, Игорь Иванов), у всех 0.58,
   given name: initial_compatible
 Decision: review (medium_confidence_match, multiple_plausible_candidates, initials_only, margin 0.00)
 
-$ uv run python src/main.py resolve-person "Александр Пертров"
+$ uv run court-monitor resolve-person "Александр Пертров"
   candidate #5: Александр Петров   resolution_score 0.65
     surname: typo   given name: exact   conflicts: none
 Decision: review (medium_confidence_match, margin 0.65)
 
-$ uv run python src/main.py resolve-person "Василий Голубцов"
+$ uv run court-monitor resolve-person "Василий Голубцов"
   candidate #29: Виктор Голубев   resolution_score 0.05
     surname: mismatch   given name: mismatch
 Decision: create_new (no_plausible_candidate, conflicting_identity_data)
@@ -131,11 +131,11 @@ Decision: create_new (no_plausible_candidate, conflicting_identity_data)
 REVIEW оставляет `entity_mentions.person_id = NULL` (Person-заглушки нет) и создаёт pending `review_records` (`subject_type = person_resolution`, `subject_id` = id решения).
 
 ```bash
-uv run python src/main.py person-resolution-reviews list
-uv run python src/main.py person-resolution-reviews show 42
-uv run python src/main.py person-resolution-reviews apply 42 --action link_to_person --person-id 7 --note "тот же суд"
-uv run python src/main.py person-resolution-reviews apply 42 --action merge_persons --person-id 7 --source-person-id 9
-uv run python src/main.py person-resolution-reviews apply 43 --action keep_separate --person-id 7 --source-person-id 9 --note "другой суд"
+uv run court-monitor person-resolution-reviews list
+uv run court-monitor person-resolution-reviews show 42
+uv run court-monitor person-resolution-reviews apply 42 --action link_to_person --person-id 7 --note "тот же суд"
+uv run court-monitor person-resolution-reviews apply 42 --action merge_persons --person-id 7 --source-person-id 9
+uv run court-monitor person-resolution-reviews apply 43 --action keep_separate --person-id 7 --source-person-id 9 --note "другой суд"
 ```
 
 API: `GET /person-resolution/reviews`, `GET /person-resolution/reviews/{decision_id}`, `POST /person-resolution/reviews/{decision_id}/decision` (`{"action", "person_id", "source_person_id", "note"}`; 404 — нет решения, 409 — решение не pending / person не active / не хватает второй Person).
@@ -264,7 +264,7 @@ end
 `merge_persons` недоступен автоматике ни при каком ответе: слияние двух канонических
 персон делает только человек.
 
-Правила policy (`src/persons/resolution/ai_policy.py`):
+Правила policy (`packages/court-processing/src/persons/resolution/ai_policy.py`):
 
 | Ответ AI | Условия | Итог |
 |---|---|---|
@@ -284,7 +284,7 @@ end
 Запуск:
 
 ```bash
-uv run python src/main.py person-resolution-reviews ai --limit 100
+uv run court-monitor person-resolution-reviews ai --limit 100
 ```
 
 ```text
@@ -325,7 +325,7 @@ Unique-индекса по `matching_key` больше нет (тёзки), по
 ## Evaluation
 
 ```bash
-EVALUATION_DATABASE_URL=postgresql+psycopg://...court_monitor_eval uv run python src/main.py evaluate-er [--sweep]
+EVALUATION_DATABASE_URL=postgresql+psycopg://...court_monitor_eval uv run court-evaluation evaluate-er [--sweep]
 ```
 
 Корпус `tests/fixtures/er_v2_corpus.json`: 36 persons, 59 кейсов — 38 positive, 12 hard negatives, 8 ambiguous (в том числе две active тёзки: точное и переставленное ФИО, одна создана ревьюером), 1 indistinguishable (единственная Person с этим ФИО, но другой человек — считается отдельно как `indistinguishable_namesake_links`, не как false link); имена проходят extraction-нормализатор с обеих сторон. Результаты (2026-09-16, defaults):

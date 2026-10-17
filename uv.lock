@@ -7,6 +7,34 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "court-analysis",
+    "court-core",
+    "court-evaluation",
+    "court-ingestion",
+    "court-investigation",
+    "court-monitor",
+    "court-orchestrator",
+    "court-platform",
+    "court-processing",
+    "court-results",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "court-evaluation", editable = "tools/court-evaluation" },
+    { name = "court-monitor", editable = "apps/court-monitor" },
+    { name = "mypy", specifier = ">=2.3.1" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.16.3" },
+    { name = "types-openpyxl", specifier = ">=3.1.5.20260827" },
+]
+semantic = [
+    { name = "court-evaluation", extras = ["semantic"], editable = "tools/court-evaluation" },
+    { name = "court-monitor", extras = ["semantic"], editable = "apps/court-monitor" },
+]
+
 [[package]]
 name = "alembic"
 version = "1.19.1"
@@ -437,75 +465,315 @@ wheels = [
 ]
 
 [[package]]
-name = "court-monitor-recovered"
+name = "court-analysis"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "packages/court-analysis" }
+dependencies = [
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "curl-cffi" },
+    { name = "httpx" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "rapidfuzz" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "curl-cffi", specifier = ">=0.16.3,<0.17" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pyarrow", specifier = ">=21.0.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "rapidfuzz", specifier = ">=3.14" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
+name = "court-core"
+version = "0.1.0"
+source = { editable = "packages/court-core" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+]
+
+[[package]]
+name = "court-evaluation"
+version = "0.1.0"
+source = { editable = "tools/court-evaluation" }
+dependencies = [
+    { name = "court-analysis" },
+    { name = "court-core" },
+    { name = "court-ingestion" },
+    { name = "court-investigation" },
+    { name = "court-monitor" },
+    { name = "court-orchestrator" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "court-results" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+]
+
+[package.optional-dependencies]
+semantic = [
+    { name = "court-processing", extra = ["semantic"] },
+    { name = "numpy" },
+    { name = "scikit-learn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-investigation", editable = "packages/court-investigation" },
+    { name = "court-monitor", editable = "apps/court-monitor" },
+    { name = "court-orchestrator", editable = "packages/court-orchestrator" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "court-processing", extras = ["semantic"], marker = "extra == 'semantic'", editable = "packages/court-processing" },
+    { name = "court-results", editable = "packages/court-results" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "numpy", marker = "extra == 'semantic'", specifier = ">=2.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "scikit-learn", marker = "extra == 'semantic'", specifier = ">=1.5" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+provides-extras = ["semantic"]
+
+[[package]]
+name = "court-ingestion"
+version = "0.1.0"
+source = { editable = "packages/court-ingestion" }
+dependencies = [
+    { name = "court-core" },
+    { name = "court-platform" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "selectolax" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "selectolax", specifier = ">=0.3.29" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
+name = "court-investigation"
+version = "0.1.0"
+source = { editable = "packages/court-investigation" }
+dependencies = [
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "court-results" },
+    { name = "httpx" },
+    { name = "langchain-core" },
+    { name = "langgraph" },
+    { name = "pydantic" },
+    { name = "pymorphy3" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-results", editable = "packages/court-results" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "langchain-core", specifier = ">=1.0" },
+    { name = "langgraph", specifier = ">=1.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pymorphy3", specifier = ">=2.0.6" },
+]
+
+[[package]]
+name = "court-monitor"
+version = "0.1.0"
+source = { editable = "apps/court-monitor" }
 dependencies = [
     { name = "alembic" },
-    { name = "anthropic" },
-    { name = "curl-cffi" },
+    { name = "court-analysis" },
+    { name = "court-core" },
+    { name = "court-ingestion" },
+    { name = "court-investigation" },
+    { name = "court-orchestrator" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "court-results" },
     { name = "dagster" },
     { name = "dagster-postgres" },
     { name = "dagster-webserver" },
     { name = "fastapi" },
-    { name = "httpx", extra = ["socks"] },
-    { name = "langgraph" },
+    { name = "httpx" },
+    { name = "markdown-it-py" },
     { name = "openpyxl" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "pyarrow" },
     { name = "pydantic" },
-    { name = "pymorphy3" },
-    { name = "rapidfuzz" },
-    { name = "reportlab" },
-    { name = "selectolax" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
     { name = "weasyprint" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "types-openpyxl" },
-]
+[package.optional-dependencies]
 semantic = [
-    { name = "sentence-transformers" },
+    { name = "court-processing", extra = ["semantic"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.19.1" },
-    { name = "anthropic", specifier = ">=1.8.0" },
-    { name = "curl-cffi", specifier = ">=0.16.3,<0.17" },
+    { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-investigation", editable = "packages/court-investigation" },
+    { name = "court-orchestrator", editable = "packages/court-orchestrator" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "court-processing", extras = ["semantic"], marker = "extra == 'semantic'", editable = "packages/court-processing" },
+    { name = "court-results", editable = "packages/court-results" },
     { name = "dagster", specifier = ">=1.13.22" },
     { name = "dagster-postgres", specifier = ">=0.29.22" },
     { name = "dagster-webserver", specifier = ">=1.13.22" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "httpx", extras = ["socks"], specifier = ">=0.28.0" },
-    { name = "langgraph", specifier = ">=1.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "markdown-it-py", specifier = ">=4.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
-    { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "pydantic", specifier = ">=2.11.0" },
-    { name = "pymorphy3", specifier = ">=2.0.6" },
-    { name = "rapidfuzz", specifier = ">=3.14" },
-    { name = "reportlab", specifier = ">=4.0" },
-    { name = "selectolax", specifier = ">=0.3.29" },
     { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
     { name = "uvicorn", specifier = ">=0.32.0" },
     { name = "weasyprint", specifier = ">=70.0" },
 ]
+provides-extras = ["semantic"]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=2.3.1" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "ruff", specifier = ">=0.16.3" },
-    { name = "types-openpyxl", specifier = ">=3.1.5.20260827" },
+[[package]]
+name = "court-orchestrator"
+version = "0.1.0"
+source = { editable = "packages/court-orchestrator" }
+dependencies = [
+    { name = "court-analysis" },
+    { name = "court-core" },
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "court-results" },
+    { name = "dagster" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
 ]
-semantic = [{ name = "sentence-transformers", specifier = ">=5.0" }]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "court-results", editable = "packages/court-results" },
+    { name = "dagster", specifier = ">=1.13.22" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
+name = "court-platform"
+version = "0.1.0"
+source = { editable = "packages/court-platform" }
+dependencies = [
+    { name = "court-core" },
+    { name = "httpx", extra = ["socks"] },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "httpx", extras = ["socks"], specifier = ">=0.28.0" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
+name = "court-processing"
+version = "0.1.0"
+source = { editable = "packages/court-processing" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "court-core" },
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pymorphy3" },
+    { name = "rapidfuzz" },
+    { name = "sqlalchemy" },
+]
+
+[package.optional-dependencies]
+semantic = [
+    { name = "sentence-transformers" },
+    { name = "torch" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=1.8.0" },
+    { name = "court-core", editable = "packages/court-core" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pymorphy3", specifier = ">=2.0.6" },
+    { name = "rapidfuzz", specifier = ">=3.14" },
+    { name = "sentence-transformers", marker = "extra == 'semantic'", specifier = ">=5.0" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+    { name = "torch", marker = "extra == 'semantic'", specifier = ">=2.0" },
+]
+provides-extras = ["semantic"]
+
+[[package]]
+name = "court-results"
+version = "0.1.0"
+source = { editable = "packages/court-results" }
+dependencies = [
+    { name = "court-analysis" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pymorphy3" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pymorphy3", specifier = ">=2.0.6" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
 
 [[package]]
 name = "cssselect2"
@@ -2826,19 +3094,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/51/37a194df7707f92f33173260ba7b221d4ec376419a53babaec50019a2804/regex-2026.9.10-cp315-cp315t-win32.whl", hash = "sha256:5bef622850cf760154719d4e0d74b0a855962432995168e250069899ae12fe8f", size = 274780, upload-time = "2026-09-09T21:00:14.003Z" },
     { url = "https://files.pythonhosted.org/packages/77/12/3227a52970d90908b230f15b2c86df903f49ac72c9eedf4f6e8b5bb5e1a7/regex-2026.9.10-cp315-cp315t-win_amd64.whl", hash = "sha256:07b45ba5c94b8fcb30cb6c56a11f715c57533a3017964504322ea52690a27b72", size = 283936, upload-time = "2026-09-09T21:00:16.275Z" },
     { url = "https://files.pythonhosted.org/packages/f3/bc/c567c5a61671f04d30e83f20b496b465432879196574d051007285576205/regex-2026.9.10-cp315-cp315t-win_arm64.whl", hash = "sha256:f70b9f0e39c2dba1d9da6bf7ef7c377cad7277f8440e9a69be05ede529ff024c", size = 283747, upload-time = "2026-09-09T21:00:19.113Z" },
-]
-
-[[package]]
-name = "reportlab"
-version = "5.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "charset-normalizer" },
-    { name = "pillow" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/51/dbe28534ae12c852f61be91f039f343305fd1f34f1c66b8de75afae7a525/reportlab-5.0.1.tar.gz", hash = "sha256:ebd13154be1c8515e665de70bd2d303ae9ddc3ef47e44afd5116441ca0283a26", size = 3945711, upload-time = "2026-08-20T13:48:16.461Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/cb/dacbc268cb68d0428ea2cbd85266195a9ab3e677449589ddae59bd7542ac/reportlab-5.0.1-py3-none-any.whl", hash = "sha256:1c36e6bb0e71780c72331eba60da7f602e8d4389a8723825af71342e49d791e8", size = 1957258, upload-time = "2026-08-20T13:48:14.026Z" },
 ]
 
 [[package]]

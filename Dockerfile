@@ -17,7 +17,6 @@ ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:$PATH" \
-    PYTHONPATH=/app/src \
     DAGSTER_HOME=/opt/dagster/dagster_home
 
 WORKDIR /app
@@ -41,13 +40,28 @@ RUN update-ca-certificates
 # opt in with `docker compose build --build-arg INSTALL_SEMANTIC=1`. compose.gpu.yaml
 # sets it. Nothing else in the application loads an embedding model (ADR 0028).
 ARG INSTALL_SEMANTIC=0
+# The workspace's manifests first (docs/architecture/package-map.md): the dependency
+# layer below is rebuilt only when one of them or the lock changes, not for a change of
+# code. Every member's pyproject.toml is here, so uv sees the same workspace as uv.lock.
 COPY pyproject.toml uv.lock ./
-# Keep downloaded wheels in BuildKit's cache, outside the image layer. This avoids
-# repeating large GPU package downloads when dependency installation runs again.
+COPY packages/court-core/pyproject.toml packages/court-core/
+COPY packages/court-platform/pyproject.toml packages/court-platform/
+COPY packages/court-ingestion/pyproject.toml packages/court-ingestion/
+COPY packages/court-processing/pyproject.toml packages/court-processing/
+COPY packages/court-analysis/pyproject.toml packages/court-analysis/
+COPY packages/court-results/pyproject.toml packages/court-results/
+COPY packages/court-investigation/pyproject.toml packages/court-investigation/
+COPY packages/court-orchestrator/pyproject.toml packages/court-orchestrator/
+COPY apps/court-monitor/pyproject.toml apps/court-monitor/
+COPY tools/court-evaluation/pyproject.toml tools/court-evaluation/
+# The application's third-party dependencies, none of the workspace's own code. Keep
+# downloaded wheels in BuildKit's cache, outside the image layer: this avoids repeating
+# large GPU package downloads when dependency installation runs again. Only the
+# application and what it declares: not the evaluation tooling, not the dev tools.
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    groups=""; \
-    if [ "$INSTALL_SEMANTIC" = "1" ]; then groups="$groups --group semantic"; fi; \
-    uv sync --frozen --no-default-groups --no-install-project $groups
+    extras=""; \
+    if [ "$INSTALL_SEMANTIC" = "1" ]; then extras="--extra semantic"; fi; \
+    uv sync --frozen --no-default-groups --package court-monitor --no-install-workspace $extras
 
 # PlantUML draws every diagram but a sequence one with Graphviz, which the package only
 # recommends; WeasyPrint prints the wiki to PDF with Pango. Their own layer, so adding
@@ -57,7 +71,16 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY src ./src
+# The workspace's code, then the members themselves (editable: the application reads
+# docs/wiki and migrations from /app, as a working copy does).
+COPY packages ./packages
+COPY apps ./apps
+# `python src/main.py <command>` (and `docker exec -w /app/src`), as before the split.
+COPY src/main.py ./src/main.py
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    extras=""; \
+    if [ "$INSTALL_SEMANTIC" = "1" ]; then extras="--extra semantic"; fi; \
+    uv sync --frozen --no-default-groups --package court-monitor $extras
 COPY --from=frontend /frontend/dist ./frontend/dist
 ENV FRONTEND_DIST=/app/frontend/dist
 COPY migrations ./migrations

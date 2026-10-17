@@ -24,7 +24,7 @@
 1. Включить (нужен образ с группой `semantic`, см. ниже) и запустить шаг 2:
 
    ```bash
-   docker exec -e JUNK_SCREEN=1 ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py purge-junk'
+   docker exec -e JUNK_SCREEN=1 ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor purge-junk'
    ```
 
    Чтобы шаг 2 на «Управлении» тоже шёл с отсевом, задать `JUNK_SCREEN=1` в окружении
@@ -40,7 +40,7 @@
 5. Модель ошиблась: «Это дело — в работу» берёт статью в работу вопреки ей; «Мусор» у
    выпущенной статьи возвращает её под очистку.
 6. «Извлечь заново» нужно только разработчику: после правки правил извлечения
-   (`src/processing/extraction/events.py`) найденное событие вернёт статью в работу без модели.
+   (`packages/court-processing/src/processing/extraction/events.py`) найденное событие вернёт статью в работу без модели.
 
 ## Чтение удержанного моделью
 
@@ -50,7 +50,7 @@
 оставались удержанными, а люди, названные только в таких публикациях, не попадали в
 результат: шаги 3–5 берут публикацию только по её уголовному событию.
 
-- После очистки модель (DeepSeek через OpenRouter, `src/processing/junk/hold_reader.py`) читает
+- После очистки модель (DeepSeek через OpenRouter, `packages/court-processing/src/processing/junk/hold_reader.py`) читает
   каждую удержанную статью целиком и отвечает: уголовное ли это дело российских властей
   против конкретного человека, какой мотив и какое событие в тексте главное.
 - **Дело, политическое или с неясным мотивом.** В последнее извлечение статьи записывается
@@ -78,7 +78,7 @@
 ## Как устроено
 
 - Модель: `intfloat/multilingual-e5-base`, embedding «заголовок. первые 1 500 символов»;
-  логистическая регрессия поверх него (`src/processing/junk/junk_screen_model.json`). Порог
+  логистическая регрессия поверх него (`packages/court-processing/src/processing/junk/junk_screen_model.json`). Порог
   0,5202 выбран на калибровочной части размеченной выборки.
 - Замер на отдельной проверочной части: из 63 дел, которые правило удалило бы, отсев
   удерживает 51 (81%); из 105 удержанных 54 — мусор (точность 0,49). Подробно —
@@ -94,7 +94,7 @@
 российскому уголовному делу против человека». Модель `typesafe/jev-1.13`
 (`https://openrouter.ai/api/alpha/decisions`) отвечает вероятностью «дело»; она и есть оценка
 отсева, порог 0,5. Отправляется то же, что видел прежний отсев: заголовок и первые 1 500
-символов. Код — `src/processing/junk/decision_screen.py`.
+символов. Код — `packages/court-processing/src/processing/junk/decision_screen.py`.
 
 Модель закреплена: замер ниже сделан через алиас `~typesafe/jev-latest`, который тогда
 отвечал как `typesafe/jev-1.13-20260917`, а алиас может молча перейти на другую модель.
@@ -147,7 +147,7 @@ title=…` (INFO); оценка от 0,03 до порога — `event=junk_scre
 У спасённой статьи в удержании записана оценка, равная порогу, а в причине — настоящая
 оценка первого Jev и ответ второго.
 Отказ первого Jev по-прежнему останавливает очистку; второй, не ответивший на пробный
-вопрос при старте, тоже. Код — `src/processing/junk/drop_verifier.py`.
+вопрос при старте, тоже. Код — `packages/court-processing/src/processing/junk/drop_verifier.py`.
 
 Лог: каждая статья — `event=junk_screen_cascade jev1_score=… jev2_called=yes|no
 jev2_decision=… jev2_p_drop=… jev2_confidence=… final=keep|drop title=…` (ошибка второго —
@@ -177,12 +177,12 @@ final_keep=… final_drop=…`.
 
 ## Кодовые точки входа
 
-- Оценщик: `src/processing/junk/screen.py`; загрузка модели embeddings (sentence-transformers,
+- Оценщик: `packages/court-processing/src/processing/junk/screen.py`; загрузка модели embeddings (sentence-transformers,
   префикс E5 `passage: `, `EMBEDDING_DEVICE`, `EMBEDDING_BATCH_SIZE`):
-  `src/processing/junk/embedder.py`; очистка: `src/processing/junk/purge.py`.
-- «Мусор» / «Извлечь заново»: `src/processing/junk/holds.py`; чтение моделью и «Это дело —
-  в работу»: `src/processing/junk/hold_reader.py`; страница: `src/web/ui/junk_holds.py`.
-- Замер и переобучение: `src/evaluation/junk_screen/` (корпус из дампа до очистки,
+  `packages/court-processing/src/processing/junk/embedder.py`; очистка: `packages/court-processing/src/processing/junk/purge.py`.
+- «Мусор» / «Извлечь заново»: `packages/court-processing/src/processing/junk/holds.py`; чтение моделью и «Это дело —
+  в работу»: `packages/court-processing/src/processing/junk/hold_reader.py`; страница: `apps/court-monitor/src/web/ui/junk_holds.py`.
+- Замер и переобучение: `tools/court-evaluation/src/evaluation/junk_screen/` (корпус из дампа до очистки,
   разметка моделью, сравнение способов, экспорт модели); метки —
   `evaluation/junk_screen/labels.json`.
 

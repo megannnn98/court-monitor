@@ -2,7 +2,7 @@
 // (`tests/app/test_investigation_graph_js.py` runs it with the Python suite).
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const core = require("../../src/static/investigation-graph-core.js");
+const core = require("../../apps/court-monitor/src/web/static/investigation-graph-core.js");
 
 const FIRST = {
   center: "person:1",

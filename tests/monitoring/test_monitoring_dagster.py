@@ -8,8 +8,8 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
+from dagster_location.definitions import build_definitions
 from ingestion.sources.source_registry import SOURCES
-from orchestrator.dagster.definitions import build_definitions
 from orchestrator.dagster.jobs import MONITORING_DERIVED_JOB, MONITORING_JOB, SOURCE_TAG
 from orchestrator.models import (
     MonitoringRunStatus,

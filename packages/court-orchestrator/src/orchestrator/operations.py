@@ -1,0 +1,817 @@
+"""Routine operations started from the operator console, and their runs.
+
+PostgreSQL is the source of truth for runs (`operator_operation_runs`): every API
+process sees the same runs, a restart keeps the history, and a partial unique index
+allows one live run per operation across processes. The run itself is a subprocess of
+the CLI, built from an allowlist and started without a shell, in a background thread of
+the process that accepted it; it keeps a heartbeat, and a run whose heartbeat stopped
+(its process died) is marked `interrupted` the next time runs are read or started.
+Each beat also stores the tail of the output so far, and a run stopped by the operator
+(`interrupted` while its process lives) gets SIGINT at its next beat.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import signal
+import socket
+import subprocess
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import StrEnum
+from functools import partial
+from pathlib import Path
+from typing import IO, Any, Literal, Protocol
+
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session, sessionmaker
+
+from db.orm_models import OperatorOperationRunRecord
+from ingestion.sources.source_registry import SOURCES, SourceKind
+from llm.model_choice import chosen_model
+
+logger = logging.getLogger("operator_console")
+
+# stdout and stderr keep their last characters: the end of a log says how it ended.
+OUTPUT_LIMIT = 20_000
+HEARTBEAT_INTERVAL = timedelta(seconds=15)
+# A live run whose heartbeat is older than this lost its process.
+STALE_AFTER = timedelta(minutes=5)
+# A stopped process has this long to close its runs after SIGINT, then it is killed.
+STOP_GRACE = timedelta(seconds=30)
+STOPPED_BY_OPERATOR = "stopped by the operator"
+ACTIVE_RUN_INDEX = "uq_operator_operation_runs_active_operation"
+
+
+class OperationRunStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    INTERRUPTED = "interrupted"
+
+
+LIVE_STATUSES = (OperationRunStatus.PENDING.value, OperationRunStatus.RUNNING.value)
+
+
+class OperationParameters(BaseModel):
+    source: str | None = None
+    sources: list[str] | None = None
+    published_from: str | None = None
+    published_to: str | None = None
+    # monitor only: "load" loads and extracts, "resolve" resolves persons and classifies,
+    # "purge" deletes the articles without a criminal case, "entities" rebuilds the person
+    # entities, "rosfin" checks them against the Rosfinmonitoring list, "figurants" tells
+    # who a case is opened against, "political" which cases are persecution; unset, one
+    # run loads and resolves. All are one operation: they never run at once.
+    mode: (
+        Literal["load", "resolve", "purge", "entities", "rosfin", "figurants", "political"] | None
+    ) = None
+    limit: int | None = Field(default=None, ge=1, le=100_000)
+    workers: int | None = Field(default=None, ge=1, le=32)
+    # monitor only, «Сделать всё»: when this step ends well, the next step of the cycle is
+    # started by the same word, and so on to the last. A step stopped, lost or crashed
+    # ends the chain: the operator looks, and presses again from where it stands.
+    chain: bool = False
+    # monitor only, the steps that ask the entity model (`ENTITY_MODEL_MODES`): the model
+    # the run asks, fixed when it starts — the one its warning showed. A chain carries
+    # it to every step, so a choice saved meanwhile changes no step of it.
+    entity_model: str | None = Field(default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$")
+    # The same for the decision model: who is accused, which case is political, the news.
+    decision_model: str | None = Field(
+        default=None, max_length=200, pattern=r"^[A-Za-z0-9._/:~-]+$"
+    )
+
+
+@dataclass(frozen=True)
+class OperationDefinition:
+    name: str
+    title: str
+    description: str
+    next_action: str
+    warning: str
+    default_parameters: OperationParameters
+
+
+@dataclass
+class OperationRun:
+    id: int
+    operation: OperationDefinition
+    parameters: OperationParameters
+    status: OperationRunStatus
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    command: list[str] = field(default_factory=list)
+    return_code: int | None = None
+    stdout: str = ""
+    stderr: str = ""
+    error: str | None = None
+    heartbeat_at: datetime | None = None
+    worker_id: str | None = None
+
+    @property
+    def duration_seconds(self) -> float | None:
+        end = self.finished_at
+        if self.started_at is None or end is None:
+            return None
+        return round((end - self.started_at).total_seconds(), 3)
+
+
+OPERATION_DEFINITIONS: dict[str, OperationDefinition] = {
+    "monitor": OperationDefinition(
+        name="monitor",
+        title="Докачать новые публикации",
+        description=(
+            "Для каждого источника (или одного выбранного) загрузить публикации, появившиеся "
+            "после прошлой загрузки, извлечь людей и события; затем один раз "
+            "классифицировать, сверить с перечнем РФМ и обновить находки."
+        ),
+        next_action="Оставьте «Все источники», затем подтвердите run.",
+        warning=(
+            "Операция ходит в сеть по всем источникам и пишет в живую базу; "
+            "первая докачка после перерыва может идти десятки минут."
+        ),
+        # No limit: each source pages back to what is stored, at most
+        # MONITORING_DISCOVERY_LIMIT (5000; 500 on a source's first load). A limit of 50
+        # here lost what a busy channel published beyond its newest 50 between two runs.
+        default_parameters=OperationParameters(),
+    ),
+    "discover-and-ingest": OperationDefinition(
+        name="discover-and-ingest",
+        title="Загрузить публикации",
+        description="Найти новые публикации выбранного источника и сохранить их как ParsedArticle.",
+        next_action="Выберите источник и небольшой limit, затем подтвердите run.",
+        warning="Операция ходит в сеть и пишет новые source documents/articles в живую базу.",
+        default_parameters=OperationParameters(source="ovd-info", limit=50),
+    ),
+    "extract-entities": OperationDefinition(
+        name="extract-entities",
+        title="Извлечь сущности и события",
+        description="Запустить extraction по статьям, которые ещё не обработаны текущими версиями extractor/normalizer.",
+        next_action="Укажите источник или оставьте все источники, затем подтвердите run.",
+        warning="Операция пишет extraction runs, mentions и events в живую базу.",
+        default_parameters=OperationParameters(limit=500),
+    ),
+    "resolve-people": OperationDefinition(
+        name="resolve-people",
+        title="Разрешить упоминания в Person",
+        description="Связать person mentions с canonical Person или отправить спорные случаи в ER-review.",
+        next_action="Поставьте limit больше числа свежих статей, затем подтвердите run.",
+        warning="Операция создаёт/линкует Person и пополняет очередь ER-review.",
+        default_parameters=OperationParameters(limit=10_000, workers=1),
+    ),
+    "classify-persecution": OperationDefinition(
+        name="classify-persecution",
+        title="Классифицировать преследование",
+        description="Запустить rule-based классификацию активных Person.",
+        next_action="Проверьте limit и подтвердите run.",
+        warning="Операция пишет persecution classifications в живую базу.",
+        default_parameters=OperationParameters(limit=10_000),
+    ),
+}
+
+
+class OperationConflictError(Exception):
+    pass
+
+
+class OperationNotFoundError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class ProcessResult:
+    return_code: int
+    stdout: str
+    stderr: str
+
+
+class Heartbeat(Protocol):
+    """Called with the output so far; False means the run was stopped: end the process."""
+
+    def __call__(self, stdout: str = "", stderr: str = "") -> bool: ...
+
+
+# Runs the command; calls `heartbeat` at least every HEARTBEAT_INTERVAL while it lives.
+ProcessRunner = Callable[[list[str], Heartbeat], ProcessResult]
+# Hands the run's work to something that executes it outside the HTTP request.
+Executor = Callable[[Callable[[], None]], None]
+
+
+def _thread_executor(work: Callable[[], None]) -> None:
+    threading.Thread(target=work, daemon=True).start()
+
+
+class _OutputTail:
+    """The last OUTPUT_LIMIT characters of a pipe, read in a thread while the process runs."""
+
+    def __init__(self, pipe: IO[str]) -> None:
+        self._text = ""
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._read, args=(pipe,), daemon=True)
+        self._thread.start()
+
+    def _read(self, pipe: IO[str]) -> None:
+        for line in pipe:
+            with self._lock:
+                self._text = _tail(self._text + line)
+        pipe.close()
+
+    def text(self) -> str:
+        with self._lock:
+            return self._text
+
+    def finish(self) -> str:
+        self._thread.join()
+        return self.text()
+
+
+@dataclass(frozen=True)
+class CommandLine:
+    """How an operation starts the application's command line. The composition root gives
+    it: the orchestrator knows the commands, not where the application is installed."""
+
+    # The program and its first arguments, e.g. (python, …/main.py).
+    program: tuple[str, ...]
+    # Where the command runs: the repository, whose relative paths it reads.
+    cwd: Path
+
+
+def _run_process(
+    command: list[str], heartbeat: Heartbeat, *, cwd: Path | None = None
+) -> ProcessResult:
+    """The command without a shell; its output goes to the heartbeat as it comes."""
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=os.environ | {"PYTHONUNBUFFERED": "1"},
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert process.stdout is not None and process.stderr is not None
+    stdout, stderr = _OutputTail(process.stdout), _OutputTail(process.stderr)
+    try:
+        while True:
+            try:
+                process.wait(timeout=HEARTBEAT_INTERVAL.total_seconds())
+                break
+            except subprocess.TimeoutExpired:
+                if not heartbeat(stdout.text(), stderr.text()):
+                    _stop(process)
+                    break
+        return ProcessResult(process.wait(), stdout.finish(), stderr.finish())
+    except BaseException:
+        # The run is about to be recorded as ended: its process must not live on unseen.
+        process.kill()
+        process.wait()
+        raise
+
+
+def _stop(process: subprocess.Popen[str]) -> None:
+    """SIGINT first: the CLI closes its monitoring runs on KeyboardInterrupt."""
+    process.send_signal(signal.SIGINT)
+    try:
+        process.wait(timeout=STOP_GRACE.total_seconds())
+    except subprocess.TimeoutExpired:
+        process.kill()
+
+
+class OperationRegistry:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        *,
+        command_line: CommandLine,
+        executor: Executor = _thread_executor,
+        process_runner: ProcessRunner | None = None,
+        stale_after: timedelta = STALE_AFTER,
+        worker_id: str | None = None,
+    ) -> None:
+        self._session_factory = session_factory
+        self._command_line = command_line
+        self._executor = executor
+        self._process_runner = process_runner or partial(_run_process, cwd=command_line.cwd)
+        self._stale_after = stale_after
+        self._worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
+
+    def definitions(self) -> list[OperationDefinition]:
+        return list(OPERATION_DEFINITIONS.values())
+
+    def definition(self, name: str) -> OperationDefinition:
+        try:
+            return OPERATION_DEFINITIONS[name]
+        except KeyError:
+            raise OperationNotFoundError(name) from None
+
+    def list_runs(self, limit: int = 100) -> list[OperationRun]:
+        self.interrupt_stale_runs()
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(OperatorOperationRunRecord)
+                .order_by(OperatorOperationRunRecord.id.desc())
+                .limit(limit)
+            ).all()
+            return [_to_run(record) for record in records]
+
+    def runs_of(self, name: str, limit: int = 20) -> list[OperationRun]:
+        """Runs of one operation, newest first: a caller after `monitor` must not be
+        pushed out of the window by runs of other operations."""
+        self.interrupt_stale_runs()
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(OperatorOperationRunRecord)
+                .where(OperatorOperationRunRecord.operation_name == name)
+                .order_by(OperatorOperationRunRecord.id.desc())
+                .limit(limit)
+            ).all()
+            return [_to_run(record) for record in records]
+
+    def get(self, run_id: int) -> OperationRun:
+        self.interrupt_stale_runs()
+        with self._session_factory() as session:
+            record = session.get(OperatorOperationRunRecord, run_id)
+            if record is None:
+                raise OperationNotFoundError(str(run_id))
+            return _to_run(record)
+
+    def prepare_parameters(
+        self, definition: OperationDefinition, parameters: OperationParameters
+    ) -> OperationParameters:
+        return self._with_defaults(definition, parameters)
+
+    def start(self, name: str, parameters: OperationParameters) -> OperationRun:
+        """Record a pending run and hand it to the executor; returns without waiting."""
+        definition = self.definition(name)
+        parameters = self._with_defaults(definition, parameters)
+        if (
+            parameters.sources is not None
+            or parameters.published_from is not None
+            or parameters.published_to is not None
+            or parameters.mode is not None
+        ) and name != "monitor":
+            raise ValueError("sources, published dates and mode are only supported for monitor")
+        if (
+            name == "monitor"
+            and (parameters.entity_model is None or parameters.decision_model is None)
+            and (parameters.chain or parameters.mode in ENTITY_MODEL_MODES)
+        ):
+            with self._session_factory() as session:
+                parameters = parameters.model_copy(
+                    update={
+                        "entity_model": parameters.entity_model or chosen_model(session),
+                        "decision_model": parameters.decision_model
+                        or chosen_model(session, kind="decision"),
+                    }
+                )
+        command = _command_for(definition.name, parameters, self._command_line.program)
+        self.interrupt_stale_runs()
+        try:
+            with self._session_factory.begin() as session:
+                record = OperatorOperationRunRecord(
+                    operation_name=name,
+                    parameters=parameters.model_dump(),
+                    command=command,
+                    status=OperationRunStatus.PENDING.value,
+                )
+                session.add(record)
+                session.flush()
+                run = _to_run(record)
+        except IntegrityError as exc:
+            # Only the partial unique index means another process has a live run of it.
+            if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != (
+                ACTIVE_RUN_INDEX
+            ):
+                raise
+            raise OperationConflictError(f"operation {name} is already running") from exc
+        self._executor(lambda: self._execute(run.id))
+        return run
+
+    def stop(self, run_id: int) -> bool:
+        """End a live run now; its process, in whatever API worker, gets SIGINT at its
+        next beat. False if the run had already ended."""
+        with self._session_factory.begin() as session:
+            stopped = session.execute(
+                update(OperatorOperationRunRecord)
+                .where(
+                    OperatorOperationRunRecord.id == run_id,
+                    OperatorOperationRunRecord.status.in_(LIVE_STATUSES),
+                )
+                .values(
+                    status=OperationRunStatus.INTERRUPTED.value,
+                    finished_at=func.now(),
+                    error=STOPPED_BY_OPERATOR,
+                )
+                .returning(OperatorOperationRunRecord.id)
+            ).first()
+            if stopped is None and session.get(OperatorOperationRunRecord, run_id) is None:
+                raise OperationNotFoundError(str(run_id))
+        if stopped is not None:
+            logger.warning("event=operation_run_stopped run_id=%s", run_id)
+        return stopped is not None
+
+    def stop_chain_after(self, run_id: int) -> bool:
+        """Stop the live step a chain started after `run_id`, a chained step that has
+        already ended. False when `run_id` was no chained step or nothing of its chain is
+        live."""
+        with self._session_factory() as session:
+            record = session.get(OperatorOperationRunRecord, run_id)
+            if record is None or not OperationParameters(**record.parameters).chain:
+                return False
+            # One run of an operation is live at a time: with `run_id` ended, the live one
+            # came after it.
+            following = session.scalars(
+                select(OperatorOperationRunRecord).where(
+                    OperatorOperationRunRecord.operation_name == record.operation_name,
+                    OperatorOperationRunRecord.status.in_(LIVE_STATUSES),
+                )
+            ).first()
+            if following is None or not OperationParameters(**following.parameters).chain:
+                return False
+            following_id = following.id
+        return self.stop(following_id)
+
+    def interrupt_stale_runs(self) -> list[int]:
+        """Live runs whose heartbeat stopped: their process died, they will never finish."""
+        with self._session_factory.begin() as session:
+            last_sign_of_life = func.coalesce(
+                OperatorOperationRunRecord.heartbeat_at, OperatorOperationRunRecord.created_at
+            )
+            interrupted = list(
+                session.scalars(
+                    update(OperatorOperationRunRecord)
+                    .where(
+                        OperatorOperationRunRecord.status.in_(LIVE_STATUSES),
+                        last_sign_of_life < func.now() - self._stale_after,
+                    )
+                    .values(
+                        status=OperationRunStatus.INTERRUPTED.value,
+                        finished_at=func.now(),
+                        error=(
+                            f"no heartbeat for {int(self._stale_after.total_seconds())} s: "
+                            "the process running it stopped"
+                        ),
+                    )
+                    .returning(OperatorOperationRunRecord.id)
+                ).all()
+            )
+        for run_id in interrupted:
+            logger.warning("event=operation_run_interrupted run_id=%s", run_id)
+        return interrupted
+
+    @staticmethod
+    def _with_defaults(
+        definition: OperationDefinition, parameters: OperationParameters
+    ) -> OperationParameters:
+        defaults = definition.default_parameters.model_dump()
+        provided = parameters.model_dump(exclude_none=True)
+        return OperationParameters(**(defaults | provided))
+
+    def _execute(self, run_id: int) -> None:
+        if not self._claim(run_id):
+            return
+        try:
+            result = self._process_runner(
+                self._command(run_id),
+                lambda stdout="", stderr="": self._heartbeat(run_id, stdout, stderr),
+            )
+        except BaseException as exc:  # noqa: BLE001 - recorded for operator inspection
+            self._finish_or_log(
+                run_id,
+                status=OperationRunStatus.FAILED,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+            return
+        self._finish_or_log(
+            run_id,
+            status=(
+                OperationRunStatus.SUCCEEDED
+                if result.return_code == 0
+                else OperationRunStatus.FAILED
+            ),
+            return_code=result.return_code,
+            stdout=_tail(result.stdout),
+            stderr=_tail(result.stderr),
+        )
+        self._continue_chain(run_id)
+
+    def _continue_chain(self, run_id: int) -> None:
+        """«Сделать всё»: start the step after a chained one that ended well.
+
+        The ending is read back from the database, not taken from the process: a run the
+        operator stopped while its process was finishing is `interrupted` there, and a
+        stopped chain must not go on."""
+        try:
+            with self._session_factory() as session:
+                record = session.get(OperatorOperationRunRecord, run_id)
+                if record is None or record.operation_name != "monitor":
+                    return
+                parameters = OperationParameters(**record.parameters)
+                status = OperationRunStatus(record.status)
+                partly = (
+                    parameters.chain
+                    and parameters.mode == "load"
+                    and status is OperationRunStatus.FAILED
+                    and _load_partly_done(session, record)
+                )
+            following = (
+                next_in_chain(parameters.mode, status, load_partly_done=partly)
+                if parameters.chain
+                else None
+            )
+            if following is None:
+                return
+            started = self.start(
+                "monitor",
+                OperationParameters(
+                    mode=following,
+                    chain=True,
+                    entity_model=parameters.entity_model,
+                    decision_model=parameters.decision_model,
+                ),
+            )
+            logger.info(
+                "event=operation_chain_continued after_run=%s mode=%s run_id=%s",
+                run_id,
+                following,
+                started.id,
+            )
+        except OperationConflictError:
+            logger.warning("event=operation_chain_blocked after_run=%s", run_id)
+        except Exception:
+            # The step itself is recorded; a chain that cannot go on is not its failure.
+            logger.exception("event=operation_chain_failed after_run=%s", run_id)
+
+    def _command(self, run_id: int) -> list[str]:
+        with self._session_factory() as session:
+            record = session.get(OperatorOperationRunRecord, run_id)
+            assert record is not None
+            return list(record.command)
+
+    def _claim(self, run_id: int) -> bool:
+        """pending → running, only if the run is still pending (not interrupted meanwhile)."""
+        with self._session_factory.begin() as session:
+            claimed = session.execute(
+                update(OperatorOperationRunRecord)
+                .where(
+                    OperatorOperationRunRecord.id == run_id,
+                    OperatorOperationRunRecord.status == OperationRunStatus.PENDING.value,
+                )
+                .values(
+                    status=OperationRunStatus.RUNNING.value,
+                    started_at=func.now(),
+                    heartbeat_at=func.now(),
+                    worker_id=self._worker_id,
+                )
+                .returning(OperatorOperationRunRecord.id)
+            ).first()
+        return claimed is not None
+
+    def _heartbeat(self, run_id: int, stdout: str = "", stderr: str = "") -> bool:
+        """Beat and store the output so far; False once the run is no longer ours to run
+        (stopped by the operator, or interrupted as stale)."""
+        # A missed beat is not the end of the run: the process goes on, and a database
+        # that stays away makes the run stale, then interrupted.
+        try:
+            with self._session_factory.begin() as session:
+                beat = session.execute(
+                    self._running_here(run_id)
+                    .values(heartbeat_at=func.now(), stdout=_tail(stdout), stderr=_tail(stderr))
+                    .returning(OperatorOperationRunRecord.id)
+                ).first()
+        except SQLAlchemyError:
+            logger.exception("event=operation_run_heartbeat_failed run_id=%s", run_id)
+            return True
+        if beat is None:
+            logger.warning("event=operation_run_stopping run_id=%s", run_id)
+        return beat is not None
+
+    def _finish_or_log(self, run_id: int, *, status: OperationRunStatus, **values: Any) -> None:
+        # Unrecorded, the run turns interrupted as stale; the log keeps the real ending.
+        try:
+            self._finish(run_id, status=status, **values)
+        except Exception:
+            logger.exception(
+                "event=operation_run_finish_failed run_id=%s status=%s return_code=%s",
+                run_id,
+                status.value,
+                values.get("return_code"),
+            )
+
+    def _finish(self, run_id: int, *, status: OperationRunStatus, **values: Any) -> None:
+        # Fencing: a run interrupted as stale while its process lived keeps `interrupted`.
+        with self._session_factory.begin() as session:
+            session.execute(
+                self._running_here(run_id).values(
+                    status=status.value, finished_at=func.now(), heartbeat_at=func.now(), **values
+                )
+            )
+
+    def _running_here(self, run_id: int) -> Any:
+        return update(OperatorOperationRunRecord).where(
+            OperatorOperationRunRecord.id == run_id,
+            OperatorOperationRunRecord.status == OperationRunStatus.RUNNING.value,
+            OperatorOperationRunRecord.worker_id == self._worker_id,
+        )
+
+
+def _to_run(record: OperatorOperationRunRecord) -> OperationRun:
+    definition = OPERATION_DEFINITIONS.get(record.operation_name) or OperationDefinition(
+        name=record.operation_name,
+        title=record.operation_name,
+        description="",
+        next_action="",
+        warning="",
+        default_parameters=OperationParameters(),
+    )
+    return OperationRun(
+        id=record.id,
+        operation=definition,
+        parameters=OperationParameters(**record.parameters),
+        status=OperationRunStatus(record.status),
+        created_at=record.created_at,
+        started_at=record.started_at,
+        finished_at=record.finished_at,
+        command=list(record.command),
+        return_code=record.return_code,
+        stdout=record.stdout,
+        stderr=record.stderr,
+        error=record.error,
+        heartbeat_at=record.heartbeat_at,
+        worker_id=record.worker_id,
+    )
+
+
+def _tail(text: str, *, limit: int = OUTPUT_LIMIT) -> str:
+    return text[-limit:]
+
+
+# Monitor modes over the whole database, and the command of each.
+# The cycle of the monitor's steps, in order: what «Сделать всё» runs one after another.
+MONITOR_CYCLE: tuple[Literal["load", "purge", "entities", "figurants", "political"], ...] = (
+    "load",
+    "purge",
+    "entities",
+    "figurants",
+    "political",
+)
+
+
+# The exit code of `monitor` when a source was skipped because another load of it is
+# already running (the scheduled one): `cli.monitoring.MONITOR_EXIT_ALREADY_RUNNING`.
+_LOAD_ALREADY_RUNNING = 3
+# A source's own run of the load that reached its end, with or without errors in it.
+_SOURCE_LOADED = ("completed", "completed_with_errors")
+
+
+def _load_partly_done(session: Session, record: OperatorOperationRunRecord) -> bool:
+    """A load that ended «failed» still did its work when one source of many broke: at
+    least one source's own run, started by this load, reached its end — and no source was
+    skipped because another load was running.
+
+    The exit code alone does not tell «one source did not answer» from «none did» or from
+    «another load holds the sources»: after either of those the steps that delete and that
+    cost money must not start by themselves."""
+    if record.return_code == _LOAD_ALREADY_RUNNING or record.started_at is None:
+        return False
+    loaded = session.scalar(
+        text(
+            "SELECT count(*) FROM monitoring_runs WHERE source IS NOT NULL "
+            "AND started_at >= :since AND status = ANY(:loaded)"
+        ),
+        {"since": record.started_at, "loaded": list(_SOURCE_LOADED)},
+    )
+    return bool(loaded)
+
+
+def next_in_chain(
+    mode: str | None, status: OperationRunStatus, *, load_partly_done: bool = False
+) -> Literal["load", "purge", "entities", "figurants", "political"] | None:
+    """The step a chain starts after `mode` ended with `status`; None when it ends there.
+
+    A step that succeeded is followed by the next; the last is followed by nothing. A
+    load «failed» when one of many sources did: with `load_partly_done` its articles are
+    loaded, and one broken source must not hold the rest of the night's work. Any other
+    failure ends the chain."""
+    if mode not in MONITOR_CYCLE:
+        return None
+    done = status is OperationRunStatus.SUCCEEDED or (
+        status is OperationRunStatus.FAILED and mode == "load" and load_partly_done
+    )
+    index = MONITOR_CYCLE.index(mode)
+    return MONITOR_CYCLE[index + 1] if done and index + 1 < len(MONITOR_CYCLE) else None
+
+
+# The steps that ask the entity model; the purge's Jev and the list check are not.
+ENTITY_MODEL_MODES = frozenset({"entities", "figurants", "political"})
+
+_WHOLE_DATABASE_COMMANDS = {
+    "purge": "purge-junk",
+    "entities": "collect-entities",
+    "rosfin": "check-entities-rosfin",
+    "figurants": "find-figurants",
+    "political": "find-political",
+}
+
+
+def _command_for(name: str, parameters: OperationParameters, program: tuple[str, ...]) -> list[str]:
+    main = list(program)
+    if name == "monitor" and parameters.mode in _WHOLE_DATABASE_COMMANDS:
+        if parameters.source is not None or parameters.sources is not None:
+            raise ValueError(f"{parameters.mode} takes no sources: it covers the whole database")
+        command = [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
+        if parameters.mode in ENTITY_MODEL_MODES and parameters.entity_model:
+            command += ["--entity-model", parameters.entity_model]
+        if parameters.mode in ENTITY_MODEL_MODES and parameters.decision_model:
+            command += ["--decision-model", parameters.decision_model]
+        return command
+    if name == "monitor" and parameters.mode == "resolve":
+        if parameters.source is not None:
+            raise ValueError("resolution takes sources, not source")
+        command = [*main, "monitor-resolve"]
+        for source in _require_news_sources(parameters.sources or []):
+            command += ["--selected-source", source]
+        return command
+    command = [*main, name]
+    if name == "monitor":
+        command.append("--catch-up")
+        if parameters.sources is not None:
+            if parameters.source is not None:
+                raise ValueError("source and sources cannot both be set")
+            for source in _require_news_sources(parameters.sources):
+                command += ["--selected-source", source]
+        elif parameters.source:
+            command += ["--source", _require_source(parameters.source)]
+        if parameters.mode == "load":
+            command.append("--load-only")
+        if parameters.published_from is not None:
+            command += ["--published-from", parameters.published_from]
+        if parameters.published_to is not None:
+            command += ["--published-to", parameters.published_to]
+        # Only an explicit limit: unset, the monitor's own ceiling applies.
+        if parameters.limit is not None:
+            command += ["--limit", str(parameters.limit)]
+    elif name == "discover-and-ingest":
+        source = _require_source(parameters.source)
+        command += ["--source", source, "--limit", str(_require_limit(parameters.limit))]
+    elif name == "extract-entities":
+        if parameters.source:
+            command += ["--source", _require_source(parameters.source)]
+        command += ["--limit", str(_require_limit(parameters.limit))]
+    elif name == "resolve-people":
+        command += ["--limit", str(_require_limit(parameters.limit))]
+        command += ["--workers", str(parameters.workers or 1)]
+    elif name == "classify-persecution":
+        command += ["--limit", str(_require_limit(parameters.limit))]
+    else:
+        raise OperationNotFoundError(name)
+    return command
+
+
+def _require_source(source: str | None) -> str:
+    if source not in SOURCES:
+        raise ValueError(f"unknown source: {source}")
+    return source
+
+
+def _require_news_sources(sources: list[str]) -> list[str]:
+    if not sources:
+        raise ValueError("at least one news source is required")
+    unique = list(dict.fromkeys(sources))
+    for source in unique:
+        if source not in SOURCES:
+            raise ValueError(f"unknown source: {source}")
+        if SOURCES[source].kind is not SourceKind.NEWS:
+            raise ValueError(f"source is not a news source: {source}")
+    return unique
+
+
+def _require_limit(limit: int | None) -> int:
+    if limit is None:
+        raise ValueError("limit is required")
+    return limit
+
+
+def operation_run_to_dict(run: OperationRun) -> dict[str, Any]:
+    return {
+        "id": run.id,
+        "operation": run.operation.name,
+        "title": run.operation.title,
+        "parameters": run.parameters.model_dump(),
+        "status": run.status.value,
+        "created_at": run.created_at.isoformat(),
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+        "duration_seconds": run.duration_seconds,
+        "command": run.command,
+        "return_code": run.return_code,
+        "stdout": run.stdout,
+        "stderr": run.stderr,
+        "error": run.error,
+    }

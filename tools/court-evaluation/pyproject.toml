@@ -1,0 +1,48 @@
+[project]
+name = "court-evaluation"
+version = "0.1.0"
+description = "Evaluation tooling of court-monitor: benchmarks and measurements over every module. Nothing in production depends on it"
+requires-python = ">=3.13"
+dependencies = [
+    "court-analysis",
+    "court-core",
+    "court-ingestion",
+    "court-investigation",
+    "court-monitor",
+    "court-orchestrator",
+    "court-platform",
+    "court-processing",
+    "court-results",
+    "httpx>=0.28.0",
+    "pydantic>=2.11.0",
+    "sqlalchemy>=2.0,<3.0",
+]
+
+[project.optional-dependencies]
+# The junk screen's measurements (`evaluation.junk_screen`) embed and fit a classifier.
+semantic = [
+    "court-processing[semantic]",
+    "numpy>=2.0",
+    "scikit-learn>=1.5",
+]
+
+[project.scripts]
+court-evaluation = "evaluation.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evaluation"]
+
+[tool.uv.sources]
+court-analysis = { workspace = true }
+court-core = { workspace = true }
+court-ingestion = { workspace = true }
+court-investigation = { workspace = true }
+court-monitor = { workspace = true }
+court-orchestrator = { workspace = true }
+court-platform = { workspace = true }
+court-processing = { workspace = true }
+court-results = { workspace = true }

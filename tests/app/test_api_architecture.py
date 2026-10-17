@@ -19,11 +19,12 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.routing import BaseRoute
+from support.workspace import APP_SRC
 
 from api import app
 
 ROOT = Path(__file__).parents[2]
-SRC = ROOT / "src"
+SRC = APP_SRC
 ROUTES_BEFORE_SPLIT = json.loads((ROOT / "tests/fixtures/api_routes.json").read_text())
 # Routes added after that snapshot was taken. The fixture stays a record of what
 # `api.py` looked like before the split; these are the deliberate additions since, and
@@ -177,7 +178,8 @@ def _run(code: str, *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-c", code],
         cwd=ROOT,
-        env={"PYTHONPATH": str(SRC), "PATH": "/usr/bin:/bin", **env},
+        # No PYTHONPATH: the application is imported as the installed package it is.
+        env={"PATH": "/usr/bin:/bin", **env},
         capture_output=True,
         text=True,
         timeout=120,

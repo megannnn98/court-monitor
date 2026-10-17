@@ -1,4 +1,4 @@
 load_from:
   - python_module:
-      module_name: orchestrator.dagster.definitions
-      working_directory: /app/src
+      # An installed module of the application (apps/court-monitor), found without a path.
+      module_name: dagster_location.definitions

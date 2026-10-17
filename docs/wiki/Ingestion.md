@@ -9,14 +9,14 @@
 
 `SourceIngestion.run(limit)` связывает оба уровня: discovery, затем `IngestionPipeline.run()` по очереди для каждой ссылки. Ошибка одной статьи (`IngestionError`) не прерывает обработку остальных — попадает в `SourceIngestionResult.failures`; программная ошибка (например, `TypeError`) не перехватывается и пробрасывается наверх.
 
-Модели, протоколы, `IngestionPipeline`, `SourceIngestion`, `RetryingDocumentFetcher` и ошибки ingestion лежат в переиспользуемом ядре `monitor_core` — см. [Monitor Core](Monitor-Core.md). Здесь, в `src/ingestion/sources/`, — конкретные источники, парсеры, discovery helpers и SQLAlchemy persistence. Тем же `IngestionPipeline` (через `read()` / `save()`) загружает статьи и automated monitoring — см. [Monitoring](Monitoring.md).
+Модели, протоколы, `IngestionPipeline`, `SourceIngestion`, `RetryingDocumentFetcher` и ошибки ingestion лежат в переиспользуемом ядре `monitor_core` — см. [Monitor Core](Monitor-Core.md). Здесь, в `packages/court-ingestion/src/ingestion/sources/`, — конкретные источники, парсеры, discovery helpers и SQLAlchemy persistence. Тем же `IngestionPipeline` (через `read()` / `save()`) загружает статьи и automated monitoring — см. [Monitoring](Monitoring.md).
 
 ## Быстрый сценарий
 
 ```bash
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
-uv run python src/main.py discover-and-ingest --source tg-example --limit 50
-uv run python src/main.py ingest "https://ovd.info/news/example"
+uv run court-monitor discover-and-ingest --source ovd-info --limit 20
+uv run court-monitor discover-and-ingest --source tg-example --limit 50
+uv run court-monitor ingest "https://ovd.info/news/example"
 ```
 
 Ожидание: новые публикации появляются в `source_documents` и
@@ -36,14 +36,14 @@ uv run python src/main.py ingest "https://ovd.info/news/example"
 
 Все реализуют один и тот же `Protocol SourceAdapter` (`monitor_core.ports`) и берут загрузку листинга из общего `ingestion/sources/discovery_pagination.py`: `fetch_listing_page_with_retry` (retry только на `TransportError`/HTTP 429/5xx с экспоненциальным backoff, обычные 4xx — `PermanentDiscoveryError` без retry). Обход страниц общий — `discover_paginated_references` (dedup по `external_id` между страницами, остановка на пустой странице / странице без новых ссылок) — только у `ovd-info` и `sota-vision`: они нумеруют страницы подряд. Telegram листает по `?before=<id>` до границы по дате, а `sudrf` — по годовым архивам, ссылки на которые читает с уже загруженной страницы, поэтому у обоих свой цикл обхода.
 
-`src/main.py discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
+`uv run court-monitor discover-and-ingest --source <name> --limit N` выбирает источник через `source_registry.SOURCES` — добавление источника не требует правок `IngestionPipeline`, `SourceIngestion` или persistence-интерфейсов, только новых `*_reference.py` / `*_listing_parser.py` / `*_source_adapter.py` / `*_article_parser.py` + запись в реестр.
 
 ### Telegram-каналы
 
-Список каналов — `src/ingestion/sources/telegram/channels.csv` (`username`, `title`, `topics`); добавить канал = добавить строку. Каждый канал — отдельный источник `tg-<username>` (`source_name` = название канала, `base_url` = `https://t.me/<username>`), все включены в monitoring по умолчанию.
+Список каналов — `packages/court-ingestion/src/ingestion/sources/telegram/channels.csv` (`username`, `title`, `topics`); добавить канал = добавить строку. Каждый канал — отдельный источник `tg-<username>` (`source_name` = название канала, `base_url` = `https://t.me/<username>`), все включены в monitoring по умолчанию.
 
 - Discovery листает веб-превью от новых постов к старым (≥ 1 с между страницами канала) и останавливается на `limit` или на постах старше окна истории; посты без текста (только медиа) пропускаются.
-- Окно истории — переменная окружения `TELEGRAM_HISTORY_DAYS` (по умолчанию 30 дней), читается один раз при сборке реестра источников и проверяется при старте процесса (`ApplicationSettings`). Разовый бэкфилл канала глубже 30 дней требует запуска с большим значением, например `TELEGRAM_HISTORY_DAYS=120 uv run python src/main.py discover-and-ingest --source tg-<username> --limit 500`; на обычный monitoring-прогон значение по умолчанию не меняем.
+- Окно истории — переменная окружения `TELEGRAM_HISTORY_DAYS` (по умолчанию 30 дней), читается один раз при сборке реестра источников и проверяется при старте процесса (`ApplicationSettings`). Разовый бэкфилл канала глубже 30 дней требует запуска с большим значением, например `TELEGRAM_HISTORY_DAYS=120 uv run court-monitor discover-and-ingest --source tg-<username> --limit 500`; на обычный monitoring-прогон значение по умолчанию не меняем.
 - Документ — один пост: `https://t.me/<username>/<id>?embed=1&mode=tme` (текст и дата поста; ссылка открывается в браузере). Заголовок — первая строка поста.
 - Аккаунт и API-ключи Telegram не нужны; канал без публичного веб-превью не даёт постов.
 
@@ -61,7 +61,7 @@ uv run python src/main.py ingest "https://ovd.info/news/example"
 Карточка реестра — один преследуемый человек: ФИО, статьи, регион, стадия, мера, категория, список. Поля есть в самом листинге, поэтому адаптер не скачивает страницы: `fetch` отдаёт карточку, найденную при discovery (кеш процесса переживает экземпляр адаптера — мониторинг ищет и загружает разными экземплярами); карточка вне листинга скачивается отдельно с паузой `Crawl-delay`. Полная первичная загрузка — 72 запроса, около 12 минут:
 
 ```bash
-uv run python src/main.py discover-and-ingest --source memopzk-figurants --limit 8000
+uv run court-monitor discover-and-ingest --source memopzk-figurants --limit 8000
 ```
 
 `FigurantParser` пишет из карточки короткий текст («Ярош Сергей Васильевич обвиняется по статьям: ч. 2 ст. 205.2 УК РФ…»). Заголовок карточки — ФИО в именительном падеже: для этого источника извлечение берёт человека из заголовка и не склоняет его. Карточка без полного имени (одни инициалы) не загружается. Изменённая после загрузки карточка не перечитывается.
@@ -106,11 +106,11 @@ Result --> Terminal
 
 ### 1. `WebsiteAdapter.fetch()`
 
-`src/ingestion/sources/website_adapter.py`. Асинхронный GET (`httpx`, timeout 5s, фиксированный `User-Agent`). Возвращает `RawDocument`: `content` (сырые байты), `content_type`, `fetched_at` (UTC, момент загрузки), `url` (после редиректов — `str(response.url)`).
+`packages/court-ingestion/src/ingestion/sources/website_adapter.py`. Асинхронный GET (`httpx`, timeout 5s, фиксированный `User-Agent`). Возвращает `RawDocument`: `content` (сырые байты), `content_type`, `fetched_at` (UTC, момент загрузки), `url` (после редиректов — `str(response.url)`).
 
 ### 2. `OvdInfoArticleParser.parse()`
 
-`src/ingestion/sources/article_parser.py`. HTML-парсинг через `selectolax`, селекторы жёстко заданы под вёрстку ovd.info:
+`packages/court-ingestion/src/ingestion/sources/article_parser.py`. HTML-парсинг через `selectolax`, селекторы жёстко заданы под вёрстку ovd.info:
 
 - заголовок: `h1.express-text-heading`
 - дата публикации: `#article_published`, формат `%d.%m.%Y, %H:%M`, таймзона `Europe/Moscow`
@@ -132,23 +132,23 @@ Result --> Terminal
 
 | Сценарий | Код |
 |---|---|
-| source registry | `src/ingestion/sources/source_registry.py` |
-| models (`SourceReference`, `RawDocument`, `ParsedArticle`, `IngestionResult`) | `src/monitor_core/model/` |
-| source protocols (`DocumentFetcher`, `SourceAdapter`, `ArticleParser`, `IngestionPersistence`) | `src/monitor_core/ports/` |
-| ingestion errors | `src/monitor_core/errors.py` |
-| one article pipeline | `src/monitor_core/ingestion/pipeline.py` |
-| batch source ingestion | `src/monitor_core/ingestion/source_ingestion.py` |
-| fetch retry (`RetryingDocumentFetcher`) | `src/monitor_core/ingestion/retry.py` |
-| discovery helpers | `src/ingestion/sources/discovery_pagination.py` |
-| incremental discovery (`DiscoversUntilKnown`, `KnownIds`) | `src/ingestion/sources/source_adapter.py` |
-| persistence | `src/ingestion/sources/sqlalchemy_persistence.py` |
-| CLI | `src/cli/ingestion.py` |
+| source registry | `packages/court-ingestion/src/ingestion/sources/source_registry.py` |
+| models (`SourceReference`, `RawDocument`, `ParsedArticle`, `IngestionResult`) | `packages/court-core/src/monitor_core/model/` |
+| source protocols (`DocumentFetcher`, `SourceAdapter`, `ArticleParser`, `IngestionPersistence`) | `packages/court-core/src/monitor_core/ports/` |
+| ingestion errors | `packages/court-core/src/monitor_core/errors.py` |
+| one article pipeline | `packages/court-core/src/monitor_core/ingestion/pipeline.py` |
+| batch source ingestion | `packages/court-core/src/monitor_core/ingestion/source_ingestion.py` |
+| fetch retry (`RetryingDocumentFetcher`) | `packages/court-core/src/monitor_core/ingestion/retry.py` |
+| discovery helpers | `packages/court-ingestion/src/ingestion/sources/discovery_pagination.py` |
+| incremental discovery (`DiscoversUntilKnown`, `KnownIds`) | `packages/court-ingestion/src/ingestion/sources/source_adapter.py` |
+| persistence | `packages/court-ingestion/src/ingestion/sources/sqlalchemy_persistence.py` |
+| CLI | `apps/court-monitor/src/cli/ingestion.py` |
 
 ## Проверка
 
 ```bash
 uv run pytest tests/sources tests/monitor_core tests/app/test_discover_and_ingest_characterization.py
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 1
+uv run court-monitor discover-and-ingest --source ovd-info --limit 1
 ```
 
 ## Ограничения и типичные ошибки

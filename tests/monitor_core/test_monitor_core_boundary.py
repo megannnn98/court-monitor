@@ -6,9 +6,12 @@ as does application code reaching past the core's public API or importing the
 import ast
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src"
-CORE = SRC / "monitor_core"
+from support.workspace import REPOSITORY, module_file, source_files, top_level_modules
+
+ROOT = REPOSITORY
+_CORE = module_file("monitor_core")
+assert _CORE is not None
+CORE = _CORE
 PUBLIC_CORE_PACKAGES = {
     "monitor_core.errors",
     "monitor_core.ingestion",
@@ -28,13 +31,8 @@ REMOVED_SHIMS = {
 
 
 def _application_packages() -> set[str]:
-    """Every top-level module of `src` except the core itself: `ingestion`, `db`, ..."""
-    names = {
-        path.stem if path.is_file() else path.name
-        for path in SRC.iterdir()
-        if (path.is_file() and path.suffix == ".py") or (path / "__init__.py").is_file()
-    }
-    return names - {"monitor_core"}
+    """Every top-level module of the workspace except the core itself: `ingestion`, `db`, ..."""
+    return top_level_modules() - {"monitor_core"}
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -56,7 +54,7 @@ def _application_files() -> list[Path]:
     """Python outside the core: the application and the tests."""
     return sorted(
         path
-        for path in [*SRC.rglob("*.py"), *(ROOT / "tests").rglob("*.py")]
+        for path in [*(file for _, file in source_files()), *(ROOT / "tests").rglob("*.py")]
         if CORE not in path.parents
     )
 
@@ -74,7 +72,7 @@ def test_monitor_core_imports_no_application_package() -> None:
     assert core_files, "monitor_core has no modules"
 
     violations = {
-        str(path.relative_to(SRC)): sorted(_imported_top_level_modules(path) & forbidden)
+        str(path.relative_to(CORE.parent)): sorted(_imported_top_level_modules(path) & forbidden)
         for path in core_files
     }
 
@@ -95,9 +93,7 @@ def test_application_imports_the_core_only_through_its_public_packages() -> None
 
 
 def test_removed_ingestion_shims_stay_removed() -> None:
-    still_there = [
-        name for name in REMOVED_SHIMS if (SRC / f"{name.replace('.', '/')}.py").exists()
-    ]
+    still_there = [name for name in REMOVED_SHIMS if module_file(name) is not None]
     importers = {
         str(path.relative_to(ROOT)): sorted(_imported_modules(path) & REMOVED_SHIMS)
         for path in _application_files()

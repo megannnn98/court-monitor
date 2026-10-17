@@ -14,19 +14,19 @@
 Минимальный ручной pipeline:
 
 ```bash
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 10
-uv run python src/main.py extract-entities --limit 100
-uv run python src/main.py resolve-people --limit 100
-uv run python src/main.py classify-persecution --limit 100
-uv run python src/main.py match-rosfinmonitoring --snapshot-id 1
-uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
+uv run court-monitor discover-and-ingest --source ovd-info --limit 10
+uv run court-monitor extract-entities --limit 100
+uv run court-monitor resolve-people --limit 100
+uv run court-monitor classify-persecution --limit 100
+uv run court-monitor match-rosfinmonitoring --snapshot-id 1
+uv run court-monitor list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
 Для регулярной работы чаще нужен monitoring:
 
 ```bash
-uv run python src/main.py monitor --catch-up
-uv run python src/main.py monitoring-status
+uv run court-monitor monitor --catch-up
+uv run court-monitor monitoring-status
 ```
 
 `snapshot-id 1` в примере не универсален: брать реальный id из
@@ -78,16 +78,16 @@ snapshot РФМ подтверждено отсутствие, запись по
 
 | Модуль | Роль |
 |---|---|
-| `src/main.py`, `src/cli/` | CLI и lazy composition context |
-| `src/api.py`, `src/web/` | FastAPI, JSON API, operator console, wiki renderer |
-| `src/ingestion/sources/` | source registry, adapters, fetch, parse, ingestion persistence |
-| `src/processing/extraction/` | rule-based mentions, normalization, events |
-| `src/persons/` | Person persistence, ER v2, review queue, AI review |
-| `src/analysis/persecution/` | political persecution classification |
-| `src/analysis/rosfinmonitoring/` | snapshots and matching |
-| `src/results/candidates/` | final candidate query |
-| `src/orchestrator/` | automated pipeline runs, checkpoints, findings |
-| `src/db/`, `migrations/` | ORM and Alembic schema |
+| `apps/court-monitor/src/main.py`, `apps/court-monitor/src/cli/` | CLI и lazy composition context |
+| `apps/court-monitor/src/api.py`, `apps/court-monitor/src/web/` | FastAPI, JSON API, operator console, wiki renderer |
+| `packages/court-ingestion/src/ingestion/sources/` | source registry, adapters, fetch, parse, ingestion persistence |
+| `packages/court-processing/src/processing/extraction/` | rule-based mentions, normalization, events |
+| `packages/court-processing/src/persons/` | Person persistence, ER v2, review queue, AI review |
+| `packages/court-analysis/src/analysis/persecution/` | political persecution classification |
+| `packages/court-analysis/src/analysis/rosfinmonitoring/` | snapshots and matching |
+| `packages/court-results/src/results/candidates/` | final candidate query |
+| `packages/court-orchestrator/src/orchestrator/` | automated pipeline runs, checkpoints, findings |
+| `packages/court-platform/src/db/`, `migrations/` | ORM and Alembic schema |
 
 ## Данные и артефакты
 
@@ -102,9 +102,9 @@ snapshot РФМ подтверждено отсутствие, запись по
 ## Проверка
 
 ```bash
-uv run python src/main.py validate-config
-uv run ruff check src tests migrations
-uv run mypy --strict src tests
+uv run court-monitor validate-config
+uv run ruff check .
+uv run mypy --strict
 uv run pytest
 ```
 

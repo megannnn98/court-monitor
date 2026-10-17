@@ -2,7 +2,7 @@
 
 ## Зачем это нужно
 
-`src/monitor_core` — переиспользуемое ядро для мониторинга адресуемых текстовых
+`packages/court-core/src/monitor_core` — переиспользуемое ядро для мониторинга адресуемых текстовых
 источников: найти ссылки, скачать документ, разобрать его в текст и отдать
 хранилищу потребителя. Отдельно в ядре лежат OpenAI-совместимый транспорт
 JSON-чата и общий sync/async retry.
@@ -18,7 +18,7 @@ content monitoring; почему граница проведена так — [A
 ## Быстрый сценарий
 
 Новый источник Court Monitor реализует протоколы ядра и регистрируется в
-`src/ingestion/sources/source_registry.py` — ядро при этом не меняется (подробно — в
+`packages/court-ingestion/src/ingestion/sources/source_registry.py` — ядро при этом не меняется (подробно — в
 [Ingestion](Ingestion.md)).
 
 Новый потребитель ядра собирает тот же конвейер из своих частей:
@@ -110,7 +110,7 @@ end
 @enduml
 ```
 
-Пользователи: AI entity review (`src/persons/resolution/ai_review_service.py`,
+Пользователи: AI entity review (`packages/court-processing/src/persons/resolution/ai_review_service.py`,
 sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 (async).
 
@@ -124,9 +124,9 @@ sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 показывать ли тело ответа провайдера и какие у провайдера дополнительные опции,
 принимает клиент:
 
-- OpenRouter — `src/llm/chat.py` (`chat_json`, `Endpoint`, `ModelError`, учёт
+- OpenRouter — `packages/court-platform/src/llm/chat.py` (`chat_json`, `Endpoint`, `ModelError`, учёт
   стоимости);
-- Together и совместимые серверы — `src/llm/together_client.py`.
+- Together и совместимые серверы — `packages/court-platform/src/llm/together_client.py`.
 
 ## Кодовые точки входа
 
@@ -146,18 +146,18 @@ sync, `attempts = ENTITY_REVIEW_MAX_RETRIES + 1`) и `RetryingDocumentFetcher`
 
 | Сценарий | Код |
 |---|---|
-| CLI `ingest` / `discover-and-ingest` | `src/cli/ingestion.py` |
-| automated monitoring | `src/orchestrator/service.py` (`_ingest_references`) |
-| источники, парсеры, discovery | `src/ingestion/sources/` |
-| хранилище и его результат `SqlAlchemyPersistenceResult` | `src/ingestion/sources/sqlalchemy_persistence.py` |
-| OpenRouter / Together | `src/llm/chat.py`, `src/llm/together_client.py` |
-| AI entity review retry | `src/persons/resolution/ai_review_service.py` |
+| CLI `ingest` / `discover-and-ingest` | `apps/court-monitor/src/cli/ingestion.py` |
+| automated monitoring | `packages/court-orchestrator/src/orchestrator/service.py` (`_ingest_references`) |
+| источники, парсеры, discovery | `packages/court-ingestion/src/ingestion/sources/` |
+| хранилище и его результат `SqlAlchemyPersistenceResult` | `packages/court-ingestion/src/ingestion/sources/sqlalchemy_persistence.py` |
+| OpenRouter / Together | `packages/court-platform/src/llm/chat.py`, `packages/court-platform/src/llm/together_client.py` |
+| AI entity review retry | `packages/court-processing/src/persons/resolution/ai_review_service.py` |
 
 ## Проверка
 
 ```bash
 uv run pytest tests/monitor_core
-uv run mypy --strict src tests
+uv run mypy --strict
 ```
 
 Инварианты, которые охраняют тесты:
@@ -188,9 +188,9 @@ uv run mypy --strict src tests
   `extra_body`.
 - `CHAT_ENVELOPE_ERRORS` — это встроенные `ValueError`/`KeyError`/`IndexError`/
   `TypeError`, а не собственный тип ошибки.
-- Намеренно не перенесены: retry в `src/processing/junk/decision_screen.py`,
-  `fetch_listing_page_with_retry` в `src/ingestion/sources/discovery_pagination.py`,
-  Anthropic-путь в `src/processing/identity/normalizer.py`, `src/llm/cli_reviewer.py`.
+- Намеренно не перенесены: retry в `packages/court-processing/src/processing/junk/decision_screen.py`,
+  `fetch_listing_page_with_retry` в `packages/court-ingestion/src/ingestion/sources/discovery_pagination.py`,
+  Anthropic-путь в `packages/court-processing/src/processing/identity/normalizer.py`, `packages/court-processing/src/persons/resolution/cli_reviewer.py`.
 - Отложено (не баги): `ParsedArticle` / `ArticleParser` уже, чем реальная
   семантика документа; параметр `IngestionPipeline(source_adapter=...)` принимает
   любой `DocumentFetcher`; `monitor_core/ingestion/retry.py` можно переименовать в

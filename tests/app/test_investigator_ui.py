@@ -24,7 +24,7 @@ from db.orm_models import (
 from orchestrator.operations import OperationRegistry
 from processing.identity.collector import EntityCollector
 from web.app import app
-from web.dependencies import get_db, get_operation_registry
+from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
 MOOR = "александр моор"
 ARREST = "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ."
@@ -33,7 +33,9 @@ QUOTE = "Александра Моора арестовали за антиво�
 
 @contextmanager
 def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
-    registry = OperationRegistry(session_factory, executor=lambda _work: None)
+    registry = OperationRegistry(
+        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
+    )
 
     def override_get_db() -> Iterator[Session]:
         with session_factory() as session:

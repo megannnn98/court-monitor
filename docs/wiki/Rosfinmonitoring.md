@@ -14,7 +14,7 @@
 
 Сверка идёт в начале шага 5 «Отобрать политические дела и сверить с РФМ»
 (`find-political`); отдельно, без оценки политичности, — CLI `check-entities-rosfin`.
-Код — `src/analysis/rosfinmonitoring/rf_check.py`. Если сверка упала, шаг всё равно оценивает
+Код — `packages/court-analysis/src/analysis/rosfinmonitoring/rf_check.py`. Если сверка упала, шаг всё равно оценивает
 политичность, а карточка запуска говорит, почему перечень не сверен.
 
 1. Скачивает перечень с fedsfm.ru; если он изменился — сохраняет новый снимок и
@@ -111,9 +111,9 @@ fedsfm.ru публикует, кто в перечне, и не публикуе
 - **Уже записанная дата не переносится.** Файл пересобирают, и дата, которая была
   известна вчера, не должна меняться от запуска к запуску.
 
-Код: `src/analysis/rosfinmonitoring/inclusion_dates.py` (чтение), `inclusion_store.py` (запись),
+Код: `packages/court-analysis/src/analysis/rosfinmonitoring/inclusion_dates.py` (чтение), `inclusion_store.py` (запись),
 `membership.py` (что можно сказать о человеке). Всё это вызывается из
-`src/analysis/rosfinmonitoring/rf_check.py` при **каждой** сверке, а не только при импорте снимка:
+`packages/court-analysis/src/analysis/rosfinmonitoring/rf_check.py` при **каждой** сверке, а не только при импорте снимка:
 
 - сначала **предыдущий снимок** — наша же запись того же перечня, там уже известен день;
 - затем файл ОВД-Инфо — для того, чего предыдущий снимок не покрыл;
@@ -161,7 +161,7 @@ RFM_TABLE_SHARE_URL=https://airtable.com/appExample0000003/shrExample0000004
 ### Статьи, по которым включают в перечень
 
 Со слов оператора (29.09.2026) в перечень включают по статьям УК: все 205-е, все 281-е, все
-282-е и 208; иногда — по 280 и 207.3. Список лежит в `src/analysis/rosfinmonitoring/rf_articles.py`. По нему у
+282-е и 208; иногда — по 280 и 207.3. Список лежит в `packages/court-analysis/src/analysis/rosfinmonitoring/rf_articles.py`. По нему у
 человека с именем рядом со словом перечня стоит одна из трёх пометок:
 
 | Пометка | Когда |
@@ -230,10 +230,10 @@ snapshot попадает в candidates.
 curl http://127.0.0.1:8001/rosfinmonitoring/snapshots
 
 # сматчить persons к конкретному snapshot
-uv run python src/main.py match-rosfinmonitoring --snapshot-id 1 --limit 20000
+uv run court-monitor match-rosfinmonitoring --snapshot-id 1 --limit 20000
 
 # получить candidates после classification + RF match
-uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
+uv run court-monitor list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
 `snapshot-id 1` заменить на реальный id. Если snapshot отсутствует, RF stage и
@@ -290,16 +290,16 @@ Match statuses:
 
 | Сценарий | Код |
 |---|---|
-| parsing/import | `src/analysis/rosfinmonitoring/` |
-| matching | `src/analysis/rosfinmonitoring/matcher.py` |
-| даты включения | `src/analysis/rosfinmonitoring/inclusion_dates.py`, `inclusion_store.py` |
-| таблица оператора | `src/analysis/rosfinmonitoring/operator_table.py` |
-| что можно сказать о человеке | `src/analysis/rosfinmonitoring/membership.py` |
-| страница списка и фильтр | `src/web/ui/rfm_list.py` |
-| snapshot lookup | `src/analysis/rosfinmonitoring/snapshot_lookup.py` |
-| CLI | `src/cli/rosfinmonitoring.py` |
-| candidate query | `src/results/candidates/service.py` |
-| API | `src/web/routers/rosfinmonitoring.py` |
+| parsing/import | `packages/court-analysis/src/analysis/rosfinmonitoring/` |
+| matching | `packages/court-analysis/src/analysis/rosfinmonitoring/matcher.py` |
+| даты включения | `packages/court-analysis/src/analysis/rosfinmonitoring/inclusion_dates.py`, `inclusion_store.py` |
+| таблица оператора | `packages/court-analysis/src/analysis/rosfinmonitoring/operator_table.py` |
+| что можно сказать о человеке | `packages/court-analysis/src/analysis/rosfinmonitoring/membership.py` |
+| страница списка и фильтр | `apps/court-monitor/src/web/ui/rfm_list.py` |
+| snapshot lookup | `packages/court-analysis/src/analysis/rosfinmonitoring/snapshot_lookup.py` |
+| CLI | `apps/court-monitor/src/cli/rosfinmonitoring.py` |
+| candidate query | `packages/court-results/src/results/candidates/service.py` |
+| API | `apps/court-monitor/src/web/routers/rosfinmonitoring.py` |
 
 ## Данные и артефакты
 
@@ -317,9 +317,9 @@ Match statuses:
 ## Команды и API
 
 ```bash
-uv run python src/main.py match-rosfinmonitoring --snapshot-id 1 --person-id 42
-uv run python src/main.py match-rosfinmonitoring --snapshot-id 1 --limit 1000
-uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
+uv run court-monitor match-rosfinmonitoring --snapshot-id 1 --person-id 42
+uv run court-monitor match-rosfinmonitoring --snapshot-id 1 --limit 1000
+uv run court-monitor list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
 ```bash
