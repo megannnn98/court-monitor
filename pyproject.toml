@@ -5,10 +5,12 @@ description = "Recovered first vertical slice of court-monitor"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "court-analysis",
     "court-core",
     "court-ingestion",
     "court-platform",
     "court-processing",
+    "court-results",
     "alembic>=1.19.1",
     "anthropic>=1.8.0",
     "curl-cffi>=0.16.3,<0.17",
@@ -37,10 +39,12 @@ dependencies = [
 members = ["packages/*"]
 
 [tool.uv.sources]
+court-analysis = { workspace = true }
 court-core = { workspace = true }
 court-ingestion = { workspace = true }
 court-platform = { workspace = true }
 court-processing = { workspace = true }
+court-results = { workspace = true }
 
 [tool.ruff]
 target-version = "py313"

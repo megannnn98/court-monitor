@@ -9,11 +9,13 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "court-analysis",
     "court-core",
     "court-ingestion",
     "court-monitor-recovered",
     "court-platform",
     "court-processing",
+    "court-results",
 ]
 
 [[package]]
@@ -446,6 +448,33 @@ wheels = [
 ]
 
 [[package]]
+name = "court-analysis"
+version = "0.1.0"
+source = { editable = "packages/court-analysis" }
+dependencies = [
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "curl-cffi" },
+    { name = "httpx" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "rapidfuzz" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "curl-cffi", specifier = ">=0.16.3,<0.17" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pyarrow", specifier = ">=21.0.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "rapidfuzz", specifier = ">=3.14" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
 name = "court-core"
 version = "0.1.0"
 source = { editable = "packages/court-core" }
@@ -490,10 +519,12 @@ source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
     { name = "anthropic" },
+    { name = "court-analysis" },
     { name = "court-core" },
     { name = "court-ingestion" },
     { name = "court-platform" },
     { name = "court-processing" },
+    { name = "court-results" },
     { name = "curl-cffi" },
     { name = "dagster" },
     { name = "dagster-postgres" },
@@ -529,10 +560,12 @@ semantic = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.19.1" },
     { name = "anthropic", specifier = ">=1.8.0" },
+    { name = "court-analysis", editable = "packages/court-analysis" },
     { name = "court-core", editable = "packages/court-core" },
     { name = "court-ingestion", editable = "packages/court-ingestion" },
     { name = "court-platform", editable = "packages/court-platform" },
     { name = "court-processing", editable = "packages/court-processing" },
+    { name = "court-results", editable = "packages/court-results" },
     { name = "curl-cffi", specifier = ">=0.16.3,<0.17" },
     { name = "dagster", specifier = ">=1.13.22" },
     { name = "dagster-postgres", specifier = ">=0.29.22" },
@@ -618,6 +651,31 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
 ]
 provides-extras = ["semantic"]
+
+[[package]]
+name = "court-results"
+version = "0.1.0"
+source = { editable = "packages/court-results" }
+dependencies = [
+    { name = "court-analysis" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pymorphy3" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pymorphy3", specifier = ">=2.0.6" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
 
 [[package]]
 name = "cssselect2"
