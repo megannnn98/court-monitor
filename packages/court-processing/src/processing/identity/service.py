@@ -48,6 +48,7 @@ __all__ = [
     "SIMILAR",
     "CollectResult",
     "EntityRef",
+    "IdentityDownstream",
     "IdentityService",
     "KeyIndex",
     "Pair",

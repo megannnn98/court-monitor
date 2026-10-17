@@ -38,6 +38,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion.commands import discard_articles
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
 from processing.junk.article_screen import ArticleScreen, ExplainingScreen
 from processing.junk.screen import HELD, reason
@@ -263,22 +264,7 @@ class JunkPurge:
                 ids,
             ).all()
         )
-        documents = list(
-            session.scalars(
-                text(
-                    "DELETE FROM parsed_articles WHERE id IN :ids RETURNING document_id"
-                ).bindparams(bindparam("ids", expanding=True)),
-                ids,
-            ).all()
-        )
-        # The tombstone: the post stays known to discovery, its content goes.
-        session.execute(
-            text(
-                "UPDATE source_documents SET raw_content = '', "
-                "content_type = coalesce(:content_type, content_type) WHERE id IN :documents"
-            ).bindparams(bindparam("documents", expanding=True)),
-            {"documents": documents, "content_type": content_type},
-        )
+        discard_articles(session, article_ids, content_type=content_type)
         return persons
 
     def _purge_orphans(self, session: Session, person_ids: Sequence[int]) -> int:

@@ -30,6 +30,18 @@ def done_marks(db: Session) -> dict[str, datetime | None]:
     }
 
 
+def mark_done(session: Session, key: str, *, done: bool, news_at: datetime | None) -> None:
+    """Apply the operator's mark in the caller's transaction, retaining its news cutoff."""
+    mark = session.get(EntityDoneMarkRecord, key)
+    if done:
+        if mark is None:
+            mark = EntityDoneMarkRecord(key=key)
+            session.add(mark)
+        mark.news_at = news_at
+    elif mark is not None:
+        session.delete(mark)
+
+
 def is_done(marks: Marks, key: str, latest: datetime | None) -> bool:
     """Marked, and no news about the person later than the one the mark saw."""
     if key not in marks:

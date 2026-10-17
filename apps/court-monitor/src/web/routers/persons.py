@@ -1,14 +1,10 @@
 """Persons: canonical records, aliases, classification, events."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from analysis.persecution.queries import latest_persecution_classification_ids
-from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
-from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
-from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
-from processing.storage.models import ArticleExtractionRunRecord, ExtractedEventRecord
+from analysis import read as analysis_read
+from persons import read as person_read
 from web.dependencies import get_db
 from web.response_models import (
     EvidenceSpanResponse,
@@ -33,12 +29,7 @@ def list_persons(
 ) -> list[PersonResponse]:
     """List all persons."""
     # Ordered: offset pagination must not skip or repeat rows between pages.
-    query = select(PersonRecord).order_by(PersonRecord.id).offset(offset).limit(limit)
-
-    if status:
-        query = query.where(PersonRecord.status == status)
-
-    persons = db.scalars(query).all()
+    persons = person_read.browse_persons(db, status=status, limit=limit, offset=offset)
 
     return [
         PersonResponse(
@@ -59,7 +50,7 @@ def get_person(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> PersonResponse:
     """Get a person by ID."""
-    person = db.get(PersonRecord, person_id)
+    person = person_read.person(db, person_id)
 
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -80,13 +71,11 @@ def get_person_aliases(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[PersonAliasResponse]:
     """Get all aliases for a person."""
-    person = db.get(PersonRecord, person_id)
+    person = person_read.person(db, person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
 
-    aliases = db.scalars(
-        select(PersonAliasRecord).where(PersonAliasRecord.person_id == person_id)
-    ).all()
+    aliases = person_read.aliases(db, person_id, ordered=False)
 
     return [
         PersonAliasResponse(
@@ -111,16 +100,11 @@ def get_person_persecution(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> PersecutionClassificationResponse | None:
     """Get persecution classification for a person."""
-    person = db.get(PersonRecord, person_id)
+    person = person_read.person(db, person_id)
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
 
-    classification = db.scalars(
-        select(PersecutionClassificationRecord).where(
-            PersecutionClassificationRecord.person_id == person_id,
-            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
-        )
-    ).first()
+    classification = analysis_read.person_classification(db, person_id)
 
     if not classification:
         return None
@@ -137,7 +121,7 @@ def get_person_persecution(
     )
 
 
-def _person_response(person: PersonRecord) -> PersonResponse:
+def _person_response(person: person_read.PersonSummary) -> PersonResponse:
     return PersonResponse(
         id=person.id,
         canonical_name=person.canonical_name,
@@ -148,7 +132,7 @@ def _person_response(person: PersonRecord) -> PersonResponse:
     )
 
 
-def _alias_response(alias: PersonAliasRecord) -> PersonAliasResponse:
+def _alias_response(alias: person_read.Alias) -> PersonAliasResponse:
     return PersonAliasResponse(
         id=alias.id,
         person_id=alias.person_id,
@@ -163,12 +147,7 @@ def _alias_response(alias: PersonAliasRecord) -> PersonAliasResponse:
 def _latest_persecution_response(
     db: Session, person_id: int
 ) -> PersecutionClassificationResponse | None:
-    classification = db.scalars(
-        select(PersecutionClassificationRecord).where(
-            PersecutionClassificationRecord.person_id == person_id,
-            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
-        )
-    ).first()
+    classification = analysis_read.person_classification(db, person_id)
     if classification is None:
         return None
     return PersecutionClassificationResponse(
@@ -184,12 +163,7 @@ def _latest_persecution_response(
 
 
 def _latest_rosfin_match_response(db: Session, person_id: int) -> LatestRosfinMatchResponse | None:
-    match = db.scalars(
-        select(RosfinMatchRecord)
-        .where(RosfinMatchRecord.person_id == person_id)
-        .order_by(RosfinMatchRecord.snapshot_id.desc(), RosfinMatchRecord.id.desc())
-        .limit(1)
-    ).first()
+    match = analysis_read.person_list_match(db, person_id)
     if match is None:
         return None
     return LatestRosfinMatchResponse(
@@ -208,53 +182,29 @@ def get_person_events(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[PersonEventResponse]:
     """Events linked to a Person, each with its source article span."""
-    person = db.get(PersonRecord, person_id)
+    person = person_read.person(db, person_id)
     if person is None:
         raise HTTPException(status_code=404, detail="Person not found")
 
-    rows = db.execute(
-        select(
-            PersonEventLinkRecord,
-            ExtractedEventRecord,
-            ParsedArticleRecord,
-            SourceDocument,
-            Source,
+    return [
+        PersonEventResponse(
+            id=event.id,
+            event_type=event.event_type,
+            event_date=event.event_date.isoformat() if event.event_date else None,
+            role=event.role,
+            confidence=event.confidence,
+            evidence=EvidenceSpanResponse(
+                article_id=event.article_id,
+                source_name=event.source_name,
+                title=event.title,
+                url=event.url,
+                start_offset=event.start_offset,
+                end_offset=event.end_offset,
+                text=event.text,
+            ),
         )
-        .join(ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id)
-        .join(
-            ArticleExtractionRunRecord,
-            ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
-        )
-        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
-        .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
-        .join(Source, Source.id == SourceDocument.source_id)
-        .where(PersonEventLinkRecord.person_id == person_id)
-        .order_by(
-            ExtractedEventRecord.event_date.desc().nullslast(), ExtractedEventRecord.id.desc()
-        )
-    ).all()
-
-    events: list[PersonEventResponse] = []
-    for link, event, article, document, source in rows:
-        events.append(
-            PersonEventResponse(
-                id=event.id,
-                event_type=event.event_type,
-                event_date=event.event_date.isoformat() if event.event_date else None,
-                role=link.role,
-                confidence=link.confidence,
-                evidence=EvidenceSpanResponse(
-                    article_id=article.id,
-                    source_name=source.name,
-                    title=article.title,
-                    url=document.canonical_url,
-                    start_offset=event.start_offset,
-                    end_offset=event.end_offset,
-                    text=article.text[event.start_offset : event.end_offset],
-                ),
-            )
-        )
-    return events
+        for event in person_read.event_evidence(db, person_id)
+    ]
 
 
 @router.get("/persons/{person_id}/detail", response_model=PersonDetailResponse)
@@ -263,14 +213,10 @@ def get_person_detail(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> PersonDetailResponse:
     """Person card data: aliases, classifications, RF status and evidence-backed events."""
-    person = db.get(PersonRecord, person_id)
+    person = person_read.person(db, person_id)
     if person is None:
         raise HTTPException(status_code=404, detail="Person not found")
-    aliases = db.scalars(
-        select(PersonAliasRecord)
-        .where(PersonAliasRecord.person_id == person_id)
-        .order_by(PersonAliasRecord.id)
-    ).all()
+    aliases = person_read.aliases(db, person_id, ordered=True)
     return PersonDetailResponse(
         person=_person_response(person),
         aliases=[_alias_response(alias) for alias in aliases],

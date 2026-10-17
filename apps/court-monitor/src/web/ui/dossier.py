@@ -42,7 +42,7 @@ from application import group_followers
 from ingestion import read as articles
 from processing import read as identity
 from processing.evidence.publications import Evidence, latest_first, person_evidence, quoted
-from processing.identity.downstream import IdentityDownstream
+from processing.identity.service import IdentityDownstream
 from processing.roles.officials import OFFICIAL_KINDS
 from processing.roles.roles import FIGURANT
 from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord

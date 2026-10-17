@@ -20,6 +20,11 @@ from db.arrays import any_of
 from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 
 
+def article_count(session: Session) -> int:
+    """Number of stored parsed articles, including ones not yet extracted."""
+    return session.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0
+
+
 @dataclass(frozen=True)
 class ArticleCard:
     """What a page or a quote says of an article: where it is from and when."""
@@ -43,6 +48,43 @@ class StoredArticle:
     url: str
     source_name: str
     source_base_url: str
+
+
+@dataclass(frozen=True)
+class ArticleDetail:
+    """Article inspection, including the source's original publication id."""
+
+    id: int
+    source_name: str
+    external_id: str
+    title: str
+    published_at: datetime | None
+    url: str
+    text: str
+
+
+def article_detail(session: Session, article_id: int) -> ArticleDetail | None:
+    """One article with source provenance and full text; None if it is no longer stored."""
+    row = session.execute(
+        _joined(
+            ParsedArticleRecord.id,
+            Source.name,
+            SourceDocument.external_id,
+            ParsedArticleRecord.title,
+            ParsedArticleRecord.published_at,
+            SourceDocument.canonical_url,
+            ParsedArticleRecord.text,
+        ).where(ParsedArticleRecord.id == article_id)
+    ).one_or_none()
+    return None if row is None else ArticleDetail(*row)
+
+
+def article_exists(session: Session, article_id: int) -> bool:
+    """Whether the publication still exists, without loading its text."""
+    return (
+        session.scalar(select(ParsedArticleRecord.id).where(ParsedArticleRecord.id == article_id))
+        is not None
+    )
 
 
 def _joined(*columns: Any) -> Select[Any]:

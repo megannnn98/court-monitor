@@ -12,11 +12,10 @@ from urllib.parse import parse_qs, quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis.read import list_levels
 from analysis.rosfinmonitoring.rf_check import FULL
-from analysis.storage.models import EntityGroupRfMatchRecord
 from application import build_identity_commands
 from processing.identity.service import (
     DIFFERENT,
@@ -28,7 +27,7 @@ from processing.identity.service import (
     Pair,
     key_region,
 )
-from processing.storage.models import EntityGroupRecord
+from processing.read import Group, group_references, groups
 from web.dependencies import get_db
 from web.ui.entities import (
     _article_links,
@@ -59,7 +58,7 @@ KIND_HINTS = {
 
 
 def _side(
-    entity: EntityGroupRecord,
+    entity: Group,
     roles: dict[int, tuple[str, str | None]],
     listed: dict[int, str],
     charges: dict[int, list[tuple[str, bool]]],
@@ -89,7 +88,7 @@ class PairPage:
     notes: dict[tuple[str, str], str]
     shown: list[Pair]
     on_page: list[Pair]
-    records: dict[int, EntityGroupRecord]
+    records: dict[int, Group]
     roles: dict[int, tuple[str, str | None]]
     listed: dict[int, str]
     charges: dict[int, list[tuple[str, bool]]]
@@ -98,17 +97,7 @@ class PairPage:
 
 def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
     """`key` brings that person's pairs first."""
-    refs = [
-        EntityRef(id=row.id, key=row.key, name=row.name, mention_count=row.mention_count)
-        for row in db.execute(
-            select(
-                EntityGroupRecord.id,
-                EntityGroupRecord.key,
-                EntityGroupRecord.name,
-                EntityGroupRecord.mention_count,
-            )
-        ).all()
-    ]
+    refs = group_references(db)
     pairs = build_identity_commands().disputed_pairs(db, refs)
     if key:
         pairs.sort(key=lambda pair: key not in pair.keys)
@@ -118,10 +107,7 @@ def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
     shown = [pair for pair in pairs if kind == "all" or pair.kind == kind]
     on_page = shown[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
     ids = [ref.id for pair in on_page for ref in (pair.left, pair.right)]
-    records = {
-        record.id: record
-        for record in db.scalars(select(EntityGroupRecord).where(EntityGroupRecord.id.in_(ids)))
-    }
+    records = groups(db, ids)
     return PairPage(
         pairs=pairs,
         counts=counts,
@@ -231,24 +217,13 @@ def _candidate(ref: EntityRef, regions: dict[int, list[Any]]) -> str:
 def _why_not_merged(db: Session, pairs: list[Pair]) -> dict[tuple[str, str], str]:
     """Why a pair was left to a person: a side could be any of several people (the check
     merges a pair only when it is the one)."""
-    listed = set(
-        db.scalars(
-            select(EntityGroupRfMatchRecord.group_id).where(EntityGroupRfMatchRecord.level == FULL)
-        )
-    )
+    listed = {group_id for group_id, levels in list_levels(db).items() if FULL in levels}
     partners: dict[int, list[EntityRef]] = {}
     for pair in pairs:
         partners.setdefault(pair.left.id, []).append(pair.right)
         partners.setdefault(pair.right.id, []).append(pair.left)
     ambiguous = [ref.id for refs in partners.values() if len(refs) > 1 for ref in refs]
-    regions = {
-        group_id: list(found)
-        for group_id, found in db.execute(
-            select(EntityGroupRecord.id, EntityGroupRecord.regions).where(
-                EntityGroupRecord.id.in_(ambiguous)
-            )
-        ).all()
-    }
+    regions = {group.id: list(group.regions) for group in groups(db, ambiguous).values()}
     notes: dict[tuple[str, str], str] = {}
     for pair in pairs:
         side = next((ref for ref in (pair.left, pair.right) if len(partners[ref.id]) > 1), None)
@@ -269,7 +244,7 @@ def _why_not_merged(db: Session, pairs: list[Pair]) -> dict[tuple[str, str], str
 
 def _pair_section(
     pair: Pair,
-    records: dict[int, EntityGroupRecord],
+    records: dict[int, Group],
     roles: dict[int, tuple[str, str | None]],
     listed: dict[int, str],
     charges: dict[int, list[tuple[str, bool]]],

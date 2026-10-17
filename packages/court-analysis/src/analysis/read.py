@@ -11,15 +11,128 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from analysis.persecution.queries import latest_persecution_classification_ids
 from analysis.storage.models import (
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRfMatchRecord,
+    PersecutionClassificationRecord,
+    RosfinMatchRecord,
 )
 from db.arrays import any_of
+
+
+@dataclass(frozen=True)
+class PersonClassification:
+    id: int
+    person_id: int
+    status: str
+    confidence: float
+    reasons: list[str]
+    evidence_types: list[str]
+    classifier_name: str
+    classifier_version: str
+
+
+def person_classification(session: Session, person_id: int) -> PersonClassification | None:
+    """Latest ER v2 persecution classification, preserving its id tie-breaking rule."""
+    row = session.scalars(
+        select(PersecutionClassificationRecord).where(
+            PersecutionClassificationRecord.person_id == person_id,
+            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
+        )
+    ).first()
+    return (
+        None
+        if row is None
+        else PersonClassification(
+            row.id,
+            row.person_id,
+            row.status,
+            row.confidence,
+            list(row.reasons),
+            list(row.evidence_types),
+            row.classifier_name,
+            row.classifier_version,
+        )
+    )
+
+
+@dataclass(frozen=True)
+class PersonListMatch:
+    snapshot_id: int
+    status: str
+    confidence: float
+    matched_entry_id: int | None
+    matched_entry_name: str | None
+    reasons: list[str]
+
+
+def person_list_match(session: Session, person_id: int) -> PersonListMatch | None:
+    """Latest match by snapshot id then match id, as the person's detail card reads it."""
+    row = session.scalars(
+        select(RosfinMatchRecord)
+        .where(RosfinMatchRecord.person_id == person_id)
+        .order_by(RosfinMatchRecord.snapshot_id.desc(), RosfinMatchRecord.id.desc())
+        .limit(1)
+    ).first()
+    return (
+        None
+        if row is None
+        else PersonListMatch(
+            row.snapshot_id,
+            row.status,
+            row.confidence,
+            row.matched_entry_id,
+            row.matched_entry_name,
+            list(row.reasons),
+        )
+    )
+
+
+def verdict_count(session: Session, *, verdict: str) -> int:
+    """Groups with the requested political-classification verdict."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(EntityGroupPoliticsRecord)
+            .where(EntityGroupPoliticsRecord.verdict == verdict)
+        )
+        or 0
+    )
+
+
+def verdict_reasons(session: Session, *, verdict: str) -> dict[int, str]:
+    """Reasons by group for a verdict's review queue; one bulk read."""
+    return dict(
+        session.execute(
+            select(EntityGroupPoliticsRecord.group_id, EntityGroupPoliticsRecord.reason).where(
+                EntityGroupPoliticsRecord.verdict == verdict
+            )
+        )
+        .tuples()
+        .all()
+    )
+
+
+_OPEN_UNNAMED = text(
+    """
+    SELECT count(*) FROM unnamed_figurants f
+    WHERE f.age IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM unnamed_identity_resolutions r
+        WHERE r.figurant_key = f.key
+          AND r.resolution IN ('rf_entry', 'existing_person', 'supplied_name', 'insufficient')
+    )
+    """
+)
+
+
+def unidentified_figurant_count(session: Session) -> int:
+    """Age-known figurants still in the identification queue; no_rf_match stays open."""
+    return session.scalar(_OPEN_UNNAMED) or 0
 
 
 @dataclass(frozen=True)

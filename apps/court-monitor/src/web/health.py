@@ -22,11 +22,10 @@ from pathlib import Path
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from orchestrator.models import MonitoringRunStatus
-from orchestrator.storage.models import MonitoringRunRecord
+from orchestrator.read import stale_monitoring_runs
 
 logger = logging.getLogger("health")
 
@@ -148,12 +147,7 @@ class ReadinessChecker:
         assert self._session_factory is not None
         try:
             with self._session_factory() as session:
-                stale = session.scalar(
-                    select(func.count(MonitoringRunRecord.id)).where(
-                        MonitoringRunRecord.status == MonitoringRunStatus.RUNNING.value,
-                        MonitoringRunRecord.heartbeat_at < func.now() - self._stale_run_after,
-                    )
-                )
+                stale = stale_monitoring_runs(session, stale_after=self._stale_run_after)
         except Exception as exc:  # noqa: BLE001
             return ComponentHealth(status=ComponentStatus.UNAVAILABLE, detail=type(exc).__name__)
         if stale:

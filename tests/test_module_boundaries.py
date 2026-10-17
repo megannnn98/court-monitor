@@ -156,6 +156,14 @@ CLOSED_TO_INTERNALS = (
 # file's names (ADR 0025).
 CONSOLE_READ_MODELS = frozenset(
     {
+        "ingestion.read",
+        "processing.read",
+        "analysis.read",
+        "analysis.rosfinmonitoring.read",
+        "results.review",
+        "results.read",
+        "processing.evidence.sentences",
+        "persons.read",
         # the services
         "analysis.service",
         "processing.identity.service",
@@ -174,7 +182,6 @@ CONSOLE_READ_MODELS = frozenset(
         "analysis.operator_base.known_base",
         "analysis.operator_base.known_nameless",
         "analysis.persecution.classifier",
-        "analysis.persecution.queries",
         "analysis.politics.classification",
         "analysis.rosfinmonitoring.inclusion_dates",
         "analysis.rosfinmonitoring.rf_articles",

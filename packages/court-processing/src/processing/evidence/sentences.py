@@ -26,13 +26,13 @@ from __future__ import annotations
 import logging
 import os
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -51,6 +51,23 @@ from llm.chat import (
 from processing.evidence.regions import canonical
 from processing.identity.grouping import name_key
 from processing.storage.models import ArticleSentenceReadingRecord, ArticleSentenceRecord
+
+
+def set_sentence_hidden(session: Session, ids: Collection[int], *, hidden: bool) -> list[int]:
+    """Change visibility of the selected evidence in the caller's transaction.
+
+    Return affected ids so the caller can refuse a stale or partially missing case
+    before committing. PostgreSQL performs one bulk UPDATE regardless of case size.
+    """
+    return list(
+        session.scalars(
+            update(ArticleSentenceRecord)
+            .where(ArticleSentenceRecord.id.in_(ids))
+            .values(hidden=hidden)
+            .returning(ArticleSentenceRecord.id)
+        )
+    )
+
 
 logger = logging.getLogger("entities")
 

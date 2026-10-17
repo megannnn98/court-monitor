@@ -30,7 +30,7 @@ from analysis.rosfinmonitoring.rf_entry import (
     entry_included_text,
     rf_word,
 )
-from results.storage.models import EntityDoneMarkRecord
+from results.done_marks import mark_done
 from web.dependencies import get_db
 from web.exports import (
     XLSX,
@@ -471,14 +471,7 @@ def set_done(db: Session, key: str, *, done: bool) -> None:
     A tick remembers the latest news the operator has seen: a later one brings the person
     back to the list."""
     seen = latest_news(db, key)
-    mark = db.get(EntityDoneMarkRecord, key)
-    if done:
-        if mark is None:
-            mark = EntityDoneMarkRecord(key=key)
-            db.add(mark)
-        mark.news_at = seen
-    elif mark is not None:
-        db.delete(mark)
+    mark_done(db, key, done=done, news_at=seen)
     db.commit()
 
 

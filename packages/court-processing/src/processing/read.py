@@ -11,21 +11,181 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import ColumnElement, func, literal, select, text
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from db.arrays import any_of, any_text
 from ingestion import read
+from processing.identity.disputes import EntityRef
 from processing.storage.models import (
     ArticleDigestAnswerRecord,
+    ArticleSentenceReadingRecord,
+    ArticleSentenceRecord,
     EntityGroupChargeRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityMentionRecord,
     EventEntityMentionRecord,
+    JunkScreenHoldRecord,
 )
+
+
+class GroupIdentity(Protocol):
+    """Stable identity required when applying a decision, without an ORM dependency."""
+
+    @property
+    def id(self) -> int: ...
+
+    @property
+    def key(self) -> str: ...
+
+
+def group_references(session: Session) -> list[EntityRef]:
+    """Lightweight references for identity comparisons, with no evidence payloads."""
+    return [
+        EntityRef(id=id_, key=key, name=name, mention_count=count)
+        for id_, key, name, count in session.execute(
+            select(
+                EntityGroupRecord.id,
+                EntityGroupRecord.key,
+                EntityGroupRecord.name,
+                EntityGroupRecord.mention_count,
+            )
+        )
+    ]
+
+
+def references_by_mentions(
+    session: Session, ids: Collection[int], *, limit: int
+) -> list[EntityRef]:
+    """Review candidates sorted by frequency and database key collation, under LIMIT."""
+    if not ids:
+        return []
+    return [
+        EntityRef(id=id_, key=key, name=name, mention_count=count)
+        for id_, key, name, count in session.execute(
+            select(
+                EntityGroupRecord.id,
+                EntityGroupRecord.key,
+                EntityGroupRecord.name,
+                EntityGroupRecord.mention_count,
+            )
+            .where(any_of(EntityGroupRecord.id, ids))
+            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
+            .limit(limit)
+        )
+    ]
+
+
+def role_review(session: Session, *, role: str, limit: int) -> list[tuple[str, str, str]]:
+    """(key, name, reason) for one role's review queue, most mentioned first."""
+    return [
+        (key, name, reason)
+        for key, name, reason in session.execute(
+            select(EntityGroupRecord.key, EntityGroupRecord.name, EntityGroupRoleRecord.reason)
+            .join(EntityGroupRoleRecord, EntityGroupRoleRecord.group_id == EntityGroupRecord.id)
+            .where(EntityGroupRoleRecord.role == role)
+            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
+            .limit(limit)
+        )
+    ]
+
+
+def group_count(session: Session) -> int:
+    """All current entity groups, whatever their role or classification."""
+    return session.scalar(select(func.count()).select_from(EntityGroupRecord)) or 0
+
+
+def role_count(session: Session, *, role: str) -> int:
+    """Groups assigned the given role by the roles step or the operator."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(EntityGroupRoleRecord)
+            .where(EntityGroupRoleRecord.role == role)
+        )
+        or 0
+    )
+
+
+def held_article_count(session: Session) -> int:
+    """Every held publication counts, including those a model already read as junk."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(JunkScreenHoldRecord)
+            .where(JunkScreenHoldRecord.status == "held")
+        )
+        or 0
+    )
+
+
+@dataclass(frozen=True)
+class HiddenSentence:
+    """A sentence removed from all result counts, with its publication title."""
+
+    id: int
+    article_id: int
+    person: str
+    region: str
+    kind: str
+    months: int
+    fine_rub: int
+    in_absentia: bool
+    sentenced_on: str
+    reason: str
+    reason_text: str
+    quote: str
+    title: str
+
+
+def hidden_sentences(session: Session) -> list[HiddenSentence]:
+    """Hidden evidence newest first, enriched by one bulk publication read."""
+    rows = session.execute(
+        select(
+            ArticleSentenceRecord.id,
+            ArticleSentenceRecord.article_id,
+            ArticleSentenceRecord.person,
+            ArticleSentenceRecord.region,
+            ArticleSentenceRecord.kind,
+            ArticleSentenceRecord.months,
+            ArticleSentenceRecord.fine_rub,
+            ArticleSentenceRecord.in_absentia,
+            ArticleSentenceRecord.sentenced_on,
+            ArticleSentenceRecord.reason,
+            ArticleSentenceRecord.reason_text,
+            ArticleSentenceRecord.quote,
+        )
+        .where(ArticleSentenceRecord.hidden)
+        .order_by(ArticleSentenceRecord.id.desc())
+    ).all()
+    cards = read.article_cards(session, {row.article_id for row in rows})
+    return [
+        HiddenSentence(
+            id=row.id,
+            article_id=row.article_id,
+            person=row.person,
+            region=row.region,
+            kind=row.kind,
+            months=row.months,
+            fine_rub=row.fine_rub,
+            in_absentia=row.in_absentia,
+            sentenced_on=row.sentenced_on,
+            reason=row.reason,
+            reason_text=row.reason_text,
+            quote=row.quote,
+            title=cards[row.article_id].title,
+        )
+        for row in rows
+        if row.article_id in cards
+    ]
+
+
+def sentence_reading_count(session: Session) -> int:
+    """Publications the sentence-reading step has processed."""
+    return session.scalar(select(func.count()).select_from(ArticleSentenceReadingRecord)) or 0
 
 
 @dataclass(frozen=True)

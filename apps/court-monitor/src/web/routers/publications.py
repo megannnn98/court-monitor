@@ -5,7 +5,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from ingestion.storage.models import ParsedArticleRecord
+from ingestion.read import article_exists
 from web.dependencies import get_db
 from web.response_models import (
     ArticleMentionsResponse,
@@ -82,7 +82,7 @@ def get_article_mentions(
 ) -> ArticleMentionsResponse:
     """The people an article names and the events found in it, as the legacy article
     page shows them above the text."""
-    if db.get(ParsedArticleRecord, article_id) is None:
+    if not article_exists(db, article_id):
         raise HTTPException(status_code=404, detail="Article not found")
     people, events = people_and_events(db, [article_id])
     return ArticleMentionsResponse(

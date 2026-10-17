@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from results.ask import MARK_CLOSE, MARK_OPEN, MAX_QUESTION, ask, daily_budget, spent_today
-from results.storage.models import ChatQuestionRecord
+from results.read import question_answer
 from web.dependencies import get_db, session_factory_for
 from web.response_models import (
     AskAnswerResponse,
@@ -28,7 +28,7 @@ def get_ask(
 ) -> AskPageResponse:
     """The question `q`, or the latest one."""
     history = ask_page.asked_before(db)
-    record = db.get(ChatQuestionRecord, q) if q else (history[0] if history else None)
+    record = question_answer(db, q) if q else (history[0] if history else None)
     return AskPageResponse(
         spent_today=spent_today(db),
         budget=daily_budget(),

@@ -44,6 +44,7 @@ from processing.evidence.publications import latest_evidence
 from processing.identity.disputes import KeyIndex
 from processing.identity.downstream import IdentityDownstream
 from processing.junk.hold_reader import EXTRACTOR_NAME
+from processing.read import GroupIdentity
 from processing.roles.officials import (
     OFFICIAL_KINDS,
     official_entity_ids,
@@ -52,7 +53,6 @@ from processing.roles.officials import (
     titled_entities,
 )
 from processing.storage.models import (
-    EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityGroupUnnamedMentionRecord,
     EntityOfficialMarkRecord,
@@ -163,7 +163,7 @@ def role_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
 
 
 def decide_role(
-    session: Session, entity: EntityGroupRecord, role: str, *, downstream: IdentityDownstream
+    session: Session, entity: GroupIdentity, role: str, *, downstream: IdentityDownstream
 ) -> None:
     """A person's word on the entity's role, applied at once and kept for every rebuild.
     `processing.roles.roles.FigurantFinder` writes it again over whatever step 4 finds.

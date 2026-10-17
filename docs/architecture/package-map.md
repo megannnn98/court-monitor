@@ -1,6 +1,8 @@
 # Package map
 
-Status: current, 2026-10-17 (branch `refactor/workspace-packages`).
+Status: data-ownership implementation in progress, 2026-10-17
+(branch `refactor/data-ownership-apis`). See [data ownership](data-ownership.md)
+for implemented contracts and remaining boundary debt.
 
 The repository is one [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/):
 the modules of [ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md) are
@@ -77,9 +79,11 @@ processing --> ingestion
 processing --> platform
 processing --> core
 analysis --> processing
+analysis --> ingestion
 analysis --> platform
 results --> analysis
 results --> processing
+results --> ingestion
 results --> platform
 investigation --> results : ResultsService
 investigation --> ingestion : ingestion.search
@@ -153,8 +157,8 @@ What may not be (each a test of `tests/test_package_graph.py`, transitively):
 |---|---|
 | Workspace dependencies | court-core |
 | Libraries | httpx[socks], psycopg[binary], pydantic, sqlalchemy |
-| Public API | `db.database` (engine, sessions, pool settings), `db.orm_models` / `db.models.*` (the ORM of the one database), `db.locks`, `db.maintenance`, `db.investigation_runs`; `llm.chat`, `llm.structured`, `llm.together_client`, `llm.model_choice`; `observability` |
-| Owns | the ORM definitions of every table, centrally (ownership of tables by module is a later task); `app_settings`, `entity_model_spend` (the model choice and its spend) |
+| Public API | `db.database` (engine, sessions, pool settings), `db.models.base.Base`, `db.arrays`, `db.locks`, `db.maintenance`; `llm.chat`, `llm.structured`, `llm.together_client`, `llm.model_choice`; `observability` |
+| Owns | `app_settings`, `entity_model_spend` (model selection and its spend); domain ORM definitions live in their owner's internal storage |
 | Called by | every other distribution |
 
 Infrastructure, not a domain: it imports no module (`SHARED` in the boundary test).
@@ -186,7 +190,7 @@ loaded lazily by `processing.junk.embedder`; nothing else needs it installed.
 
 | | |
 |---|---|
-| Workspace dependencies | court-platform, court-processing |
+| Workspace dependencies | court-platform, court-ingestion, court-processing |
 | Libraries | curl-cffi, httpx, pyarrow, pydantic, rapidfuzz, sqlalchemy |
 | Public API | `analysis.service.AnalysisService`; `airtable.service`; the vocabularies and read models in `CONSOLE_READ_MODELS` |
 | Owns | politics (`entity_group_politics`, `entity_politics_*`), the Rosfinmonitoring list (`rosfinmonitoring_*`, `rfm_operator_entries`, `rosfin_matches`, `entity_group_rf_matches`), case news (`entity_group_news`, `entity_news_answers`), unnamed figurants (`unnamed_*`), persecution of persons (`persecution_classifications`), the operator's reference lists (`airtable_known_persons`, `criminal_articles`, `excluded_persons`) |
@@ -196,7 +200,7 @@ loaded lazily by `processing.junk.embedder`; nothing else needs it installed.
 
 | | |
 |---|---|
-| Workspace dependencies | court-platform, court-processing, court-analysis |
+| Workspace dependencies | court-platform, court-ingestion, court-processing, court-analysis |
 | Libraries | httpx, pydantic, pymorphy3, sqlalchemy |
 | Public API | `results.service.ResultsService`; `results.candidates.service`; the read models in `CONSOLE_READ_MODELS` (`results.models`, `results.ask`, `results.done_marks`, `results.queries.*`) |
 | Owns | `monitoring_findings`, `entity_done_marks`, `chat_questions` (the operator's questions) |
@@ -209,7 +213,7 @@ loaded lazily by `processing.junk.embedder`; nothing else needs it installed.
 | Workspace dependencies | court-platform, court-ingestion, court-results |
 | Libraries | httpx, langchain-core, langgraph, pydantic, pymorphy3 |
 | Public API | `investigation.service.InvestigationService` |
-| Owns | `investigation_runs` (through `db.investigation_runs`, given by the app) |
+| Owns | `investigation_runs` (`investigation.storage.models`; internal run store given by the app) |
 | Called by | the app (CLI `investigate`, `POST /api/v1/investigation`) |
 
 Not part of the monitoring pipeline. It reads only `results.service` and

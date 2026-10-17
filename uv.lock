@@ -760,6 +760,7 @@ version = "0.1.0"
 source = { editable = "packages/court-results" }
 dependencies = [
     { name = "court-analysis" },
+    { name = "court-ingestion" },
     { name = "court-platform" },
     { name = "court-processing" },
     { name = "httpx" },
@@ -771,6 +772,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
     { name = "court-platform", editable = "packages/court-platform" },
     { name = "court-processing", editable = "packages/court-processing" },
     { name = "httpx", specifier = ">=0.28.0" },

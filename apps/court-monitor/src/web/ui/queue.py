@@ -13,16 +13,15 @@ from urllib.parse import parse_qs, quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from analysis.politics.classification import CRIMINAL, POLITICAL, decide_politics
 from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
-from analysis.storage.models import EntityGroupPoliticsRecord
 from application import build_identity_commands, group_followers
+from processing.read import Group, groups_by_key, role_review
 from processing.roles.roles import FIGURANT, MENTIONED, POSSIBLE, decide_role
 from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE
-from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
+from results.review import politics_review
 from web.dependencies import get_db
 from web.ui.entities import display_name
 from web.ui.layout import _page
@@ -120,40 +119,15 @@ POLITICS_EXPLANATION = (
 
 def unclear_roles(db: Session) -> list[tuple[str, str, str]]:
     """(key, name, why) of the people step 4 could not place, most mentioned first."""
-    return [
-        (key, name, reason)
-        for key, name, reason in db.execute(
-            select(EntityGroupRecord.key, EntityGroupRecord.name, EntityGroupRoleRecord.reason)
-            .join(EntityGroupRoleRecord, EntityGroupRoleRecord.group_id == EntityGroupRecord.id)
-            .where(EntityGroupRoleRecord.role == UNCLEAR_ROLE)
-            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
-            .limit(LIST_LIMIT)
-        ).all()
-    ]
+    return role_review(db, role=UNCLEAR_ROLE, limit=LIST_LIMIT)
 
 
 def unclear_verdicts(db: Session) -> list[tuple[str, str, str]]:
     """(key, name, why) of the cases step 5 could not judge, most mentioned first."""
-    return [
-        (key, name, reason)
-        for key, name, reason in db.execute(
-            select(
-                EntityGroupRecord.key,
-                EntityGroupRecord.name,
-                EntityGroupPoliticsRecord.reason,
-            )
-            .join(
-                EntityGroupPoliticsRecord,
-                EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id,
-            )
-            .where(EntityGroupPoliticsRecord.verdict == UNCLEAR_VERDICT)
-            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
-            .limit(LIST_LIMIT)
-        ).all()
-    ]
+    return politics_review(db, verdict=UNCLEAR_VERDICT, limit=LIST_LIMIT)
 
 
-def settle_role(db: Session, key: str, role: str) -> EntityGroupRecord:
+def settle_role(db: Session, key: str, role: str) -> Group:
     """A person's word on an entity's role, committed and kept for every rebuild.
     HTTPException 400/404 for no key, an unknown person or an unknown role."""
     entity = entity_by_key(db, key)
@@ -166,7 +140,7 @@ def settle_role(db: Session, key: str, role: str) -> EntityGroupRecord:
     return entity
 
 
-def settle_politics(db: Session, key: str, verdict: str) -> EntityGroupRecord:
+def settle_politics(db: Session, key: str, verdict: str) -> Group:
     """A person's word on a case's politics, committed and kept for every rebuild."""
     entity = entity_by_key(db, key)
     try:
@@ -204,10 +178,10 @@ def ui_politics_review(db: Session = Depends(get_db)) -> HTMLResponse:  # noqa: 
     )
 
 
-def entity_by_key(db: Session, key: str) -> EntityGroupRecord:
+def entity_by_key(db: Session, key: str) -> Group:
     if not key:
         raise HTTPException(status_code=400, detail="Не указан человек")
-    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    entity = groups_by_key(db, [key]).get(key)
     if entity is None:
         raise HTTPException(status_code=404, detail="Сущность не найдена")
     return entity

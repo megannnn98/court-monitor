@@ -9,31 +9,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from analysis.politics.classification import UNCLEAR as UNCLEAR_VERDICT
-from analysis.storage.models import EntityGroupPoliticsRecord
+from analysis.read import unidentified_figurant_count, verdict_count
 from application import build_identity_commands
-from processing.identity.service import EntityRef, Pair
+from processing.identity.service import Pair
+from processing.read import group_references, held_article_count, role_count
 from processing.roles.roles import UNCLEAR as UNCLEAR_ROLE
-from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 
 
 def dispute_pairs(db: Session) -> list[Pair]:
     """The pairs of entities that may be one person, not decided yet, most mentioned first."""
-    refs = [
-        EntityRef(id=row.id, key=row.key, name=row.name, mention_count=row.mention_count)
-        for row in db.execute(
-            select(
-                EntityGroupRecord.id,
-                EntityGroupRecord.key,
-                EntityGroupRecord.name,
-                EntityGroupRecord.mention_count,
-            )
-        ).all()
-    ]
-    return build_identity_commands().disputed_pairs(db, refs)
+    return build_identity_commands().disputed_pairs(db, group_references(db))
 
 
 @dataclass(frozen=True)
@@ -109,39 +97,11 @@ def next_operator_task(work: Workload) -> OperatorTask | None:
     return next((task for task in operator_tasks(work) if task.count), None)
 
 
-_OPEN_UNNAMED = text(
-    """
-    SELECT count(*) FROM unnamed_figurants f
-    -- Without an age nobody of the list is offered: «Без возраста», out of the queue.
-    WHERE f.age IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM unnamed_identity_resolutions r
-        WHERE r.figurant_key = f.key
-          AND r.resolution IN ('rf_entry', 'existing_person', 'supplied_name', 'insufficient')
-    )
-    """
-)
-
-
-# Every held publication, those a model read as junk among them: the operator asked to
-# see how many there are, not «one piece of work» for all the model's at once.
-_HELD = text("SELECT count(*) FROM junk_screen_holds WHERE status = 'held'")
-
-
 def workload(db: Session) -> Workload:
-    unclear_roles = db.scalar(
-        select(func.count())
-        .select_from(EntityGroupRoleRecord)
-        .where(EntityGroupRoleRecord.role == UNCLEAR_ROLE)
-    )
-    unclear_verdicts = db.scalar(
-        select(func.count())
-        .select_from(EntityGroupPoliticsRecord)
-        .where(EntityGroupPoliticsRecord.verdict == UNCLEAR_VERDICT)
-    )
     return Workload(
         len(dispute_pairs(db)),
-        unclear_roles or 0,
-        unclear_verdicts or 0,
-        db.scalar(_OPEN_UNNAMED) or 0,
-        db.scalar(_HELD) or 0,
+        role_count(db, role=UNCLEAR_ROLE),
+        verdict_count(db, verdict=UNCLEAR_VERDICT),
+        unidentified_figurant_count(db),
+        held_article_count(db),
     )

@@ -49,8 +49,8 @@ from llm.chat import (
 from processing import read as identity
 from processing.answers import AnswerCache, AskResult, ask_missing, input_hash
 from processing.identity.service import KeyIndex
+from processing.read import GroupIdentity
 from processing.roles.roles import QUOTES, WIDE_CONTEXT, latest_quotes, quotes_of
-from processing.storage.models import EntityGroupRecord
 
 logger = logging.getLogger("entities")
 
@@ -196,7 +196,7 @@ def politics_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, s
     return {**by_stem, **exact}
 
 
-def decide_politics(session: Session, entity: EntityGroupRecord, verdict: str) -> None:
+def decide_politics(session: Session, entity: GroupIdentity, verdict: str) -> None:
     """A person's word on the case's politics, applied at once and kept for every rebuild.
     `analysis.politics.classification.PoliticsFinder` writes it again over step 5's own verdict."""
     if verdict not in (POLITICAL, CRIMINAL):

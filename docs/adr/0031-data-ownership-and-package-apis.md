@@ -14,7 +14,7 @@ After ADR 0030 the modules were separate distributions, but their data was not:
 `db.orm_models`), and any package — the console most of all — imported any of them, or
 read and wrote any table in SQL. The boundary tests saw imports of modules only, so a
 `DELETE FROM entity_group_politics` in `processing` (upstream of the analysis that owns
-the verdicts) crossed the layering unseen. The inventory counted 482 references from
+the verdicts) crossed the layering unseen. The inventory counted 478 references from
 100 production files to tables another package owns.
 
 ## Decision
@@ -68,17 +68,19 @@ on the list from its caller instead of reading the analysis's matches.
   the domain through `results.service` and `ingestion.search` as before (ADR 0027).
 
 **Read facades.** A cross-domain read that cannot be expressed through the owners'
-APIs without many round trips is a read facade in the package that owns the result
-(usually `results`): it may read the tables of packages upstream of it in SQL, read
-only, returns DTOs, and is listed with its reason in data-ownership.md. The console
-does no SQL on domain tables.
+APIs without many round trips is composed in the package that owns the result
+(usually `results`) over specialized bulk owner APIs, returning DTOs. Any proposed
+exception needs its own documented justification, query-count and timing evidence;
+the transitional SQL debt is not such an approved exception. The target is that the
+console does no SQL on domain tables; implementation is not complete yet.
 
 ## Consequences
 
-- `tests/test_data_ownership.py` holds it: one owner per table, the registry complete,
-  no domain model in the platform, `storage` imported by its owner only, no SQL that
-  writes another package's table, and the SQL reads of other packages' tables are
-  exactly the listed read facades.
+- `tests/test_data_ownership.py` checks one owner per table, complete metadata and no
+  domain model in the platform. Its explicit shrinking debt sets still permit legacy
+  foreign storage imports and SQL reads; these are unfinished work, not read facades
+  approved by this ADR. Raw foreign writes have been removed; ORM writes still need
+  the remaining storage imports eliminated before the ownership guarantee is complete.
 - `tests/test_package_graph.py` and `tests/test_module_boundaries.py` keep the layering;
   no dependency was reversed (`court-analysis` now declares `court-ingestion`, which it
   read through the platform before).

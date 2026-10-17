@@ -170,12 +170,12 @@ def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
     return levels
 
 
-def regions_text(regions: list[Any]) -> str:
+def regions_text(regions: Sequence[Any]) -> str:
     """The regions of a person as plain text, for a cell."""
     return ", ".join(str(region) for region, _count in regions)
 
 
-def _regions(regions: list[Any], *, short: bool = False) -> str:
+def _regions(regions: Sequence[Any], *, short: bool = False) -> str:
     """The regions registry cards give: in the list after the name, on the card in full."""
     if not regions:
         return ""
