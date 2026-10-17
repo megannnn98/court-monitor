@@ -1,6 +1,7 @@
 """The import rules between the modules (ADR 0025, `docs/architecture/modularization-plan.md`).
 
-Every file under `src/` belongs to one module (`MODULE_OF`). Three kinds of rule:
+Every file of the workspace's code (each distribution's `src/`, named relative to it:
+`tests/support/workspace.py`) belongs to one module (`MODULE_OF`). Three kinds of rule:
 
 - the layering: an earlier stage never imports a later one, a domain module never
   imports an orchestrator, tooling or an entry point (`FORBIDDEN`);
@@ -10,7 +11,8 @@ Every file under `src/` belongs to one module (`MODULE_OF`). Three kinds of rule
   (`INTERNAL`).
 
 `KNOWN_VIOLATIONS` is empty and stays empty: a new import that breaks a rule is fixed,
-not listed.
+not listed. The distributions are held to the same layering by
+`tests/test_package_graph.py`.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ SHARED = "shared"
 TOOLING = "tooling"
 ENTRY_POINT = "entry_point"
 
-# Path prefix under `src/` -> module. The first match wins, so files come before their
+# Path prefix under a distribution's `src/` -> module. The first match wins, so files come before their
 # package.
 MODULE_OF: tuple[tuple[str, str], ...] = (
     ("ingestion/", INGESTION),
@@ -223,12 +225,12 @@ def _module_of(path: str) -> str:
     for prefix, module in MODULE_OF:
         if path.startswith(prefix):
             return module
-    # Everything else at the top of `src/` wires the application.
+    # Everything else at the top of a `src/` wires the application.
     return ENTRY_POINT
 
 
 def _path_of(imported: str) -> str | None:
-    """The file or package under `src/` an absolute import names; None for a library."""
+    """The file or package of the workspace an absolute import names; None for a library."""
     parts = imported.split(".")
     for length in range(len(parts), 0, -1):
         base = "/".join(parts[:length])
@@ -279,7 +281,7 @@ def _exists(dotted: str) -> bool:
 
 
 def _provider(dotted: str) -> str | None:
-    """The module or package of `src/` that a dotted name lives in; None for a library."""
+    """The module or package of the workspace that a dotted name lives in; None for a library."""
     parts = dotted.split(".")
     for length in range(len(parts), 0, -1):
         if _exists(".".join(parts[:length])):
@@ -288,7 +290,7 @@ def _provider(dotted: str) -> str | None:
 
 
 def _imported_modules(tree: ast.AST, path: str) -> set[str]:
-    """What of `src/` a file imports, each as the module or the package it is: a
+    """What of the workspace a file imports, each as the module or the package it is: a
     package imported whole is named as the package, so it cannot pass for the one
     public module inside it."""
     found: set[str | None] = set()
@@ -587,7 +589,7 @@ def _dynamic_imports(tree: ast.AST) -> list[int]:
 
 def test_no_module_is_loaded_by_a_computed_name() -> None:
     """The boundary rules see `import` statements only. Rather than guess what a string
-    names, no file of `src/` loads a module by one."""
+    names, no file of the workspace loads a module by one."""
     found = sorted(f"{path}:{line}" for path, tree in _files() for line in _dynamic_imports(tree))
 
     assert found == []

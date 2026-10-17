@@ -48,12 +48,21 @@ src = [".", "packages/*/src", "apps/*/src", "tools/*/src"]
 # The workspace's code is imported as installed packages (`uv sync`), never from a path:
 # only the tests' own helpers (`support`) are put on it.
 pythonpath = ["tests"]
+# The cross-module tests, and each distribution's own (they need nothing of `tests/`).
+testpaths = ["tests", "packages/*/tests"]
 # Diagnostic: a test stuck this long prints every thread's stack (CI hang on PR #64).
 faulthandler_timeout = 240
 
 [tool.mypy]
 # Every member's `src/` and the tests: `uv run mypy --strict`.
-files = ["packages/*/src", "apps/*/src", "tools/*/src", "tests"]
+files = [
+    "packages/*/src",
+    "packages/*/tests",
+    "apps/*/src",
+    "tools/*/src",
+    "tests",
+    "scripts",
+]
 
 [[tool.mypy.overrides]]
 # Morphological dictionary for personal names; ships no type information.

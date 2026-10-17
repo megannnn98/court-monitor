@@ -1,4 +1,5 @@
-"""Command-line entry point: `python src/main.py <command>` (see `cli.app`)."""
+"""Command-line entry point: `court-monitor <command>`, or
+`python apps/court-monitor/src/main.py <command>` (see `cli.app`)."""
 
 from cli.app import main
 

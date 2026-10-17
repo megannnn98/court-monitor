@@ -20,6 +20,9 @@ dependencies = [
 # `processing.junk.embedder`, so nothing else needs it installed.
 semantic = [
     "sentence-transformers>=5.0",
+    # Imported by the embedder itself (the device choice); it comes with
+    # sentence-transformers.
+    "torch>=2.0",
 ]
 
 [build-system]

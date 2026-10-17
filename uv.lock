@@ -731,6 +731,7 @@ dependencies = [
 [package.optional-dependencies]
 semantic = [
     { name = "sentence-transformers" },
+    { name = "torch" },
 ]
 
 [package.metadata]
@@ -745,6 +746,7 @@ requires-dist = [
     { name = "rapidfuzz", specifier = ">=3.14" },
     { name = "sentence-transformers", marker = "extra == 'semantic'", specifier = ">=5.0" },
     { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+    { name = "torch", marker = "extra == 'semantic'", specifier = ">=2.0" },
 ]
 provides-extras = ["semantic"]
 

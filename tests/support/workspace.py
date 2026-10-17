@@ -11,7 +11,7 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 SOURCE_ROOTS: tuple[Path, ...] = tuple(
     sorted(
         root
-        for pattern in ("src", "packages/*/src", "apps/*/src", "tools/*/src")
+        for pattern in ("packages/*/src", "apps/*/src", "tools/*/src")
         for root in REPOSITORY.glob(pattern)
         if root.is_dir()
     )
