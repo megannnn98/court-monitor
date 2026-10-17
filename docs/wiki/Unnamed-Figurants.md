@@ -26,7 +26,7 @@
    поиска имени другим способом. «Недостаточно данных» закрывает карточку.
 
 ```bash
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-unnamed'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor find-unnamed'
 ```
 
 ```json
@@ -233,18 +233,18 @@ stop
 
 ## Кодовые точки входа
 
-- Названные в других публикациях: `src/analysis/unnamed/named_candidates.py`.
-- Кандидаты из базы оператора: `src/analysis/operator_base/base_candidates.py`; записи базы без имени против
-  перечня: `src/analysis/operator_base/base_unnamed.py`, страница `src/web/ui/base_unnamed.py`.
-- Поиск, подбор, решения: `src/analysis/unnamed/figurants.py` (`UnnamedFinder`,
+- Названные в других публикациях: `packages/court-analysis/src/analysis/unnamed/named_candidates.py`.
+- Кандидаты из базы оператора: `packages/court-analysis/src/analysis/operator_base/base_candidates.py`; записи базы без имени против
+  перечня: `packages/court-analysis/src/analysis/operator_base/base_unnamed.py`, страница `apps/court-monitor/src/web/ui/base_unnamed.py`.
+- Поиск, подбор, решения: `packages/court-analysis/src/analysis/unnamed/figurants.py` (`UnnamedFinder`,
   `candidates`, `decide`, `resolve_identity`).
-- Материализация опознаний при пересборке: `src/processing/identity/collector.py`
+- Материализация опознаний при пересборке: `packages/court-processing/src/processing/identity/collector.py`
   (`_apply_unnamed_resolutions`).
-- Единая точка доказательств «человек ↔ публикация»: `src/processing/evidence/publications.py`
+- Единая точка доказательств «человек ↔ публикация»: `packages/court-processing/src/processing/evidence/publications.py`
   (`person_evidence_cte`). Она объединяет обычные `entity_group_mentions` и
   ручные `entity_group_unnamed_mentions`.
-- Запуск: `find-political` и `find-unnamed` в `src/cli/monitoring.py`.
-- Страница: `src/web/ui/unnamed.py`; счётчик в «Очереди»: `src/web/ui/workload.py`.
+- Запуск: `find-political` и `find-unnamed` в `apps/court-monitor/src/cli/monitoring.py`.
+- Страница: `apps/court-monitor/src/web/ui/unnamed.py`; счётчик в «Очереди»: `apps/court-monitor/src/web/ui/workload.py`.
 
 ## Данные и артефакты
 
@@ -299,7 +299,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 ## Безымянные в «Результате» (01.10.2026)
 
 Оператор попросила видеть безымянные случаи в «Результате» и в выгрузке Excel, рядом с
-людьми с именем. Логика — `src/results/queries/unnamed_cases.py`, показ — `src/web/ui/political.py`.
+людьми с именем. Логика — `packages/court-results/src/results/queries/unnamed_cases.py`, показ — `apps/court-monitor/src/web/ui/political.py`.
 
 - **Кто попадает.** Только случаи, где текст называет политическую статью
   (`UNNAMED_POLITICAL_ARTICLES`: политические статьи плюс все 205-е). У безымянных нет

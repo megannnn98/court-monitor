@@ -104,13 +104,13 @@ UI --> Оператор: ответ и таблицы под ним
 ## Запуск вручную
 
 ```bash
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-sentences'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor find-sentences'
 ```
 
 ## Код
 
-- Чтение приговоров: `src/processing/evidence/sentences.py`; субъекты РФ: `src/processing/evidence/regions.py`.
-- Свёртка в дела и подсчёты: `src/results/queries/sentence_cases.py`.
-- Вопрос и ответ: `src/results/ask.py`.
-- Страницы: `src/web/ui/ask.py`, `src/web/ui/sentences.py`.
+- Чтение приговоров: `packages/court-processing/src/processing/evidence/sentences.py`; субъекты РФ: `packages/court-processing/src/processing/evidence/regions.py`.
+- Свёртка в дела и подсчёты: `packages/court-results/src/results/queries/sentence_cases.py`.
+- Вопрос и ответ: `packages/court-results/src/results/ask.py`.
+- Страницы: `apps/court-monitor/src/web/ui/ask.py`, `apps/court-monitor/src/web/ui/sentences.py`.
 - Таблицы: `article_sentences`, `article_sentence_readings`, `chat_questions`.

@@ -12,9 +12,9 @@ findings появились. Программисту — где selection/idemp
 ```bash
 set -a; source .env; set +a
 uv run alembic upgrade head
-uv run python src/main.py monitor --catch-up
-uv run python src/main.py monitoring-status
-uv run python src/main.py monitoring-findings --all
+uv run court-monitor monitor --catch-up
+uv run court-monitor monitoring-status
+uv run court-monitor monitoring-findings --all
 ```
 
 Если run упал, сначала смотреть `monitoring-status --run-id <id>`, потом
@@ -47,7 +47,7 @@ uv run python src/main.py monitoring-findings --all
 То же через CLI:
 
 ```bash
-uv run python src/main.py monitor \
+uv run court-monitor monitor \
   --catch-up --load-only --selected-source ovd-info \
   --published-from 2026-09-01 --published-to 2026-09-30
 ```
@@ -73,7 +73,7 @@ rectangle "Dagster (orchestrator)" as Dagster #EEF {
 rectangle "CLI\nmonitor / monitor-derived" as CLI
 rectangle "API (read-only)\n/monitoring/*" as API
 
-package "src/orchestrator (coordination)" {
+package "packages/court-orchestrator/src/orchestrator (coordination)" {
   component "MonitoringService" as Svc
   component "SqlAlchemyMonitoringWorkQueries\n(what is still to do)" as Work
   component "SqlAlchemyMonitoringRepository\n(runs, items, checkpoints)" as Repo
@@ -151,7 +151,7 @@ Asset graph Dagster повторяет эти этапы: `source_discovery → 
 
 ## Идемпотентность и восстановление
 
-Каждый этап сам выбирает недоделанную работу из PostgreSQL (`src/orchestrator/selection.py`), поэтому любой run, job или asset можно выполнить повторно (at-least-once):
+Каждый этап сам выбирает недоделанную работу из PostgreSQL (`packages/court-orchestrator/src/orchestrator/selection.py`), поэтому любой run, job или asset можно выполнить повторно (at-least-once):
 
 | Этап | Что выбирается |
 |---|---|
@@ -225,14 +225,15 @@ end
 
 | Сценарий | Код |
 |---|---|
-| CLI `monitor` / `monitor-derived` | `src/cli/monitoring.py` |
-| orchestration | `src/orchestrator/service.py` |
+| CLI `monitor` / `monitor-derived` | `apps/court-monitor/src/cli/monitoring.py` |
+| orchestration | `packages/court-orchestrator/src/orchestrator/service.py` |
 | загрузка одной статьи | `IngestionPipeline.read()` / `save()` из [Monitor Core](Monitor-Core.md); окно дат, пропуск `NoTextError` и изоляция ошибок — в `MonitoringService._ingest_references` |
-| выбор недоделанной работы | `src/orchestrator/selection.py` |
-| runs/checkpoints/items | `src/orchestrator/repository.py` |
-| findings | `src/results/findings.py` |
-| Dagster definitions | `src/orchestrator/dagster/` |
-| API/UI status | `src/web/routers/monitoring.py`, `src/web/ui/monitoring.py` |
+| выбор недоделанной работы | `packages/court-orchestrator/src/orchestrator/selection.py` |
+| runs/checkpoints/items | `packages/court-orchestrator/src/orchestrator/repository.py` |
+| findings | `packages/court-results/src/results/findings.py` |
+| Dagster assets, jobs, schedules | `packages/court-orchestrator/src/orchestrator/dagster/` |
+| Dagster code location (wiring) | `apps/court-monitor/src/dagster_location/` |
+| API/UI status | `apps/court-monitor/src/web/routers/monitoring.py`, `apps/court-monitor/src/web/ui/monitoring.py` |
 
 ## Запуск
 
@@ -241,23 +242,23 @@ set -a; source .env; set +a
 uv run alembic upgrade head
 
 # все MONITORING_ENABLED_SOURCES
-uv run python src/main.py monitor
+uv run court-monitor monitor
 # один источник
-uv run python src/main.py monitor --source ovd-info
+uv run court-monitor monitor --source ovd-info
 # докачка: все источники до resolution, затем classification / RF / findings
 # один раз (без флага они идут после каждого источника); кнопка «Докачать новые
 # публикации» в /ui/operations запускает именно это
-uv run python src/main.py monitor --catch-up
+uv run court-monitor monitor --catch-up
 # только discovery: ничего не пишет, checkpoint не меняет
-uv run python src/main.py monitor --source ovd-info --dry-run --limit 5
+uv run court-monitor monitor --source ovd-info --dry-run --limit 5
 # backfill (checkpoint не меняет)
-uv run python src/main.py monitor --backfill --source ovd-info --limit 500
+uv run court-monitor monitor --backfill --source ovd-info --limit 500
 # повторить classification / RF / findings без web discovery
-uv run python src/main.py monitor-derived
+uv run court-monitor monitor-derived
 # статус, один run с упавшими объектами, findings
-uv run python src/main.py monitoring-status
-uv run python src/main.py monitoring-status --run-id 12
-uv run python src/main.py monitoring-findings --all
+uv run court-monitor monitoring-status
+uv run court-monitor monitoring-status --run-id 12
+uv run court-monitor monitoring-findings --all
 ```
 
 API (read-only): `GET /monitoring/status`, `GET /monitoring/runs?source=&status=&limit=`, `GET /monitoring/runs/{id}`, `GET /monitoring/findings?active_only=`.
@@ -266,7 +267,7 @@ API (read-only): `GET /monitoring/status`, `GET /monitoring/runs?source=&status=
 
 ```bash
 set -a; source .env; set +a
-cd src && uv run dagster dev -m orchestrator.dagster.definitions
+uv run dagster dev -m dagster_location.definitions
 # http://127.0.0.1:3000 → Jobs → monitoring_job, config:
 #   ops: {source_discovery: {config: {source: ovd-info, discovery_limit: 5}}}
 ```

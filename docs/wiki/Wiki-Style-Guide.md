@@ -37,7 +37,7 @@
 Команды должны быть реальными для текущего кода:
 
 ```bash
-uv run python src/main.py monitoring-status
+uv run court-monitor monitoring-status
 ```
 
 Данные в примерах должны быть безопасными: синтетические имена, `example.test`

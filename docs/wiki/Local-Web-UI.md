@@ -127,20 +127,20 @@
 
 | Сценарий | Код |
 |---|---|
-| приложение, порядок маршрутов | `src/web/app.py` |
-| меню, строка показателей, нумерация | `src/web/ui/layout.py` |
-| счётчик открытых решений | `src/web/ui/workload.py` |
-| рабочий цикл и живое «Дальше» | `src/web/ui/cycle.py`, `src/web/ui/work_cycle.py` |
-| обзор | `src/web/ui/overview.py` |
-| досье и поиск человека | `src/web/ui/dossier.py` |
-| люди | `src/web/ui/entities.py` |
-| безымянные | `src/web/ui/unnamed.py` |
-| публикации, полный текст | `src/web/ui/publications.py`, `src/web/ui/persons.py` |
-| пары, роль, политичность | `src/web/ui/disputes.py`, `src/web/ui/queue.py` |
-| результат, Excel | `src/web/ui/political.py` |
-| журнал запусков, шаги, воронка | `src/web/ui/management.py`, `src/web/ui/pipeline.py`, `src/web/ui/funnel.py` |
-| вики | `src/web/ui/wiki.py`, `src/web/wiki.py` |
-| стили | `src/static/local-ui.css` |
+| приложение, порядок маршрутов | `apps/court-monitor/src/web/app.py` |
+| меню, строка показателей, нумерация | `apps/court-monitor/src/web/ui/layout.py` |
+| счётчик открытых решений | `apps/court-monitor/src/web/ui/workload.py` |
+| рабочий цикл и живое «Дальше» | `apps/court-monitor/src/web/ui/cycle.py`, `apps/court-monitor/src/web/ui/work_cycle.py` |
+| обзор | `apps/court-monitor/src/web/ui/overview.py` |
+| досье и поиск человека | `apps/court-monitor/src/web/ui/dossier.py` |
+| люди | `apps/court-monitor/src/web/ui/entities.py` |
+| безымянные | `apps/court-monitor/src/web/ui/unnamed.py` |
+| публикации, полный текст | `apps/court-monitor/src/web/ui/publications.py`, `apps/court-monitor/src/web/ui/persons.py` |
+| пары, роль, политичность | `apps/court-monitor/src/web/ui/disputes.py`, `apps/court-monitor/src/web/ui/queue.py` |
+| результат, Excel | `apps/court-monitor/src/web/ui/political.py` |
+| журнал запусков, шаги, воронка | `apps/court-monitor/src/web/ui/management.py`, `apps/court-monitor/src/web/ui/pipeline.py`, `apps/court-monitor/src/web/ui/funnel.py` |
+| вики | `apps/court-monitor/src/web/ui/wiki.py`, `apps/court-monitor/src/web/wiki.py` |
+| стили | `apps/court-monitor/src/static/local-ui.css` |
 
 ## Проверка
 
@@ -182,7 +182,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
   остаются свои кнопки. Одной фамилии для повтора мало. Имя в разных падежах («Александра
   Кынева» и «Александр Кынев») может не совпасть — тогда публикация останется отдельно.
 
-Скрипт — `src/static/local-ui.js`.
+Скрипт — `apps/court-monitor/src/static/local-ui.js`.
 
 ## Сортировка таблиц (05.10.2026)
 
@@ -194,8 +194,8 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 («Результат», «Публикации», «Перечень РФМ» — первые 100), упорядочивается эта часть, а не
 весь список. «Все люди» сортируются сервером по всему списку, как и раньше.
 
-Код — `src/static/table-sort-core.js` (порядок, проверяется тестами под node) и
-`src/static/table-sort.js` (заголовки и строки).
+Код — `apps/court-monitor/src/static/table-sort-core.js` (порядок, проверяется тестами под node) и
+`apps/court-monitor/src/static/table-sort.js` (заголовки и строки).
 
 ## Журнал запусков (05.10.2026)
 
@@ -211,8 +211,8 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 5. **Воронка отбора** (`#funnel`) — за всё время, не за запуск; сюда ведёт «Подробнее» со
    страницы «Результат».
 
-Код — `_management_page` в `src/web/ui/management.py`, строки карточек — `_summary` в
-`src/web/ui/run_cards.py`.
+Код — `_management_page` в `apps/court-monitor/src/web/ui/management.py`, строки карточек — `_summary` в
+`apps/court-monitor/src/web/ui/run_cards.py`.
 
 ## Расходы, прогресс и выгрузка людей (01.10.2026)
 
@@ -224,7 +224,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
   остатка меньше лимита запуска. Остаток — купленное минус потраченное
   (`GET openrouter.ai/api/v1/credits`; `/api/v1/key` — лимит самого ключа, а не баланс), ответ
   кэшируется на минуту, ожидание 4 с. Нет ключа — строк нет; нет ответа — «Баланс OpenRouter
-  сейчас узнать не удалось». Код — `src/web/ui/spend.py`.
+  сейчас узнать не удалось». Код — `apps/court-monitor/src/web/ui/spend.py`.
 - **Сколько потратил запуск (07.10.2026).** Каждый платный шаг печатает цену своих вызовов
   модели в итогах запуска, а журнал запусков хранит итоги. Поэтому история трат — это
   история запусков:
@@ -253,7 +253,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
   отмечается потерянным) и три последних события журнала: по одной, самой свежей, строке на
   событие, без даты, уровня и шума запросов. Пока процесс ничего не написал, страница так и
   говорит. У упавшего или остановленного шага остаются последние строки, у успешного — ничего.
-  Полный журнал — по ссылке «Лог запуска». Код — `src/web/ui/run_tail.py`.
+  Полный журнал — по ссылке «Лог запуска». Код — `apps/court-monitor/src/web/ui/run_tail.py`.
 - **Выгрузка всей базы людей.** Кнопка «Выгрузить всех людей в Excel» на странице «Все люди»,
   `GET /ui/people/export.xlsx`: без фильтров, лист «Люди» (все с именем: роль, дело, статьи,
   регион, последняя и свежая новость, перечень РФМ, база Airtable, «обработано»), лист «Без
@@ -267,11 +267,11 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 (`/rfm`) и «Приговоры» (`/sentences`).
 
 - Консоль запрашивает старую страницу (`/ui/runs` и т. д.) с заголовком `X-Console-Piece`:
-  с ним сервер отдаёт страницу, а не перенаправляет в React (`src/web/spa.py`). То, что
+  с ним сервер отдаёт страницу, а не перенаправляет в React (`apps/court-monitor/src/web/spa.py`). То, что
   страница показывает под заголовком, стоит между метками `<!--piece-->` и
-  `<!--/piece-->` (`src/web/ui/layout.py`).
+  `<!--/piece-->` (`apps/court-monitor/src/web/ui/layout.py`).
 - Кусок показывается в стилях старого интерфейса: `frontend/src/legacy-html.css` — это
-  `src/static/local-ui.css`, целиком помещённый под класс `.legacy-html`. Файл
+  `apps/court-monitor/src/static/local-ui.css`, целиком помещённый под класс `.legacy-html`. Файл
   генерируется: `npm run generate:legacy-css --prefix frontend`; тест проверяет, что он
   не устарел.
 - Кусок работает на месте (`frontend/src/components/LegacyHtml.tsx`): форма-фильтр и ссылка

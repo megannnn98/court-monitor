@@ -79,7 +79,7 @@ def _run(
     started_lanes = lanes if lanes is not None else []
 
     class InProcessLane:
-        """A lane run in this process, in place of a child `python src/main.py`."""
+        """A lane run in this process, in place of a child `python main.py`."""
 
         def __init__(self, lane_argv: list[str], env: Mapping[str, str]) -> None:
             started_lanes.append(lane_argv)

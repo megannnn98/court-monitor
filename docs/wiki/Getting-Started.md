@@ -31,10 +31,10 @@ cp -n .env.example .env
 set -a; source .env; set +a
 docker compose up -d postgres
 uv run alembic upgrade head
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
-uv run python src/main.py extract-entities --limit 20000
-uv run python src/main.py resolve-people --limit 20000
-uv run python src/main.py classify-persecution --limit 20000
+uv run court-monitor discover-and-ingest --source ovd-info --limit 20
+uv run court-monitor extract-entities --limit 20000
+uv run court-monitor resolve-people --limit 20000
+uv run court-monitor classify-persecution --limit 20000
 ```
 
 После этого уже можно смотреть `persons`, `entity_mentions`,
@@ -56,12 +56,12 @@ docker compose up -d
 uv run alembic upgrade head
 ```
 
-`uv sync --frozen` не собирает ничего из исходников: все зависимости ставятся колёсами, PostgreSQL-драйверы (`psycopg`, `psycopg2-binary` от `dagster-postgres`) несут libpq с собой, поэтому ни `pg_config`, ни компилятор не нужны. Системные пакеты нужны только для веб-интерфейса вики: `plantuml` и `graphviz` для диаграмм, Pango для выгрузки вики в PDF (WeasyPrint). На Arch: `sudo pacman -S plantuml graphviz pango`.
+`uv sync --frozen` не компилирует ничего: сторонние зависимости ставятся колёсами, участники workspace (`packages/*`, `apps/*`, `tools/*`, чистый Python) ставятся editable, PostgreSQL-драйверы (`psycopg`, `psycopg2-binary` от `dagster-postgres`) несут libpq с собой, поэтому ни `pg_config`, ни компилятор не нужны. Системные пакеты нужны только для веб-интерфейса вики: `plantuml` и `graphviz` для диаграмм, Pango для выгрузки вики в PDF (WeasyPrint). На Arch: `sudo pacman -S plantuml graphviz pango`.
 
 Проверить, что база доступна и схема на последней миграции:
 
 ```bash
-uv run python src/main.py validate-config
+uv run court-monitor validate-config
 uv run alembic current
 uv run alembic heads
 ```
@@ -76,24 +76,24 @@ set -a
 source .env
 set +a
 
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
+uv run court-monitor discover-and-ingest --source ovd-info --limit 20
 ```
 
 Альтернативно загрузить одну конкретную статью:
 
 ```bash
-uv run python src/main.py ingest "https://ovd.info/news/example"
+uv run court-monitor ingest "https://ovd.info/news/example"
 ```
 
 `ovd-info` здесь — просто самый удобный источник для первого прогона. Их больше: два
 сайта, пресс-служба суда и несколько десятков публичных Telegram-каналов. Полный
-список ключей — `uv run python src/main.py discover-and-ingest --help`, что за чем
+список ключей — `uv run court-monitor discover-and-ingest --help`, что за чем
 стоит — на странице [Ingestion](Ingestion.md#источники).
 
 ## 3. Извлечь сущности и события
 
 ```bash
-uv run python src/main.py extract-entities
+uv run court-monitor extract-entities
 ```
 
 > **`--limit` берёт самые старые статьи, а не новые.** У `extract-entities` и
@@ -119,7 +119,7 @@ order by table_name;
 ## 4. Найти и склеить людей
 
 ```bash
-uv run python src/main.py resolve-people
+uv run court-monitor resolve-people
 ```
 
 Тот же лимит по умолчанию, что и у `extract-entities` — см. предупреждение в шаге 3.
@@ -147,13 +147,13 @@ limit 30;
 Посмотреть pending review по неоднозначным людям:
 
 ```bash
-uv run python src/main.py person-resolution-reviews list
+uv run court-monitor person-resolution-reviews list
 ```
 
 ## 5. Классифицировать преследование
 
 ```bash
-uv run python src/main.py classify-persecution
+uv run court-monitor classify-persecution
 ```
 
 Посмотреть людей с последней классификацией:
@@ -204,7 +204,7 @@ limit 20;
 
 ```bash
 # терминал 1
-uv run uvicorn --app-dir src api:app --reload --port 8001
+uv run uvicorn api:app --reload --port 8001
 ```
 
 ```bash
@@ -233,8 +233,8 @@ SNAPSHOT_ID="$(
 if [ -z "$SNAPSHOT_ID" ]; then
   echo "No Rosfinmonitoring snapshot in this database; skip this optional step."
 else
-  uv run python src/main.py match-rosfinmonitoring --snapshot-id "$SNAPSHOT_ID"
-  uv run python src/main.py list-candidates \
+  uv run court-monitor match-rosfinmonitoring --snapshot-id "$SNAPSHOT_ID"
+  uv run court-monitor list-candidates \
     --snapshot-id "$SNAPSHOT_ID" \
     --min-confidence 0.7 \
     --output-path candidates.json
@@ -262,7 +262,7 @@ set -a
 source .env
 set +a
 
-uv run uvicorn --app-dir src api:app --reload --port 8001
+uv run uvicorn api:app --reload --port 8001
 ```
 
 Открыть:
@@ -287,7 +287,7 @@ schema head; stale monitoring runs попадают в degraded status, а не 
 Если порт `8001` тоже занят, выбрать другой:
 
 ```bash
-uv run uvicorn --app-dir src api:app --reload --port 8002
+uv run uvicorn api:app --reload --port 8002
 ```
 
 ## 9. Проверки
@@ -301,9 +301,9 @@ uv run pytest
 Статика:
 
 ```bash
-uv run ruff check src tests
-uv run ruff format --check src tests
-uv run mypy --strict src tests
+uv run ruff check .
+uv run ruff format --check packages apps tools tests scripts
+uv run mypy --strict
 ```
 
 Integration tests с PostgreSQL:
@@ -315,7 +315,7 @@ Product-level evaluation на disposable database:
 ```bash
 export EVALUATION_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval"
 DATABASE_URL="$EVALUATION_DATABASE_URL" uv run alembic upgrade head
-uv run python src/main.py evaluate-final --no-fail-on-gates
+uv run court-evaluation evaluate-final --no-fail-on-gates
 ```
 
 `EVALUATION_DATABASE_URL` должен указывать на одноразовую БД с именем,
@@ -333,11 +333,11 @@ set -a
 source .env
 set +a
 
-uv run python src/main.py monitor --source ovd-info --dry-run --limit 5
-uv run python src/main.py monitor --source ovd-info --limit 20
-uv run python src/main.py monitor-derived
-uv run python src/main.py monitoring-status
-uv run python src/main.py monitoring-findings --all
+uv run court-monitor monitor --source ovd-info --dry-run --limit 5
+uv run court-monitor monitor --source ovd-info --limit 20
+uv run court-monitor monitor-derived
+uv run court-monitor monitoring-status
+uv run court-monitor monitoring-findings --all
 ```
 
 Dagster profile:
@@ -377,8 +377,8 @@ Real-world validation проверяет pipeline на зафиксирован�
 Быстрые проверки:
 
 ```bash
-uv run python src/main.py real-world-corpus-status
-uv run python src/main.py real-world-golden validate
+uv run court-evaluation real-world-corpus-status
+uv run court-evaluation real-world-golden validate
 ```
 
 Полный dev-run:
@@ -386,20 +386,20 @@ uv run python src/main.py real-world-golden validate
 ```bash
 export EVALUATION_DATABASE_URL="postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval"
 DATABASE_URL="$EVALUATION_DATABASE_URL" uv run alembic upgrade head
-uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+uv run court-evaluation evaluate-real-world --split dev --no-fail-on-gates
 ```
 
 Если cache неполный:
 
 ```bash
-uv run python src/main.py build-real-world-corpus --from-manifest
+uv run court-evaluation build-real-world-corpus --from-manifest
 ```
 
 Live discovery/fetch уважает `--min-interval` и не принимает значения ниже
 1 секунды на домен:
 
 ```bash
-uv run python src/main.py build-real-world-corpus
+uv run court-evaluation build-real-world-corpus
 ```
 
 Текущий golden dataset draft-only; результат остаётся preliminary, пока cases не

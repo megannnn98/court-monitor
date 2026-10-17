@@ -17,7 +17,7 @@ set +a
 
 docker compose up -d postgres
 uv run alembic upgrade head
-uv run python src/main.py validate-config
+uv run court-monitor validate-config
 ```
 
 Ожидание: `validate-config` печатает настройки без секретов, Alembic показывает
@@ -147,9 +147,9 @@ curl -s http://127.0.0.1:8001/health/ready   # 503 unavailable: БД недос�
 
 ```bash
 uv sync --frozen
-uv run ruff check src tests
-uv run ruff format --check src tests
-uv run mypy --strict src tests
+uv run ruff check .
+uv run ruff format --check packages apps tools tests scripts
+uv run mypy --strict
 uv run pytest                      # DB-тесты пропускаются без TEST_DATABASE_URL
 ```
 
@@ -187,16 +187,16 @@ alembic upgrade head
 ## Discover and ingest
 
 ```bash
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 10
-uv run python src/main.py discover-and-ingest --source sota-vision --limit 10
+uv run court-monitor discover-and-ingest --source ovd-info --limit 10
+uv run court-monitor discover-and-ingest --source sota-vision --limit 10
 ```
 
-`--source` выбирает источник из `src/ingestion/sources/source_registry.py` (по умолчанию `ovd-info`). Обнаруженные ссылки на статьи проходят через общие `SourceIngestion`/`IngestionPipeline` — не сохраняются дважды при повторном запуске (dedup по `source_id` + `external_id`), ошибка одной статьи не прерывает остальные.
+`--source` выбирает источник из `packages/court-ingestion/src/ingestion/sources/source_registry.py` (по умолчанию `ovd-info`). Обнаруженные ссылки на статьи проходят через общие `SourceIngestion`/`IngestionPipeline` — не сохраняются дважды при повторном запуске (dedup по `source_id` + `external_id`), ошибка одной статьи не прерывает остальные.
 
 Разовая загрузка одной статьи ОВД-Инфо по прямому URL (не через discovery):
 
 ```bash
-uv run python src/main.py ingest https://ovd.info/express-news/2026/09/01/some-article
+uv run court-monitor ingest https://ovd.info/express-news/2026/09/01/some-article
 ```
 
 ## Evaluation
@@ -204,11 +204,11 @@ uv run python src/main.py ingest https://ovd.info/express-news/2026/09/01/some-a
 Real-world validation использует отдельный manifest/golden dataset/cache и disposable database:
 
 ```bash
-uv run python src/main.py real-world-corpus-status
-uv run python src/main.py real-world-golden validate
+uv run court-evaluation real-world-corpus-status
+uv run court-evaluation real-world-golden validate
 
 export EVALUATION_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_dev@localhost:5433/court_monitor_eval
-uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
+uv run court-evaluation evaluate-real-world --split dev --no-fail-on-gates
 ```
 
 Детали: [Real-World Validation](RealWorldValidation.md).
@@ -218,14 +218,14 @@ uv run python src/main.py evaluate-real-world --split dev --no-fail-on-gates
 Extraction одной сохранённой статьи:
 
 ```bash
-uv run python src/main.py extract-entities --article-id 123
+uv run court-monitor extract-entities --article-id 123
 ```
 
 Пакетный режим по источнику:
 
 ```bash
-uv run python src/main.py extract-entities --source ovd-info --limit 100
-uv run python src/main.py extract-entities --source sota-vision --limit 100
+uv run court-monitor extract-entities --source ovd-info --limit 100
+uv run court-monitor extract-entities --source sota-vision --limit 100
 ```
 
 Команда печатает JSON-статистику:
@@ -241,7 +241,7 @@ events_created
 Golden evaluation:
 
 ```bash
-uv run python src/main.py evaluate-extraction \
+uv run court-monitor evaluate-extraction \
   --corpus-path tests/fixtures/extraction_golden_corpus.json
 ```
 

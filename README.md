@@ -23,28 +23,37 @@ set -a; source .env; set +a
 docker compose up -d
 uv run alembic upgrade head
 
-uv run python src/main.py discover-and-ingest --source ovd-info --limit 20
-uv run python src/main.py extract-entities
-uv run python src/main.py resolve-people
-uv run python src/main.py classify-persecution
-uv run python src/main.py list-candidates --snapshot-id <id> --output-path candidates.json
+uv run court-monitor discover-and-ingest --source ovd-info --limit 20
+uv run court-monitor extract-entities
+uv run court-monitor resolve-people
+uv run court-monitor classify-persecution
+uv run court-monitor list-candidates --snapshot-id <id> --output-path candidates.json
 ```
 
-`list-candidates` требует загруженный snapshot Росфинмониторинга — см. [Getting Started, шаги 6–7](docs/wiki/Getting-Started.md#6-optional-проверить-rosfinmonitoring-snapshots). Все команды: `uv run python src/main.py --help`.
+`list-candidates` требует загруженный snapshot Росфинмониторинга — см. [Getting Started, шаги 6–7](docs/wiki/Getting-Started.md#6-optional-проверить-rosfinmonitoring-snapshots). Все команды: `uv run court-monitor --help`.
 
 ## Проверки
 
 ```bash
-uv run ruff check src tests migrations
-uv run ruff format --check src tests migrations
-uv run mypy --strict src tests
+uv run ruff check .
+uv run ruff format --check packages apps tools tests scripts migrations
+uv run mypy --strict
 uv run pytest    # для PostgreSQL-тестов нужен TEST_DATABASE_URL, см. docs/wiki/Testing.md
+uv run python scripts/check_package_isolation.py   # каждый пакет workspace отдельно
 ```
+
+## Структура
+
+uv workspace: модули — отдельные устанавливаемые пакеты (`packages/court-*`), приложение
+(composition root, CLI `court-monitor`, API, Dagster) — `apps/court-monitor`, evaluation —
+`tools/court-evaluation` (CLI `court-evaluation`). Граф зависимостей и что чем владеет —
+[docs/architecture/package-map.md](docs/architecture/package-map.md).
 
 ## Документация
 
 - [Implementation Status](docs/wiki/Implementation-Status.md) — текущее состояние: компоненты, команды, результаты последней проверки, ограничения
 - [docs/wiki](docs/wiki/Home.md) — вики: архитектура, pipeline, entity resolution, классификация, Росфинмониторинг, безымянные фигуранты, monitoring, evaluation
 - [Local Web UI](docs/wiki/Local-Web-UI.md) — локальная веб-морда для ER-ревью и карточек с evidence spans
+- [Package map](docs/architecture/package-map.md) — пакеты workspace, их зависимости и публичные API
 - [docs/adr](docs/adr/) — архитектурные решения
 - [CONTEXT.md](CONTEXT.md) — глоссарий доменных терминов

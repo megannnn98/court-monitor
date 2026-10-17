@@ -20,7 +20,7 @@ psql "$DATABASE_URL" -c '\dt'
 ```
 
 Ожидание: Alembic current совпадает с heads; доменные таблицы описаны ORM в
-`src/db/models/` и импортируются через `src/db/orm_models.py`.
+`packages/court-platform/src/db/models/` и импортируются через `packages/court-platform/src/db/orm_models.py`.
 
 ## Схема (актуальная, по миграциям + `db/orm_models.py`)
 
@@ -235,7 +235,7 @@ PostgreSQL с записью Airtable и делает повторный зап�
 
 ## Persistence: `SqlAlchemyIngestionPersistence.save()`
 
-`src/ingestion/sources/sqlalchemy_persistence.py`. Одна транзакция (`session_factory.begin()`), upsert по естественным ключам на каждом уровне:
+`packages/court-ingestion/src/ingestion/sources/sqlalchemy_persistence.py`. Одна транзакция (`session_factory.begin()`), upsert по естественным ключам на каждом уровне:
 
 1. **Source** — ищется по `base_url`, создаётся при отсутствии.
 2. **SourceDocument** — ищется по `(source_id, external_id)`; при повторной загрузке той же публикации обновляются `canonical_url`, `fetched_at`, `content_type`, `raw_content` (перезапись, не версионирование — старое содержимое не хранится).

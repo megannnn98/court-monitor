@@ -9,8 +9,8 @@ Classification отвечает на продуктовый вопрос: ест
 ## Быстрый сценарий
 
 ```bash
-uv run python src/main.py classify-persecution --limit 1000
-uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
+uv run court-monitor classify-persecution --limit 1000
+uv run court-monitor list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
 `snapshot-id 1` заменить на реальный snapshot Росфинмониторинга. Без RF match
@@ -58,12 +58,12 @@ snapshot = `not_matched`, она может попасть в `/ui/candidates`.
 
 | Сценарий | Код |
 |---|---|
-| classification service | `src/analysis/persecution/classification_service.py` |
-| rule-based classifier | `src/analysis/persecution/classifier.py` |
-| queries/latest ids | `src/analysis/persecution/queries.py` |
-| CLI | `src/cli/persecution.py` |
-| candidates | `src/results/candidates/service.py` |
-| UI candidates | `src/web/ui/candidates.py`, `src/web/candidate_rows.py` |
+| classification service | `packages/court-analysis/src/analysis/persecution/classification_service.py` |
+| rule-based classifier | `packages/court-analysis/src/analysis/persecution/classifier.py` |
+| queries/latest ids | `packages/court-analysis/src/analysis/persecution/queries.py` |
+| CLI | `apps/court-monitor/src/cli/persecution.py` |
+| candidates | `packages/court-results/src/results/candidates/service.py` |
+| UI candidates | `apps/court-monitor/src/web/ui/candidates.py`, `apps/court-monitor/src/web/candidate_rows.py` |
 
 ## Данные и артефакты
 
@@ -75,9 +75,9 @@ snapshot = `not_matched`, она может попасть в `/ui/candidates`.
 ## Команды и API
 
 ```bash
-uv run python src/main.py classify-persecution --person-id 42
-uv run python src/main.py classify-persecution --limit 1000
-uv run python src/main.py list-candidates --snapshot-id 1 --min-confidence 0.7
+uv run court-monitor classify-persecution --person-id 42
+uv run court-monitor classify-persecution --limit 1000
+uv run court-monitor list-candidates --snapshot-id 1 --min-confidence 0.7
 ```
 
 UI:

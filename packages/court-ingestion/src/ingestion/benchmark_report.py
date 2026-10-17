@@ -1,6 +1,6 @@
 """Table, charts and a recommendation from a download benchmark's JSON rows.
 
-    PYTHONPATH=src uv run python -m ingestion.benchmark_report reports/download_benchmark.json
+    uv run python -m ingestion.benchmark_report reports/download_benchmark.json
 
 Writes `<name>_report.md`, `<name>_throughput.svg` and `<name>_latency.svg` next to
 the input.  It reads the measurements only; it never downloads anything.

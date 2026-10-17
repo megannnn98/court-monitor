@@ -24,10 +24,10 @@ Pipeline — путь от публикации до «Результата»: �
 Те же шаги из командной строки (внутри контейнера API):
 
 ```bash
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py purge-junk'
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py collect-entities'
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-figurants'
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-political'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor purge-junk'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor collect-entities'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor find-figurants'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor find-political'
 ```
 
 Команды, запущенные так, не создают карточку запуска и не двигают круг шагов в UI.
@@ -133,19 +133,19 @@ stop
 
 ### Шаг 3: как упоминания становятся людьми
 
-`src/processing/identity/grouping.py`: одно имя и фамилия в любом падеже — один человек
+`packages/court-processing/src/processing/identity/grouping.py`: одно имя и фамилия в любом падеже — один человек
 («Моора», «Моору», «Моор»); отчество отличает тёзок; фамилия без имени
 присоединяется к полному имени из той же публикации. «Жене Владимира» — родство, не
 человек; имя на последней строке после законченного текста («Никита Черненко»,
 «Влад Никифоров, Иркутск») — подпись автора, не человек из новости;
 «Дрион Алексис» и «Алексис Дрион» — один человек. Имена в именительный
-падеж приводит правило, а в спорных случаях модель (`src/processing/identity/normalizer.py`).
+падеж приводит правило, а в спорных случаях модель (`packages/court-processing/src/processing/identity/normalizer.py`).
 Решения оператора — «Один человек», «Разные люди», исправленное имя, отметка
 «должностное лицо» — хранятся по ключу и применяются при каждой пересборке.
 
 ### Шаг 4: роль в деле
 
-`src/processing/roles/roles.py`. Должностных лиц (судьи, прокуроры, следователи) отмечают
+`packages/court-processing/src/processing/roles/roles.py`. Должностных лиц (судьи, прокуроры, следователи) отмечают
 правила. Остальных модель читает по цитатам и выбирает роль: обвиняемый в
 российском деле (фигурант), административное дело, задержан или обыскан, дело не
 в России, историческая репрессия, только поддержка (письма, акции, напоминание о
@@ -153,9 +153,9 @@ stop
 
 ### Шаг 5: политическое, РФМ или нет
 
-Сначала `src/analysis/rosfinmonitoring/rf_check.py` скачивает свежий перечень и сверяет сущности.
+Сначала `packages/court-analysis/src/analysis/rosfinmonitoring/rf_check.py` скачивает свежий перечень и сверяет сущности.
 Перечень подтверждает личность, а не решает, политическое ли дело. Затем
-`src/analysis/politics/classification.py` применяет правила: статья УК из списка политических
+`packages/court-analysis/src/analysis/politics/classification.py` применяет правила: статья УК из списка политических
 (`analysis/persecution/classifier.py`), категория реестра «Мемориала» или только статьи
 обычной уголовщины (без ст. 213 и 318). Остальных читает модель; неудавшийся ответ
 — «неясно», никогда не «политическое».
@@ -189,7 +189,7 @@ stop
 
 ### Шаг 5: новое дело или приговор
 
-`src/analysis/news/case_news.py`. Модель читает последние публикации о каждом политическом деле
+`packages/court-analysis/src/analysis/news/case_news.py`. Модель читает последние публикации о каждом политическом деле
 (свежая первой, с датой) и называет, о чём свежая новость: **новое дело** (задержание,
 возбуждение, обвинение — впервые), **приговор**, **продолжение дела** (продление
 ареста, апелляция, этап старого дела), **дело завершено** (человек уже на свободе —
@@ -200,7 +200,7 @@ stop
 досье — под «Ролью в деле». Отдельно, без остального шага:
 
 ```bash
-docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-news'
+docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor find-news'
 ```
 
 ## Модель и расходы
@@ -223,28 +223,28 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py find-n
 
 ```bash
 docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
-  sh -c 'cd /app && /opt/venv/bin/python src/main.py compare-entity-models --step politics --sample 100'
+  sh -c 'cd /app && /opt/venv/bin/court-evaluation compare-entity-models --step politics --sample 100'
 ```
 
 ## Кодовые точки входа
 
-- Шаги и их порядок: `src/web/ui/pipeline.py`; запуски: `src/orchestrator/operations.py`.
-- Что делает каждый шаг и в каком порядке: `src/orchestrator/cycle.py` (`OperatorCycle`).
-- CLI шага 1: `src/cli/monitoring.py`; CLI шагов 2–5: `src/cli/cycle.py`.
+- Шаги и их порядок: `apps/court-monitor/src/web/ui/pipeline.py`; запуски: `packages/court-orchestrator/src/orchestrator/operations.py`.
+- Что делает каждый шаг и в каком порядке: `packages/court-orchestrator/src/orchestrator/cycle.py` (`OperatorCycle`).
+- CLI шага 1: `apps/court-monitor/src/cli/monitoring.py`; CLI шагов 2–5: `apps/court-monitor/src/cli/cycle.py`.
 
 Шаг вызывает публичный API своего модуля и ничего мимо него
 ([ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md)):
 
 | Шаг | Модуль | API | Код за ним |
 |---|---|---|---|
-| 1. Загрузка | `ingestion`, `processing` | `IngestionService`, `ProcessingService.extract_article` через `MonitoringService` | `src/ingestion/sources/`, `src/processing/extraction/` |
-| 2. Очистка | `processing` | `ProcessingService.purge_junk` | `src/processing/junk/` |
-| 3. Люди | `processing` | `IdentityService.rebuild_groups` | `src/processing/identity/` |
-| 4. Фигуранты | `processing` | `ProcessingService.find_figurants` | `src/processing/roles/` |
-| 5. Политические дела | `analysis`, `processing` | `AnalysisService.check_rosfinmonitoring`, `classify_politics`, `find_news`, `find_unnamed`; `ProcessingService.read_digests`, `read_sentences` | `src/analysis/`, `src/processing/evidence/` |
+| 1. Загрузка | `ingestion`, `processing` | `IngestionService`, `ProcessingService.extract_article` через `MonitoringService` | `packages/court-ingestion/src/ingestion/sources/`, `packages/court-processing/src/processing/extraction/` |
+| 2. Очистка | `processing` | `ProcessingService.purge_junk` | `packages/court-processing/src/processing/junk/` |
+| 3. Люди | `processing` | `IdentityService.rebuild_groups` | `packages/court-processing/src/processing/identity/` |
+| 4. Фигуранты | `processing` | `ProcessingService.find_figurants` | `packages/court-processing/src/processing/roles/` |
+| 5. Политические дела | `analysis`, `processing` | `AnalysisService.check_rosfinmonitoring`, `classify_politics`, `find_news`, `find_unnamed`; `ProcessingService.read_digests`, `read_sentences` | `packages/court-analysis/src/analysis/`, `packages/court-processing/src/processing/evidence/` |
 
-Модель (DeepSeek через OpenRouter) стоит за этими API: общий клиент `src/llm/chat.py`,
-кэш ответов `src/processing/answers.py`.
+Модель (DeepSeek через OpenRouter) стоит за этими API: общий клиент `packages/court-platform/src/llm/chat.py`,
+кэш ответов `packages/court-processing/src/processing/answers.py`.
 
 ## Два рантайма
 
@@ -298,22 +298,22 @@ docker exec -e ENTITY_NORMALIZE_MODEL=xiaomi/mimo-v2.6-flash ebnv-api-1 \
 
 Пост канала остаётся в результате, только если слова имени стоят в нём рядом (в любом падеже и порядке, инициал — за своё слово). Наводкой искомого факта он становится, только если в нём есть одно из искомых слов; наводкой по статьям — только если перед статьёй УК РФ стоят имя и слово обвинения («обвиняют», «вменяют», …), а не чужое имя и не УК другой страны. Пост, который уже лежит в базе, показывается один раз — как публикация базы, с наводками найденной копии ([ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md)).
 
-Примеры (в контейнере: `docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/python src/main.py …'`):
+Примеры (в контейнере: `docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor …'`):
 
 ```bash
 # Досье: всё, что известно, со ссылками на материалы
-python src/main.py investigate "Что известно о Марии Бонцлер и есть ли она в перечне?"
+court-monitor investigate "Что известно о Марии Бонцлер и есть ли она в перечне?"
 
 # Только база, без внешних источников и без модели
-python src/main.py investigate "За что преследуют Олега Куваева?" --local-only --no-llm
+court-monitor investigate "За что преследуют Олега Куваева?" --local-only --no-llm
 
 # Неназванный фигурант публикации: база и Telegram
-python src/main.py investigate "Установи фигуранта публикации 28191" --source local --source telegram
+court-monitor investigate "Установи фигуранта публикации 28191" --source local --source telegram
 
 # Весь результат как JSON; прочитать сохранённый запуск; продолжить прерванный
-python src/main.py investigate "Мария Бонцлер" --json
-python src/main.py investigate --run-id 3f2a…
-python src/main.py investigate --resume 3f2a…
+court-monitor investigate "Мария Бонцлер" --json
+court-monitor investigate --run-id 3f2a…
+court-monitor investigate --resume 3f2a…
 ```
 
 Продолжение запуска: уже сделанные поиски не повторяются, недоделанные поиски круга
@@ -339,7 +339,7 @@ python src/main.py investigate --resume 3f2a…
 
 Устройство: [ADR 0026](../adr/0026-investigation-workflow-on-langgraph.md),
 [ADR 0027](../adr/0027-investigation-runtime-scenarios-and-retrieval.md),
-`src/investigation/`. Проверка качества: `python -m evaluation.investigation`.
+`packages/court-investigation/src/investigation/`. Проверка качества: `python -m evaluation.investigation`.
 
 ## Проверка
 

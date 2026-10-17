@@ -80,7 +80,7 @@
 | `nvidia/nemotron-3.5-super-vl:free` | NVIDIA Nemotron 3.5 Super VL, бесплатный вариант |
 | `nvidia/nemotron-3.5-super-vl` | NVIDIA Nemotron 3.5 Super VL, платный |
 
-Список задан в `src/llm/model_choice.py` (`ENTITY_MODELS`); ID проверены по OpenRouter
+Список задан в `packages/court-platform/src/llm/model_choice.py` (`ENTITY_MODELS`); ID проверены по OpenRouter
 16.10.2026. Цены в код не вписаны: их читают из каталога. Убранные модели и причина — в
 `EXCLUDED_MODELS`: `openai/gpt-oss-120b` OpenRouter отдаёт только с включённым reasoning, а
 шаги его отключают (HTTP 400 «Reasoning is mandatory…»).
@@ -124,12 +124,12 @@
 
 ## Кодовые точки входа
 
-- Каталог, выбор, учёт: `src/llm/model_choice.py`.
-- Вызов модели, учёт по модели, защита от подмены: `src/llm/chat.py` (`chat_json`, `LEDGER`).
-- Тест: `src/processing/identity/model_probe.py`.
-- API: `src/web/routers/entity_model.py` (`/api/v1/entity-model`, `/test`,
-  `/catalog/refresh`); предупреждение: `src/web/ui/spend.py`, `src/web/routers/cycle.py`.
-- Фиксация в запуске: `src/orchestrator/operations.py`; команда: `src/cli/cycle.py`.
+- Каталог, выбор, учёт: `packages/court-platform/src/llm/model_choice.py`.
+- Вызов модели, учёт по модели, защита от подмены: `packages/court-platform/src/llm/chat.py` (`chat_json`, `LEDGER`).
+- Тест: `packages/court-processing/src/processing/identity/model_probe.py`.
+- API: `apps/court-monitor/src/web/routers/entity_model.py` (`/api/v1/entity-model`, `/test`,
+  `/catalog/refresh`); предупреждение: `apps/court-monitor/src/web/ui/spend.py`, `apps/court-monitor/src/web/routers/cycle.py`.
+- Фиксация в запуске: `packages/court-orchestrator/src/orchestrator/operations.py`; команда: `apps/court-monitor/src/cli/cycle.py`.
 - Страница: `frontend/src/pages/EntityModelPage.tsx`; диалог «Сделать всё»:
   `frontend/src/pages/WorkPage.tsx`.
 

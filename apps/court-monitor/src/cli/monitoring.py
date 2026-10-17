@@ -122,7 +122,7 @@ class Lane:
 
 
 class _LaneProcess:
-    """A lane as a child `python src/main.py monitor ... --lane`.
+    """A lane as a child `python apps/court-monitor/src/main.py monitor ... --lane`.
 
     A process, not a thread: SIGINT closes a child's monitoring runs the way it does
     for any CLI run. Its own session, so a terminal Ctrl+C reaches only the parent,

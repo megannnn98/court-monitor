@@ -355,3 +355,37 @@ def test_every_module_is_imported_from_its_installed_distribution(tmp_path: Path
         if not Path(file).resolve().is_relative_to(members()[owner[module]].src.resolve())
     )
     assert misplaced == []
+
+
+def test_the_old_src_directory_is_only_a_launcher() -> None:
+    # `python src/main.py` still runs the command line, through the installed application:
+    # the file dispatches to `cli.app` and nothing else lives there.
+    src = REPOSITORY / "src"
+    tree = ast.parse((src / "main.py").read_text(encoding="utf-8"))
+    imported = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    } | {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+
+    assert sorted(path.name for path in src.iterdir() if path.name != "__pycache__") == ["main.py"]
+    assert imported == {"cli.app"}
+
+
+def test_the_old_launcher_runs_the_application_command_line(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, "-I", str(REPOSITORY / "src" / "main.py"), "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "validate-config" in result.stdout

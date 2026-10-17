@@ -15,11 +15,11 @@
 
 ```bash
 # одноразовый ручной прогон pipeline
-uv run python src/main.py monitor --catch-up
+uv run court-monitor monitor --catch-up
 
 # статус runs и findings
-uv run python src/main.py monitoring-status
-uv run python src/main.py monitoring-findings --all
+uv run court-monitor monitoring-status
+uv run court-monitor monitoring-findings --all
 
 # локальная web-консоль
 docker compose --profile api up -d
@@ -35,12 +35,12 @@ CLI, FastAPI и Dagster собирают сервисы через один comp
 title court-monitor architecture
 
 rectangle "Dagster\n(schedules, monitoring_job)" as Dagster #EEF
-rectangle "CLI\nsrc/main.py" as CLI
+rectangle "CLI\ncourt-monitor" as CLI
 rectangle "FastAPI\napi.py + web/" as API
 
 rectangle "application.build_application_services()" as Root
 
-package "Orchestration: src/orchestrator" #EEF {
+package "Orchestration: packages/court-orchestrator/src/orchestrator" #EEF {
   component "MonitoringService" as Monitoring
   component "MonitoringFindingService" as Findings
 }
@@ -84,12 +84,12 @@ Dagster --> DagsterDB
 
 | Слой | Где | Ответственность |
 |---|---|---|
-| CLI | `src/main.py`, `src/cli/` | парсинг команд и вызов доменных сервисов |
-| API / UI | `src/api.py`, `src/web/` | FastAPI, JSON endpoints, operator console |
-| Composition root | `src/application.py`, `src/cli/context.py` | настройки, engine, session factory, сервисы |
-| Orchestration | `src/orchestrator/` | порядок стадий, runs, checkpoints, findings |
-| Domain | `src/ingestion/`, `src/processing/`, `src/persons/`, `src/analysis/`, `src/results/` | бизнес-решения и persistence |
-| Database | `src/db/`, `migrations/` | ORM и Alembic schema |
+| CLI | `apps/court-monitor/src/main.py`, `apps/court-monitor/src/cli/` | парсинг команд и вызов доменных сервисов |
+| API / UI | `apps/court-monitor/src/api.py`, `apps/court-monitor/src/web/` | FastAPI, JSON endpoints, operator console |
+| Composition root | `apps/court-monitor/src/application.py`, `apps/court-monitor/src/cli/context.py` | настройки, engine, session factory, сервисы |
+| Orchestration | `packages/court-orchestrator/src/orchestrator/` | порядок стадий, runs, checkpoints, findings |
+| Domain | `packages/court-ingestion/src/ingestion/`, `packages/court-processing/src/processing/`, `packages/court-processing/src/persons/`, `packages/court-analysis/src/analysis/`, `packages/court-results/src/results/` | бизнес-решения и persistence |
+| Database | `packages/court-platform/src/db/`, `migrations/` | ORM и Alembic schema |
 
 ## Данные и артефакты
 
@@ -101,8 +101,8 @@ Dagster --> DagsterDB
 ## Проверка
 
 ```bash
-uv run python src/main.py validate-config
-uv run python src/main.py --help
+uv run court-monitor validate-config
+uv run court-monitor --help
 uv run pytest tests/monitoring tests/app
 ```
 
