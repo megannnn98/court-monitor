@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { beforeAll, beforeEach, expect, it } from "vitest";
 
-/** The legacy pages' sorter (`src/static/table-sort*.js`), which the console calls for a
+/** The legacy pages' sorter (`apps/court-monitor/src/static/table-sort*.js`), which the console calls for a
  * piece of a legacy page: once per header, and only under the root it is given. */
 const TABLE = `<table><thead><tr><th>Имя</th><th>Число</th></tr></thead>
   <tbody><tr><td>б</td><td>2</td></tr><tr><td>а</td><td>10</td></tr><tr><td>в</td><td>1</td></tr></tbody></table>`;
@@ -10,8 +10,8 @@ const TABLE = `<table><thead><tr><th>Имя</th><th>Число</th></tr></thead>
 let run;
 
 beforeAll(async () => {
-  const core = await readFile("../src/static/table-sort-core.js", "utf8");
-  const page = await readFile("../src/static/table-sort.js", "utf8");
+  const core = await readFile("../apps/court-monitor/src/static/table-sort-core.js", "utf8");
+  const page = await readFile("../apps/court-monitor/src/static/table-sort.js", "utf8");
   // As two script tags run them: the core gives `window.TableSortCore`, the page uses it.
   run = () => {
     new Function("module", core)(undefined);

@@ -32,7 +32,7 @@ from db.database import create_database_engine, create_session_factory
 from evaluation.identity_comparison import real, synthetic
 from evaluation.person_resolution.er_run import load_er_corpus, run_er_evaluation
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def _outside_a_transaction(engine: Engine, statement: str) -> None:

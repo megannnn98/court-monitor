@@ -35,7 +35,6 @@ CYCLE_COMMANDS = frozenset(
         "find-unnamed",
         "find-news",
         "find-sentences",
-        "compare-entity-models",
     }
 )
 
@@ -132,17 +131,6 @@ def add_cycle_arguments(subparsers: Any) -> None:
             ),
         )
 
-    compare = subparsers.add_parser(
-        "compare-entity-models",
-        help=(
-            "Ask the configured model (ENTITY_NORMALIZE_MODEL) what the steps already "
-            "answered, on a sample, and report the agreement; writes nothing"
-        ),
-    )
-    compare.add_argument("--step", choices=("names", "roles", "politics"), required=True)
-    compare.add_argument("--sample", type=int, default=200)
-    compare.add_argument("--seed", type=int, default=1)
-
 
 def _print(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -176,12 +164,6 @@ def run_cycle_command(
     if args.command not in CYCLE_COMMANDS:
         return False
     configure_logging()
-    if args.command == "compare-entity-models":
-        # Tooling, not a step: it compares models on a sample and writes nothing.
-        from evaluation.model_comparison.compare import run_comparison
-
-        _print(run_comparison(session_factory, args.step, size=args.sample, seed=args.seed))
-        return True
     if args.command in ENTITY_MODEL_COMMANDS:
         # Both chosen before either is set: the decision model falls back to the
         # extraction's variable, which would by then name the extraction's choice.

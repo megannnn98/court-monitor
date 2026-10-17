@@ -19,6 +19,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
+from support.workspace import APP_SRC
 
 from db.orm_models import OperatorOperationRunRecord
 from orchestrator.operations import OperationRegistry
@@ -155,11 +156,8 @@ def test_the_route_is_registered_and_the_file_route_is_not() -> None:
 def test_the_cli_command_is_still_the_same_work() -> None:
     """The page may not offer a file, but the answer to «как это делается без
     интерфейса» is still the command that has always done it."""
-    from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[2] / "src" / "web" / "ui" / "airtable.py").read_text(
-        encoding="utf-8"
-    )
+    source = (APP_SRC / "web" / "ui" / "airtable.py").read_text(encoding="utf-8")
 
     assert "check-entities-rosfin" in source
 

@@ -62,7 +62,7 @@ from processing.junk.drop_verifier import (
 )
 from processing.junk.drop_verifier_prompt import DROP, PROMPT_VERSION, article_text, request_for
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[5]
 RELEVANCE = ROOT / "data/ml/relevance"
 DEV_DIR = RELEVANCE / "jev_strong_prefilter"
 DEV_DATASET = DEV_DIR / "dataset.json"

@@ -10,9 +10,6 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import HTTPException
-
-# markdown-it-py comes locked through dagster -> rich; declaring it would rebuild the
-# image's dependency layer for a package already in it.
 from markdown_it import MarkdownIt
 from markdown_it.renderer import RendererHTML
 from markdown_it.token import Token
@@ -20,7 +17,7 @@ from markdown_it.utils import EnvType, OptionsDict
 
 
 def _wiki_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "docs" / "wiki"
+    return Path(__file__).resolve().parents[4] / "docs" / "wiki"
 
 
 def _wiki_page(slug: str) -> Path | None:

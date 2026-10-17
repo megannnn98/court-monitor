@@ -46,3 +46,7 @@ def module_file(dotted: str) -> Path | None:
         if (root / relative).is_dir():
             return root / relative
     return None
+
+
+# The application's own `src/`: `main.py`, `static/`, the console.
+APP_SRC = REPOSITORY / "apps" / "court-monitor" / "src"

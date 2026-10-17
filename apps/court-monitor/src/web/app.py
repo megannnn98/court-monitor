@@ -8,6 +8,7 @@ deployment step (ADR 0014).
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -105,7 +106,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-app.mount("/static", StaticFiles(directory="src/static"), name="static")
+# The application's own `static/`, wherever it is run from (it was `src/static` of the
+# working directory before the workspace split).
+app.mount(
+    "/static",
+    StaticFiles(directory=Path(__file__).resolve().parents[1] / "static"),
+    name="static",
+)
 # No CORS middleware: the API is meant for private deployment behind a reverse
 # proxy (ADR 0014); browsers on other origins are not a supported client. Missing CORS
 # does not stop a cross-site form POST, so an unsafe request must come from the

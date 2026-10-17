@@ -29,7 +29,7 @@ describe("scopeLegacyCss", () => {
   });
 
   it("the committed stylesheet is what the legacy one gives today", async () => {
-    const legacy = await readFile("../src/static/local-ui.css", "utf8");
+    const legacy = await readFile("../apps/court-monitor/src/static/local-ui.css", "utf8");
     const committed = await readFile("src/legacy-html.css", "utf8");
 
     // Stale: run `npm run generate:legacy-css`.

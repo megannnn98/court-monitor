@@ -1,81 +1,59 @@
-[project]
-name = "court-monitor-recovered"
-version = "0.1.0"
-description = "Recovered first vertical slice of court-monitor"
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "court-analysis",
-    "court-core",
-    "court-ingestion",
-    "court-investigation",
-    "court-orchestrator",
-    "court-platform",
-    "court-processing",
-    "court-results",
-    "alembic>=1.19.1",
-    "anthropic>=1.8.0",
-    "curl-cffi>=0.16.3,<0.17",
-    "dagster>=1.13.22",
-    "dagster-postgres>=0.29.22",
-    "dagster-webserver>=1.13.22",
-    "fastapi>=0.115.0",
-    "httpx[socks]>=0.28.0",
-    "openpyxl>=3.1.5",
-    # Reads the ОВД-Инфо copy of the перечень (a single parquet file) to learn when each
-    # entry was included. See `analysis.rosfinmonitoring.inclusion_dates`.
-    "pyarrow>=21.0.0",
-    "psycopg[binary]>=3.2",
-    "pydantic>=2.11.0",
-    "pymorphy3>=2.0.6",
-    "rapidfuzz>=3.14",
-    "reportlab>=4.0",
-    "selectolax>=0.3.29",
-    "sqlalchemy>=2.0,<3.0",
-    "uvicorn>=0.32.0",
-    "weasyprint>=70.0",
-    "langgraph>=1.0",
-]
+# The court-monitor workspace (docs/architecture/package-map.md). The root is not a
+# package: it names the members, the tools every member is checked with, and one
+# configuration of ruff, mypy and pytest for all of them.
+#
+#   packages/*   the modules: court-core, court-platform, court-ingestion,
+#                court-processing, court-analysis, court-results, court-investigation,
+#                court-orchestrator
+#   apps/*       court-monitor: the composition root, CLI, API, Dagster's code location
+#   tools/*      court-evaluation: measurements; nothing in production depends on it
+#
+# `uv sync` installs every member (the `dev` group) for development and the tests. An
+# image installs the application alone: `uv sync --package court-monitor
+# --no-default-groups`.
 
 [tool.uv.workspace]
-members = ["packages/*"]
-
-[tool.uv.sources]
-court-analysis = { workspace = true }
-court-core = { workspace = true }
-court-ingestion = { workspace = true }
-court-investigation = { workspace = true }
-court-orchestrator = { workspace = true }
-court-platform = { workspace = true }
-court-processing = { workspace = true }
-court-results = { workspace = true }
-
-[tool.ruff]
-target-version = "py313"
-line-length = 100
-# One configuration for the whole workspace. First-party code is every distribution's
-# `src/` (import sorting reads it).
-src = [".", "src", "packages/*/src", "apps/*/src", "tools/*/src"]
+members = ["packages/*", "apps/*", "tools/*"]
 
 [dependency-groups]
 dev = [
+    "court-evaluation",
+    "court-monitor",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "ruff>=0.16.3",
     "types-openpyxl>=3.1.5.20260827",
 ]
 semantic = [
-    "court-processing[semantic]",
+    "court-evaluation[semantic]",
+    "court-monitor[semantic]",
 ]
 
 [tool.uv]
 # Deployment images use --no-default-groups, so API, CLI and Dagster never need dev tools.
 default-groups = ["dev"]
 
+[tool.uv.sources]
+court-evaluation = { workspace = true }
+court-monitor = { workspace = true }
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+# One configuration for the whole workspace. First-party code is every distribution's
+# `src/` (import sorting reads it).
+src = [".", "packages/*/src", "apps/*/src", "tools/*/src"]
+
 [tool.pytest.ini_options]
-pythonpath = ["src", "tests"]
+# The workspace's code is imported as installed packages (`uv sync`), never from a path:
+# only the tests' own helpers (`support`) are put on it.
+pythonpath = ["tests"]
 # Diagnostic: a test stuck this long prints every thread's stack (CI hang on PR #64).
 faulthandler_timeout = 240
+
+[tool.mypy]
+# Every member's `src/` and the tests: `uv run mypy --strict`.
+files = ["packages/*/src", "apps/*/src", "tools/*/src", "tests"]
 
 [[tool.mypy.overrides]]
 # Morphological dictionary for personal names; ships no type information.
@@ -83,7 +61,8 @@ module = ["pymorphy3", "pymorphy3.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-# Optional `semantic` uv group; imported lazily. CI quality runs without it.
+# The optional `semantic` extra (court-processing, court-evaluation); imported lazily.
+# CI quality runs without it.
 module = [
     "sentence_transformers",
     "sentence_transformers.*",
@@ -103,11 +82,6 @@ ignore_missing_imports = true
 # PyArrow ships no type information; reading the ОВД-Инфо copy of the list stays
 # runtime-checked.
 module = ["pyarrow", "pyarrow.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-# ReportLab does not ship type stubs; PDF generation remains runtime-checked.
-module = ["reportlab", "reportlab.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

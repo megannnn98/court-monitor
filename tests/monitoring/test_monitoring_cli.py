@@ -28,6 +28,7 @@ from support.monitoring_fixtures import (
     build_service,
     table_counts,
 )
+from support.workspace import APP_SRC
 
 from application import ApplicationServices
 from cli.cycle import add_cycle_arguments, run_cycle_command
@@ -681,7 +682,7 @@ def test_a_parallel_load_reports_its_sources_in_the_order_they_were_given(
     assert [run["source"] for run in json.loads(capsys.readouterr().out)] == sources
 
 
-MAIN_SRC = Path(__file__).resolve().parents[2] / "src"
+MAIN_SRC = APP_SRC
 
 _LANE_CHILD = """
 import os, signal, sys, time

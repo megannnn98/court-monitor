@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FINAL_EVALUATION_DATASET_VERSION = "final-eval-v2"
 DEFAULT_CORPUS_PATH = (
-    Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "final_evaluation" / "corpus.json"
+    Path(__file__).resolve().parents[5] / "tests" / "fixtures" / "final_evaluation" / "corpus.json"
 )
 
 # False statements about a real person that the safety gates count.

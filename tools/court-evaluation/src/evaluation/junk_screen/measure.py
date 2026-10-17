@@ -34,8 +34,9 @@ from typing import Any
 import numpy as np
 
 from evaluation.junk_screen.corpus import LEGAL_WORDS
+from processing.junk.screen import DEFAULT_MODEL_PATH
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[5]
 SAMPLE = ROOT / "var" / "junk_screen" / "sample.jsonl"
 LABELS = ROOT / "var" / "junk_screen" / "labels.jsonl"
 OUT = ROOT / "var" / "junk_screen" / "measure.json"
@@ -353,7 +354,7 @@ def _curve(scores: Sequence[float], part: Sequence[Article]) -> list[dict[str, f
     return points
 
 
-SCREEN_MODEL = ROOT / "src" / "processing" / "junk" / "junk_screen_model.json"
+SCREEN_MODEL = DEFAULT_MODEL_PATH
 LABELS_OUT = ROOT / "evaluation" / "junk_screen" / "labels.json"
 
 

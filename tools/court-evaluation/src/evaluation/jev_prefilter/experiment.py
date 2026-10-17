@@ -54,7 +54,7 @@ from processing.junk.drop_verifier_prompt import (
     article_text,
 )
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[5]
 TRAIN = ROOT / "data/ml/relevance/court_monitor_v2/train.jsonl"
 OUT_DIR = ROOT / "data/ml/relevance/jev_strong_prefilter"
 DATASET = OUT_DIR / "dataset.json"

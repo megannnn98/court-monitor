@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
+from support.workspace import APP_SRC
 
 from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
@@ -301,7 +302,7 @@ def test_the_command_is_an_argv_from_the_allowlist(session_factory: sessionmaker
 
     [command] = commands
     # The file itself, not a path that only ends alike: the operation runs it.
-    assert Path(command[1]) == REPOSITORY / "src" / "main.py"
+    assert Path(command[1]) == APP_SRC / "main.py"
     assert Path(command[1]).is_file()
     assert command[2:] == ["resolve-people", "--limit", "7", "--workers", "2"]
 

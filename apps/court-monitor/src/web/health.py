@@ -30,7 +30,7 @@ from orchestrator.models import MonitoringRunStatus
 
 logger = logging.getLogger("health")
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 class ComponentStatus(StrEnum):

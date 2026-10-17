@@ -17,7 +17,7 @@ from evaluation.person_resolution.er_run import (
 from persons.resolution.candidates import CandidateConfig
 from persons.resolution.decision import ResolutionThresholds
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[5]
 DEFAULT_ER_CORPUS_PATH = REPO_ROOT / "tests" / "fixtures" / "er_v2_corpus.json"
 
 

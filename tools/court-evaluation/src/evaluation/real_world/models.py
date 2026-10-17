@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 EVALUATION_VERSION = "real-world-v1"
 MANIFEST_VERSION = 1
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 # Committed evaluation data: manifest, golden dataset, policy, benchmarks.
 DEFAULT_DATA_DIR = REPOSITORY_ROOT / "evaluation" / "real_world"
 DEFAULT_MANIFEST_PATH = DEFAULT_DATA_DIR / "corpus_manifest.json"
