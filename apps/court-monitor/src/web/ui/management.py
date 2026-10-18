@@ -11,13 +11,13 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from application import build_monitoring_runs
 from ingestion.sources.source_registry import news_sources
 from llm.chat import Purpose
 from llm.model_choice import chosen_model
+from orchestrator import read as orchestrator_read
 from orchestrator.models import MonitoringRunStatus, MonitoringRunView, MonitoringTrigger
 from orchestrator.operations import (
     OperationConflictError,
@@ -28,7 +28,6 @@ from orchestrator.operations import (
     OperationRunStatus,
 )
 from orchestrator.source_health import layout_suspects
-from orchestrator.storage.models import MonitoringRunRecord
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui import spend
 from web.ui.funnel import funnel, funnel_html
@@ -257,21 +256,7 @@ def _busy_sources(db: Session, run: OperationRun, sources: Sequence[str]) -> set
 
     Read from the runs themselves: the CLI's JSON report is cut to its last characters,
     and over dozens of sources the skips at its start are gone."""
-    began = run.started_at or run.created_at
-    return {
-        source
-        for source in db.scalars(
-            select(MonitoringRunRecord.source).where(
-                MonitoringRunRecord.source.in_(list(sources)),
-                MonitoringRunRecord.started_at < began,
-                or_(
-                    MonitoringRunRecord.finished_at.is_(None),
-                    MonitoringRunRecord.finished_at > began,
-                ),
-            )
-        ).all()
-        if source is not None
-    }
+    return orchestrator_read.sources_running_at(db, sources, run.started_at or run.created_at)
 
 
 def _monitoring_runs(db: Session, run: OperationRun) -> list[MonitoringRunView]:
@@ -472,38 +457,20 @@ def _run_results(db: Session, run: OperationRun, selected: Sequence[str]) -> str
 
 
 SOURCE_ERRORS = 8
-# A source's failed loads, the latest first: parsing and network errors of step 1.
-_SOURCE_ERRORS = text(
-    """
-    SELECT r.source, i.stage, i.error_type, left(i.error_message, 240) AS message, i.created_at
-    FROM monitoring_run_items i JOIN monitoring_runs r ON r.id = i.run_id
-    WHERE i.status = 'failed'
-    ORDER BY i.created_at DESC, i.id DESC
-    LIMIT :limit
-    """
-)
-_RECENT_SOURCE_ERRORS = text(
-    """
-    SELECT count(DISTINCT r.source)
-    FROM monitoring_run_items i JOIN monitoring_runs r ON r.id = i.run_id
-    WHERE i.status = 'failed' AND i.created_at >= now() - interval '7 days'
-    """
-)
 
 
 def recent_source_errors(db: Session) -> int:
     """The sources that failed to load in the last week."""
-    return db.scalar(_RECENT_SOURCE_ERRORS) or 0
+    return orchestrator_read.recent_source_error_count(db)
 
 
 def _source_errors(db: Session) -> str:
     rows = "".join(
-        f"<tr><td>{escape(source or 'общий проход')}</td><td>{escape(stage or '—')}</td>"
-        f"<td>{escape(error_type or '')}: {escape(message or '')}</td>"
-        f"<td>{created_at.astimezone():%d.%m.%Y}</td></tr>"
-        for source, stage, error_type, message, created_at in db.execute(
-            _SOURCE_ERRORS, {"limit": SOURCE_ERRORS}
-        ).all()
+        f"<tr><td>{escape(error.source or 'общий проход')}</td>"
+        f"<td>{escape(error.stage or '—')}</td>"
+        f"<td>{escape(error.error_type or '')}: {escape(error.message or '')}</td>"
+        f"<td>{error.created_at.astimezone():%d.%m.%Y}</td></tr>"
+        for error in orchestrator_read.source_errors(db, limit=SOURCE_ERRORS)
     )
     table = (
         f"""<table><caption class="visually-hidden">Последние ошибки</caption>

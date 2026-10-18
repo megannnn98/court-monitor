@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from analysis.persecution.queries import latest_persecution_classification_ids
 from analysis.storage.models import (
+    AirtableKnownPersonRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRfMatchRecord,
@@ -24,6 +25,7 @@ from analysis.storage.models import (
     RosfinMatchRecord,
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
+    UnnamedScreenedRecord,
 )
 from db.arrays import any_of, any_text
 
@@ -400,5 +402,147 @@ def open_figurants(session: Session, *, closed: Collection[str]) -> list[Figuran
     )
     rows = session.execute(
         select(*_FIGURANT).where(~resolved.exists()).order_by(UnnamedFigurantRecord.id)
+    ).all()
+    return [Figurant(*row) for row in rows]
+
+
+def figurants_latest_first(session: Session) -> list[Figurant]:
+    """Every unnamed figurant, the latest published first (unknown last), then by id."""
+    rows = session.execute(
+        select(*_FIGURANT).order_by(
+            UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id
+        )
+    ).all()
+    return [Figurant(*row) for row in rows]
+
+
+def figurant_exists(session: Session, key: str) -> bool:
+    return bool(
+        session.scalar(
+            select(func.count())
+            .select_from(UnnamedFigurantRecord)
+            .where(UnnamedFigurantRecord.key == key)
+        )
+    )
+
+
+@dataclass(frozen=True)
+class Screened(Figurant):
+    """An unnamed person the search set aside on its own, and why."""
+
+    # common_crime, criminal_motive or duplicate (`analysis.unnamed.figurants`).
+    reason: str
+
+
+def screened(session: Session) -> list[Screened]:
+    """Whom the search set aside on its own, the latest first."""
+    rows = session.execute(
+        select(
+            UnnamedScreenedRecord.id,
+            UnnamedScreenedRecord.key,
+            UnnamedScreenedRecord.article_id,
+            UnnamedScreenedRecord.start_offset,
+            UnnamedScreenedRecord.end_offset,
+            UnnamedScreenedRecord.age,
+            UnnamedScreenedRecord.gender,
+            UnnamedScreenedRecord.place,
+            UnnamedScreenedRecord.initial,
+            UnnamedScreenedRecord.articles,
+            UnnamedScreenedRecord.event_type,
+            UnnamedScreenedRecord.quote,
+            UnnamedScreenedRecord.explanation,
+            UnnamedScreenedRecord.published_at,
+            UnnamedScreenedRecord.reason,
+        ).order_by(UnnamedScreenedRecord.published_at.desc().nulls_last(), UnnamedScreenedRecord.id)
+    ).all()
+    return [Screened(*row) for row in rows]
+
+
+# (resolution, normalized name, existing person key, list name, list birth date, decided at)
+Resolution = tuple[str, str | None, str | None, str | None, date | None, datetime | None]
+
+
+def resolutions(session: Session) -> dict[str, Resolution]:
+    """Per figurant key, the operator's stable identification."""
+    rows = session.execute(
+        select(
+            UnnamedIdentityResolutionRecord.figurant_key,
+            UnnamedIdentityResolutionRecord.resolution,
+            UnnamedIdentityResolutionRecord.normalized_name,
+            UnnamedIdentityResolutionRecord.existing_person_key,
+            UnnamedIdentityResolutionRecord.rf_name,
+            UnnamedIdentityResolutionRecord.rf_birth_date,
+            UnnamedIdentityResolutionRecord.decided_at,
+        )
+    ).all()
+    return {key: tuple(rest) for key, *rest in rows}
+
+
+def known_base_record(session: Session, external_id: str) -> bool:
+    """Whether the operator's base holds a record of this id."""
+    return bool(
+        session.scalar(
+            select(func.count())
+            .select_from(AirtableKnownPersonRecord)
+            .where(AirtableKnownPersonRecord.external_id == external_id)
+        )
+    )
+
+
+@dataclass(frozen=True)
+class NewsItem:
+    group_id: int
+    published_at: datetime | None
+    reason: str
+
+
+_POLITICAL_NEWS = text(
+    """
+    SELECT n.group_id, n.published_at, n.reason
+    FROM entity_group_news n
+    JOIN entity_group_politics p ON p.group_id = n.group_id AND p.verdict = :verdict
+    WHERE n.kind = :kind
+    """
+)
+_POLITICAL_NEWS_COUNTS = text(
+    """
+    SELECT n.kind, count(*)
+    FROM entity_group_news n
+    JOIN entity_group_politics p ON p.group_id = n.group_id AND p.verdict = :verdict
+    GROUP BY n.kind
+    """
+)
+
+
+def news_of_verdict(session: Session, *, verdict: str, kind: str) -> list[NewsItem]:
+    """The news of one kind of the cases of one verdict; in no particular order."""
+    return [
+        NewsItem(*row)
+        for row in session.execute(_POLITICAL_NEWS, {"verdict": verdict, "kind": kind}).all()
+    ]
+
+
+def news_counts_of_verdict(session: Session, *, verdict: str) -> dict[str, int]:
+    """How many news of each kind the cases of one verdict have."""
+    return {
+        str(kind): int(count)
+        for kind, count in session.execute(_POLITICAL_NEWS_COUNTS, {"verdict": verdict}).all()
+    }
+
+
+def latest_open_figurants(
+    session: Session, *, closed: Collection[str], limit: int
+) -> list[Figurant]:
+    """The latest unnamed figurants with no resolution in `closed` (unknown dates last,
+    then by id)."""
+    resolved = select(UnnamedIdentityResolutionRecord.figurant_key).where(
+        UnnamedIdentityResolutionRecord.figurant_key == UnnamedFigurantRecord.key,
+        any_text(UnnamedIdentityResolutionRecord.resolution, closed, name="closed"),
+    )
+    rows = session.execute(
+        select(*_FIGURANT)
+        .where(~resolved.exists())
+        .order_by(UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id)
+        .limit(limit)
     ).all()
     return [Figurant(*row) for row in rows]

@@ -224,3 +224,29 @@ def removed_entries(session: Session, *, limit: int) -> list[RemovedEntry]:
             {"limit": limit},
         )
     ]
+
+
+def latest_entries_named(session: Session, part: str, *, limit: int) -> list[SnapshotEntry]:
+    """The entries of the latest snapshot whose normalized name holds `part`, by name."""
+    snapshot_id = session.scalar(
+        select(RosfinmonitoringSnapshotRecord.id)
+        .order_by(
+            RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
+            RosfinmonitoringSnapshotRecord.id.desc(),
+        )
+        .limit(1)
+    )
+    if snapshot_id is None:
+        return []
+    return [
+        _entry(row)
+        for row in session.scalars(
+            select(RosfinmonitoringEntryRecord)
+            .where(
+                RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
+                RosfinmonitoringEntryRecord.normalized_name.ilike(f"%{part}%"),
+            )
+            .order_by(RosfinmonitoringEntryRecord.full_name)
+            .limit(limit)
+        )
+    ]

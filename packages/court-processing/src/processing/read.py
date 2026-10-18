@@ -1042,3 +1042,30 @@ def all_regions(session: Session) -> list[str]:
             )
         )
     )
+
+
+def groups_named(session: Session, part: str, *, limit: int) -> list[Group]:
+    """The groups whose name holds `part` (case-insensitive), the most mentioned first,
+    then by name in the database's collation."""
+    return [
+        _group(record)
+        for record in session.scalars(
+            select(EntityGroupRecord)
+            .where(EntityGroupRecord.name.ilike(f"%{part}%"))
+            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.name)
+            .limit(limit)
+        )
+    ]
+
+
+def by_key(session: Session, ids: Collection[int]) -> list[int]:
+    """The groups asked for, by key as the database orders it (its collation)."""
+    if not ids:
+        return []
+    return list(
+        session.scalars(
+            select(EntityGroupRecord.id)
+            .where(any_of(EntityGroupRecord.id, ids))
+            .order_by(EntityGroupRecord.key)
+        )
+    )

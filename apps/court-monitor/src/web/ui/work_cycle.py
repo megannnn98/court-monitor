@@ -2,11 +2,10 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from orchestrator import read as orchestrator_read
 from orchestrator.operations import STALE_AFTER, OperationRunStatus
-from orchestrator.storage.models import OperatorOperationRunRecord
 from web.ui.pipeline import STAGES, TITLES, pipeline_current
 from web.ui.workload import Workload, next_operator_task, workload
 
@@ -20,14 +19,9 @@ _NEXT_STEP = {
 
 
 def live_next_action(db: Session, work: Workload | None = None) -> str:
-    latest = db.scalars(
-        select(OperatorOperationRunRecord)
-        .where(OperatorOperationRunRecord.operation_name == "monitor")
-        .order_by(OperatorOperationRunRecord.id.desc())
-        .limit(1)
-    ).first()
+    latest = orchestrator_read.latest_operation(db, "monitor")
     mode = latest.parameters.get("mode") if latest is not None else None
-    status = OperationRunStatus(latest.status) if latest is not None else None
+    status = latest.status if latest is not None else None
     if latest is not None and status in (OperationRunStatus.PENDING, OperationRunStatus.RUNNING):
         last_sign_of_life = latest.heartbeat_at or latest.created_at
         if datetime.now(UTC) - last_sign_of_life > STALE_AFTER:

@@ -34,12 +34,10 @@ from urllib.parse import parse_qs, quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from processing.roles.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
+from processing.roles import exclusion_list
 from processing.roles.roles import KIND_LABELS
-from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
 from web.dependencies import get_db
 from web.ui.layout import _page
 
@@ -67,51 +65,23 @@ _INTRO = (
 )
 
 
-def officials_listing(db: Session) -> tuple[list[tuple[ExcludedPersonRecord, str, str]], int]:
+def officials_listing(db: Session) -> tuple[list[exclusion_list.ListedOfficial], int]:
     """The rows of the list, with the name each one has actually landed on.
 
     A row that matches no entity yet is shown too, but with a blank name and a mark
     saying so: it is in the list, and the operator should know it does not yet do
     anything.
     """
-    total = db.scalar(select(func.count()).select_from(ExcludedPersonRecord)) or 0
-    rows = list(
-        db.scalars(
-            select(ExcludedPersonRecord)
-            .order_by(ExcludedPersonRecord.active.desc(), ExcludedPersonRecord.full_name)
-            .limit(PAGE_SIZE)
-        )
-    )
-    groups = list(db.scalars(select(EntityGroupRecord)))
-    keys = {group.id: group.key for group in groups}
-    names = {group.id: group.name for group in groups}
-    landed = official_entity_ids(db, keys)
-    # `landed` is keyed by the entity's id. The link needs the key, the person needs the
-    # name they are filed under — those differ, since the key is folded.
-    found = {id(row): (keys[group_id], names[group_id]) for group_id, row in landed.items()}
-    return [(row, *found.get(id(row), ("", ""))) for row in rows], int(total)
+    return exclusion_list.listing(db, limit=PAGE_SIZE)
 
 
 def official_suggestions(db: Session) -> list[tuple[str, str, str, str]]:
     """The people the model calls officials and the list does not name: (key, name, kind,
-    why the model thinks so). Not offered: anyone the list names, active or switched off
-    (that was an answer), and anyone with a mark of their own."""
-    groups = list(db.scalars(select(EntityGroupRecord)))
-    keys = {group.id: group.key for group in groups}
-    named = official_entity_ids(db, keys, active_only=False)
-    marks = official_marks(db, keys)
-    names = {group.id: group.name for group in groups}
-    found = []
-    for role in db.scalars(
-        select(EntityGroupRoleRecord).where(
-            EntityGroupRoleRecord.method == "model",
-            EntityGroupRoleRecord.kind.in_(sorted(OFFICIAL_KINDS)),
-        )
-    ):
-        if role.group_id in named or role.group_id in marks or role.group_id not in keys:
-            continue
-        found.append((keys[role.group_id], names[role.group_id], role.kind or "", role.reason))
-    return sorted(found, key=lambda item: (item[2], item[1]))[:PAGE_SIZE]
+    why the model thinks so)."""
+    return [
+        (item.key, item.name, item.kind, item.reason)
+        for item in exclusion_list.suggestions(db, limit=PAGE_SIZE)
+    ]
 
 
 def _suggestions_html(items: list[tuple[str, str, str, str]]) -> str:
@@ -133,11 +103,12 @@ def _suggestions_html(items: list[tuple[str, str, str, str]]) -> str:
 </thead><tbody>{rows}</tbody></table>"""
 
 
-def _rows_html(rows: list[tuple[ExcludedPersonRecord, str, str]]) -> str:
+def _rows_html(rows: list[exclusion_list.ListedOfficial]) -> str:
     if not rows:
         return '<tr><td colspan="5" class="muted">Список пуст.</td></tr>'
     cells = []
-    for row, key, name in rows:
+    for listed in rows:
+        row, key, name = listed.official, listed.entity_key, listed.entity_name
         where = (
             f'<a href="/ui/entities/{quote(key)}">{escape(name)}</a>'
             if name
@@ -193,7 +164,7 @@ def officials_csv(db: Session = Depends(get_db)) -> Response:  # noqa: B008
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["ФИО", "Категория", "Причина", "В силе"])
-    for row in db.scalars(select(ExcludedPersonRecord).order_by(ExcludedPersonRecord.full_name)):
+    for row in exclusion_list.every_official(db):
         writer.writerow(
             [row.full_name, row.category or "", row.reason or "", "да" if row.active else "нет"]
         )
@@ -206,75 +177,31 @@ def officials_csv(db: Session = Depends(get_db)) -> Response:  # noqa: B008
 
 def apply_add(db: Session, full_name: str, category: str, reason: str) -> str:
     """Add a person to the list; "added", or "already" for a name it holds. Commits."""
-    name = " ".join(full_name.split())
-    if not name:
-        raise HTTPException(status_code=400, detail="ФИО не указано")
     if category not in CATEGORIES:
         category = "other"
-    external_id = f"console:{name.casefold()}"
-    existing = db.scalar(
-        select(ExcludedPersonRecord).where(ExcludedPersonRecord.external_id == external_id)
-    )
-    if existing is not None:
-        db.commit()
-        return "already"
-    db.add(
-        ExcludedPersonRecord(
-            external_id=external_id,
-            full_name=name,
-            normalized_name=" ".join(name.casefold().replace("ё", "е").split()),
-            category=category,
-            reason=reason.strip() or None,
-            active=True,
-        )
-    )
+    try:
+        status = exclusion_list.add(db, full_name, category, reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="ФИО не указано") from exc
     db.commit()
-    logger.info("event=official_added name=%s category=%s", name, category)
-    return "added"
+    return status
 
 
 def apply_add_suggested(db: Session, key: str) -> str:
     """Accept the model's suggestion; "added" or "already". 404 for a key that is no
     suggestion, so the button cannot put an arbitrary name on the list. Commits."""
-    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
-    role = db.get(EntityGroupRoleRecord, entity.id) if entity is not None else None
-    if (
-        entity is None
-        or role is None
-        or role.method != "model"
-        or (role.kind or "") not in OFFICIAL_KINDS
-    ):
+    status = exclusion_list.add_suggested(db, key)
+    if status is None:
         raise HTTPException(status_code=404, detail="Такого предложения нет")
-    keys = {group.id: group.key for group in db.scalars(select(EntityGroupRecord))}
-    if entity.id in official_entity_ids(db, keys, active_only=False):
-        db.commit()
-        return "already"
-    name = " ".join(entity.name.split())
-    db.add(
-        ExcludedPersonRecord(
-            external_id=f"model:{key}",
-            full_name=name,
-            normalized_name=" ".join(name.casefold().replace("ё", "е").split()),
-            category=role.kind or "official",
-            reason=f"предложено моделью, принято вручную: {role.reason}".strip(),
-            active=True,
-        )
-    )
     db.commit()
-    logger.info("event=official_suggestion_accepted name=%s kind=%s", name, role.kind)
-    return "added"
+    return status
 
 
 def apply_deactivate(db: Session, external_id: str) -> None:
     """Out of force, the row kept; commits."""
-    row = db.scalar(
-        select(ExcludedPersonRecord).where(ExcludedPersonRecord.external_id == external_id)
-    )
-    if row is None:
+    if not exclusion_list.deactivate(db, external_id):
         raise HTTPException(status_code=404, detail="Человека нет в списке")
-    row.active = False
     db.commit()
-    logger.info("event=official_deactivated name=%s", row.full_name)
 
 
 @router.post("/ui/airtable/officials/add", response_model=None)

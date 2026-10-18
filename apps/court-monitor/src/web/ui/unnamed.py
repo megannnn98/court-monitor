@@ -16,17 +16,14 @@ from urllib.parse import parse_qs, quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
 from analysis.operator_base.base_candidates import BaseCandidates, base_candidates
 from analysis.operator_base.jurisdiction import CourtHints, Jurisdiction
-from analysis.storage.models import (
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-    UnnamedFigurantRecord,
-    UnnamedScreenedRecord,
-)
+from analysis.read import Figurant, Resolution, Screened
+from analysis.rosfinmonitoring import read as rf_read
+from analysis.rosfinmonitoring.read import SnapshotEntry
 from analysis.unnamed.figurants import (
     CANDIDATE_KEY_LENGTH,
     COMMON_CRIME,
@@ -52,8 +49,9 @@ from analysis.unnamed.named_candidates import (
     named_candidates,
     person_candidate_key,
 )
+from processing import read as identity
 from processing.evidence.unnamed import EVENT_LABELS
-from processing.storage.models import EntityGroupRecord
+from processing.read import Group
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
 from web.ui.entities import display_name
@@ -78,52 +76,22 @@ _SCREENED_REASONS = {
     CRIMINAL_MOTIVE: "обычное уголовное дело",
     DUPLICATE: "тот же человек уже есть на карточке этой публикации",
 }
-# Per figurant: the stable operator identification.
-_WORDS = text(
-    """
-    SELECT figurant_key, resolution, normalized_name, existing_person_key,
-           rf_name, rf_birth_date, decided_at
-    FROM unnamed_identity_resolutions
-    """
-)
 
 
-def rf_entry_key(entry: RosfinmonitoringEntryRecord) -> str | None:
+def rf_entry_key(entry: SnapshotEntry) -> str | None:
     if entry.birth_date is None:
         return None
     return candidate_key(entry.normalized_name, entry.birth_date.date())
 
 
-def rf_search(db: Session, query: str) -> list[RosfinmonitoringEntryRecord]:
+def rf_search(db: Session, query: str) -> list[SnapshotEntry]:
     value = query.strip()
     if not value:
         return []
-    snapshot_id = db.scalar(
-        select(RosfinmonitoringSnapshotRecord.id)
-        .order_by(
-            RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
-            RosfinmonitoringSnapshotRecord.id.desc(),
-        )
-        .limit(1)
-    )
-    if snapshot_id is None:
-        return []
-    return list(
-        db.scalars(
-            select(RosfinmonitoringEntryRecord)
-            .where(
-                RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
-                RosfinmonitoringEntryRecord.normalized_name.ilike(f"%{value}%"),
-            )
-            .order_by(RosfinmonitoringEntryRecord.full_name)
-            .limit(RF_SEARCH_LIMIT)
-        )
-    )
+    return rf_read.latest_entries_named(db, value, limit=RF_SEARCH_LIMIT)
 
 
-def reverse_matches(
-    db: Session, figurants: list[UnnamedFigurantRecord], rf_key: str
-) -> list[UnnamedFigurantRecord]:
+def reverse_matches(db: Session, figurants: list[Figurant], rf_key: str) -> list[Figurant]:
     """Unresolved figurants whose existing candidate lookup includes this RF entry."""
     return [
         figurant
@@ -140,7 +108,7 @@ def rf_display_name(full_name: str) -> str:
     return " ".join(word.strip("*").lower().capitalize() for word in full_name.split())
 
 
-def facts_text(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
+def facts_text(figurant: Figurant) -> str:
     """What the text tells of the figurant, as one line; read by this page and the API."""
     parts = []
     if figurant.age is not None:
@@ -157,19 +125,13 @@ def facts_text(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
     return " · ".join(parts)
 
 
-def _facts(figurant: UnnamedFigurantRecord | UnnamedScreenedRecord) -> str:
+def _facts(figurant: Figurant) -> str:
     return escape(facts_text(figurant))
 
 
-def screened(db: Session) -> list[UnnamedScreenedRecord]:
+def screened(db: Session) -> list[Screened]:
     """Whom the search set aside on its own, latest first."""
-    return list(
-        db.scalars(
-            select(UnnamedScreenedRecord).order_by(
-                UnnamedScreenedRecord.published_at.desc().nulls_last(), UnnamedScreenedRecord.id
-            )
-        ).all()
-    )
+    return analysis_read.screened(db)
 
 
 def screened_reason(reason: str) -> str:
@@ -257,7 +219,7 @@ def seen_text(item: Any) -> str:
     )
 
 
-def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: str) -> str:
+def _candidates_html(figurant: Figurant, found: Candidates, back: str) -> str:
     if figurant.age is None:
         return '<p class="muted">Возраст не назван — по перечню не подобрать.</p>'
     if not found.shown:
@@ -316,9 +278,7 @@ def _candidates_html(figurant: UnnamedFigurantRecord, found: Candidates, back: s
 <tbody>{"".join(rows)}</tbody></table>{more}"""
 
 
-def _named_candidates_html(
-    figurant: UnnamedFigurantRecord, found: list[NamedCandidate], back: str
-) -> str:
+def _named_candidates_html(figurant: Figurant, found: list[NamedCandidate], back: str) -> str:
     """The named figurants of other publications the unnamed one may be; nothing where
     no other publication of those days tells of the place and the event."""
     if not found:
@@ -373,7 +333,7 @@ def _named_candidates_html(
 <tbody>{"".join(rows)}</tbody></table>"""
 
 
-def _base_candidates_html(figurant: UnnamedFigurantRecord, found: BaseCandidates, back: str) -> str:
+def _base_candidates_html(figurant: Figurant, found: BaseCandidates, back: str) -> str:
     """The people of the operator's own base the figurant may be; nothing where the base
     has nobody of that age and sex, a count where the text names no place to narrow by."""
     if not found.shown:
@@ -424,13 +384,13 @@ def _base_candidates_html(figurant: UnnamedFigurantRecord, found: BaseCandidates
 
 
 def _card(
-    figurant: UnnamedFigurantRecord,
+    figurant: Figurant,
     found: Candidates,
     in_base: BaseCandidates,
     named: list[NamedCandidate],
     courts: CourtHints,
     resolution: tuple[str, str | None, str | None, str | None, date | None, datetime | None] | None,
-    people: list[EntityGroupRecord],
+    people: list[Group],
     back: str,
 ) -> str:
     kind, normalized_name, existing_key, rf_name, rf_birth_date, decided_at = resolution or (
@@ -526,19 +486,16 @@ def _card(
 </article>"""
 
 
-Resolution = tuple[str, str | None, str | None, str | None, date | None, datetime | None]
-
-
 @dataclass(frozen=True)
 class Listing:
     """The figurants of one tab of «Безымянные», with every tab's count."""
 
     words: dict[str, Resolution]
-    figurants: list[UnnamedFigurantRecord]
+    figurants: list[Figurant]
     counts: dict[str, int]
-    chosen: list[UnnamedFigurantRecord]
+    chosen: list[Figurant]
 
-    def state(self, figurant: UnnamedFigurantRecord) -> str:
+    def state(self, figurant: Figurant) -> str:
         resolution = self.words.get(figurant.key, ("", None, None, None, None, None))[0]
         if resolution in IDENTIFIED:
             return "found"
@@ -549,19 +506,8 @@ class Listing:
 
 def unnamed_listing(db: Session, status: str) -> Listing:
     """The tab's figurants, latest first; read by the legacy page and `GET /api/v1/unnamed`."""
-    words: dict[str, Resolution] = {
-        key: (resolution, normalized_name, existing_key, rf_name, rf_birth_date, decided_at)
-        for key, resolution, normalized_name, existing_key, rf_name, rf_birth_date, decided_at in db.execute(
-            _WORDS
-        ).all()
-    }
-    figurants = list(
-        db.scalars(
-            select(UnnamedFigurantRecord).order_by(
-                UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id
-            )
-        ).all()
-    )
+    words: dict[str, Resolution] = analysis_read.resolutions(db)
+    figurants = analysis_read.figurants_latest_first(db)
     listing = Listing(words, figurants, {}, [])
     counts = {
         key: sum(listing.state(item) == key for item in figurants)
@@ -585,18 +531,11 @@ def unnamed_listing(db: Session, status: str) -> Listing:
     return Listing(words, figurants, counts, chosen)
 
 
-def people_search(db: Session, person_q: str) -> list[EntityGroupRecord]:
+def people_search(db: Session, person_q: str) -> list[Group]:
     """The existing people a figurant may be, by a part of the name."""
     if not person_q.strip():
         return []
-    return list(
-        db.scalars(
-            select(EntityGroupRecord)
-            .where(EntityGroupRecord.name.ilike(f"%{person_q.strip()}%"))
-            .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.name)
-            .limit(20)
-        )
-    )
+    return identity.groups_named(db, person_q.strip(), limit=20)
 
 
 @router.get("/ui/unnamed", response_class=HTMLResponse)
@@ -765,12 +704,7 @@ async def _form(request: Request) -> dict[str, str]:
 
 
 def _known(db: Session, figurant: str) -> None:
-    known = db.scalar(
-        select(func.count())
-        .select_from(UnnamedFigurantRecord)
-        .where(UnnamedFigurantRecord.key == figurant)
-    )
-    if not known:
+    if not analysis_read.figurant_exists(db, figurant):
         raise HTTPException(status_code=400, detail="Неизвестный безымянный")
 
 
@@ -811,7 +745,7 @@ def apply_resolve(db: Session, fields: dict[str, str]) -> str:
             raise HTTPException(status_code=400, detail="Некорректная дата рождения") from exc
     if resolution == EXISTING_PERSON:
         key = fields.get("existing_person_key", "")
-        person = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+        person = identity.groups_by_key(db, [key]).get(key)
         if person is None:
             raise HTTPException(status_code=400, detail="Не выбран существующий человек")
         resolve_identity(

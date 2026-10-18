@@ -6,18 +6,19 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape
-from typing import Any
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
 from analysis.news.case_news import NEW_CASE, SENTENCE
 from analysis.politics.classification import POLITICAL
-from analysis.storage.models import UnnamedFigurantRecord
+from analysis.read import Figurant
 from analysis.unnamed.matching import Candidates, candidates
+from processing import read as identity
+from processing.evidence.publications import latest_first
 from web.dependencies import get_db
 from web.ui.entities import display_name
 from web.ui.layout import _page
@@ -31,63 +32,44 @@ LATEST = 8
 UNNAMED = 5
 QUOTE_LIMIT = 160
 
-# A political case's latest news of one kind, the latest first.
-_LATEST_NEWS = text(
-    """
-    SELECT g.key, g.name, n.published_at, n.reason
-    FROM entity_group_news n
-    JOIN entity_groups g ON g.id = n.group_id
-    JOIN entity_group_politics p ON p.group_id = g.id AND p.verdict = :political
-    WHERE n.kind = :kind
-    ORDER BY n.published_at DESC NULLS LAST, g.key
-    LIMIT :limit
-    """
-)
-_NEWS_COUNTS = text(
-    """
-    SELECT n.kind, count(*)
-    FROM entity_group_news n
-    JOIN entity_group_politics p ON p.group_id = n.group_id AND p.verdict = :political
-    GROUP BY n.kind
-    """
-)
 # The unnamed nobody has identified or closed yet.
-_OPEN = """NOT EXISTS (
-    SELECT 1 FROM unnamed_identity_resolutions r
-    WHERE r.figurant_key = unnamed_figurants.key
-      AND r.resolution IN ('rf_entry', 'existing_person', 'supplied_name', 'insufficient'))"""
+_CLOSED = ("rf_entry", "existing_person", "supplied_name", "insufficient")
 
 
 def _day(moment: datetime | None) -> str:
     return moment.astimezone().strftime("%d.%m") if moment else "—"
 
 
-def latest_news(db: Session, kind: str) -> list[Any]:
-    """A political case's latest news of one kind: (key, name, published_at, reason)."""
-    return list(
-        db.execute(_LATEST_NEWS, {"political": POLITICAL, "kind": kind, "limit": LATEST}).all()
-    )
+def latest_news(db: Session, kind: str) -> list[tuple[str, str, datetime | None, str]]:
+    """A political case's latest news of one kind: (key, name, published_at, reason), the
+    latest first (unknown dates last), then by key."""
+    news = analysis_read.news_of_verdict(db, verdict=POLITICAL, kind=kind)
+    rank = {
+        group_id: place
+        for place, group_id in enumerate(identity.by_key(db, [n.group_id for n in news]))
+    }
+    latest = sorted(
+        news,
+        key=lambda item: (
+            *latest_first(item.published_at),
+            rank.get(item.group_id, len(rank)),
+        ),
+    )[:LATEST]
+    groups = identity.groups(db, [item.group_id for item in latest])
+    return [
+        (groups[item.group_id].key, groups[item.group_id].name, item.published_at, item.reason)
+        for item in latest
+        if item.group_id in groups
+    ]
 
 
 def news_counts(db: Session) -> dict[str, int]:
-    return {
-        str(kind): int(count)
-        for kind, count in db.execute(_NEWS_COUNTS, {"political": POLITICAL}).all()
-    }
+    return analysis_read.news_counts_of_verdict(db, verdict=POLITICAL)
 
 
-def open_unnamed(db: Session) -> list[UnnamedFigurantRecord]:
+def open_unnamed(db: Session) -> list[Figurant]:
     """The latest unnamed nobody has identified or closed yet."""
-    return list(
-        db.scalars(
-            select(UnnamedFigurantRecord)
-            .where(text(_OPEN))
-            .order_by(
-                UnnamedFigurantRecord.published_at.desc().nulls_last(), UnnamedFigurantRecord.id
-            )
-            .limit(UNNAMED)
-        ).all()
-    )
+    return analysis_read.latest_open_figurants(db, closed=_CLOSED, limit=UNNAMED)
 
 
 def short_quote(quote_text: str) -> str:
