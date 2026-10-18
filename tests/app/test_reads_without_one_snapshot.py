@@ -38,9 +38,7 @@ def test_a_publication_lists_only_the_groups_still_there(monkeypatch: pytest.Mon
         publications, "person_evidence", lambda *_a, **_k: _evidence((10, 1), (10, 2))
     )
     # Group 2 was taken away by a rebuild after the evidence was read.
-    monkeypatch.setattr(
-        publications.identity, "groups", lambda _db, _ids: {1: _group(1, "Иван Петров")}
-    )
+    monkeypatch.setattr(identity, "groups", lambda _db, _ids: {1: _group(1, "Иван Петров")})
     monkeypatch.setattr(identity, "event_counts", lambda _db, _ids: [])
     monkeypatch.setattr(publications, "group_followers", lambda: None)
 
