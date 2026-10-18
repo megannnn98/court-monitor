@@ -194,3 +194,16 @@ it("loads a period between two dates", async () => {
     })
   );
 });
+
+it("past step 1 continues the round: «Продолжить», no dates", async () => {
+  cycle.mockReturnValue(ok({ ...DATED, current_stage: "purge", chain_span: "шаги 2–5 подряд" }) as never);
+  start.mockReturnValue(ok({ run_id: 42, stage: "purge" }) as never);
+
+  renderPage(<WorkPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Продолжить" }));
+
+  expect(screen.queryByLabelText("Скачать с")).toBeNull();
+  expect(screen.queryByText(/Без дат/)).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: "Запустить" }));
+  await waitFor(() => expect(start).toHaveBeenCalledWith({ body: { after: 41, entity_model: null, decision_model: null } }));
+});

@@ -161,8 +161,13 @@ function Period({
 
 function Steps({ cycle }: { cycle: CycleResponse }) {
   const client = useQueryClient();
-  const [from, setFrom] = useState("");
+  const [chosenFrom, setFrom] = useState("");
   const [to, setTo] = useState("");
+  // Past step 1 the press continues the round: dates would restart it, so none are offered,
+  // and dates chosen before a chain stopped half-way are not sent again.
+  const midRound = cycle.current_stage !== "load";
+  const from = midRound ? "" : chosenFrom;
+  const action = midRound ? "Продолжить" : "Сделать всё";
   const refresh = async () => {
     await readAgainAfterDecision(client);
   };
@@ -229,7 +234,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
           ) : (
             <>
               <ConfirmButton
-                title="Сделать всё?"
+                title={`${action}?`}
                 question={from ? `Загрузить публикации ${periodText(from, to)}, затем обработать. ${cycle.period_question ?? ""}` : cycle.chain_question}
                 details={
                   cycle.entity_model || cycle.decision_model ? (
@@ -243,7 +248,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
                 disabled={start.isPending}
                 onConfirm={() => start.mutate()}
               >
-                Сделать всё
+                {action}
               </ConfirmButton>
               <span className="text-muted-foreground">
                 {from ? "шаги 1–5 подряд" : cycle.chain_span}; по одному шагу — в{" "}
@@ -254,7 +259,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
             </>
           )}
         </div>
-        {cycle.live ? null : <Period cycle={cycle} from={from} to={to} onFrom={setFrom} onTo={setTo} />}
+        {cycle.live || midRound ? null : <Period cycle={cycle} from={from} to={to} onFrom={setFrom} onTo={setTo} />}
         {failure ? <p className="text-destructive">{failure.message}</p> : null}
       </CardContent>
     </Card>
