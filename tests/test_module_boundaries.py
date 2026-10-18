@@ -198,6 +198,7 @@ CONSOLE_READ_MODELS = frozenset(
         "processing.extraction.name_frequency",
         "processing.junk.holds",
         "processing.junk.screen",
+        "processing.roles.commands",
         "processing.roles.officials",
         "processing.roles.roles",
         "results.ask",
