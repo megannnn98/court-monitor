@@ -107,7 +107,7 @@ def test_a_removed_group_stays_out_until_it_is_restored(
     with session_factory() as session:
         group = session.scalars(select(EntityGroupRecord)).one()
         key = group.key
-        identity.remove_group(session, group)
+        identity.remove_group(session, group.key)
         session.commit()
     identity.rebuild_groups(session_factory)
     with session_factory() as session:
@@ -127,7 +127,7 @@ def test_a_corrected_name_survives_a_rebuild(session_factory: sessionmaker[Sessi
 
     with session_factory() as session:
         identity.correct_name(
-            session, session.scalars(select(EntityGroupRecord)).one(), "Иван Сидорин"
+            session, session.scalars(select(EntityGroupRecord)).one().key, "Иван Сидорин"
         )
         session.commit()
     identity.rebuild_groups(session_factory)

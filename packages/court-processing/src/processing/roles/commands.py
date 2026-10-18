@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from processing.storage.models import ExcludedPersonRecord
+from processing.identity.downstream import IdentityDownstream
+from processing.roles.officials import mark_official
+from processing.storage.models import EntityGroupRecord, ExcludedPersonRecord
 
 
 @dataclass(frozen=True)
@@ -59,3 +61,15 @@ def refresh_officials(session: Session, updates: Sequence[OfficialDetails]) -> O
                 setattr(row, name, value)
             updated += 1
     return OfficialRefresh(created, updated, unchanged)
+
+
+def mark_official_of(
+    session: Session, key: str, official: bool, *, downstream: IdentityDownstream
+) -> bool:
+    """A person's word that the group of `key` is (or is not) an official, in the
+    caller's transaction; False when there is no such group."""
+    group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    if group is None:
+        return False
+    mark_official(session, group, official, downstream=downstream)
+    return True

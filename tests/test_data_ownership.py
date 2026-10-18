@@ -130,15 +130,12 @@ STORAGE_IMPORT_DEBT: frozenset[str] = frozenset(
         "apps/court-monitor/src/web/candidate_rows.py -> ingestion.storage",
         "apps/court-monitor/src/web/candidate_rows.py -> persons.storage",
         "apps/court-monitor/src/web/candidate_rows.py -> processing.storage",
-        "apps/court-monitor/src/web/routers/entities.py -> processing.storage",
         "apps/court-monitor/src/web/ui/airtable.py -> analysis.storage",
         "apps/court-monitor/src/web/ui/airtable.py -> ingestion.storage",
         "apps/court-monitor/src/web/ui/airtable.py -> processing.storage",
         "apps/court-monitor/src/web/ui/base_unnamed.py -> analysis.storage",
         "apps/court-monitor/src/web/ui/dossier.py -> analysis.storage",
         "apps/court-monitor/src/web/ui/dossier.py -> processing.storage",
-        "apps/court-monitor/src/web/ui/entities.py -> analysis.storage",
-        "apps/court-monitor/src/web/ui/entities.py -> processing.storage",
         "apps/court-monitor/src/web/ui/management.py -> orchestrator.storage",
         "apps/court-monitor/src/web/ui/officials_list.py -> processing.storage",
         "apps/court-monitor/src/web/ui/overview.py -> analysis.storage",
@@ -147,7 +144,6 @@ STORAGE_IMPORT_DEBT: frozenset[str] = frozenset(
         "apps/court-monitor/src/web/ui/unnamed.py -> analysis.storage",
         "apps/court-monitor/src/web/ui/unnamed.py -> processing.storage",
         "apps/court-monitor/src/web/ui/work_cycle.py -> orchestrator.storage",
-        "packages/court-orchestrator/src/orchestrator/repository.py -> results.storage",
         "tools/court-evaluation/src/evaluation/final/runner.py -> analysis.storage",
         "tools/court-evaluation/src/evaluation/final/runner.py -> ingestion.storage",
         "tools/court-evaluation/src/evaluation/final/runner.py -> persons.storage",
@@ -174,7 +170,6 @@ FOREIGN_WRITE_DEBT: frozenset[str] = frozenset()
 # named in docs/architecture/data-ownership.md («Read facades»), with its reason.
 FOREIGN_SQL_READS: frozenset[str] = frozenset(
     {
-        "apps/court-monitor/src/web/ui/entities.py -> entity_groups",
         "apps/court-monitor/src/web/ui/funnel.py -> article_extraction_runs",
         "apps/court-monitor/src/web/ui/funnel.py -> entity_group_politics",
         "apps/court-monitor/src/web/ui/funnel.py -> entity_group_rf_matches",

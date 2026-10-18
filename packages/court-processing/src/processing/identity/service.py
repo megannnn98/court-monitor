@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Mapping
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from processing.identity import disputes, overrides, removals
@@ -35,7 +36,7 @@ from processing.identity.downstream import IdentityDownstream
 from processing.identity.grouping import split_key
 from processing.identity.normalizer import NameNormalizer, name_normalizer_from_env
 from processing.identity.overrides import MANUAL
-from processing.storage.models import EntityGroupRecord, EntityRemovalRecord
+from processing.storage.models import EntityGroupRecord
 
 __all__ = [
     "BY_REGION",
@@ -112,17 +113,28 @@ class IdentityService:
     def reset_decisions(self, session: Session) -> int:
         return disputes.reset_decisions(session)
 
-    def correct_name(self, session: Session, group: EntityGroupRecord, name: str) -> str:
-        """A person's correction of a group's name, kept across rebuilds."""
+    def correct_name(self, session: Session, key: str, name: str) -> str | None:
+        """A person's correction of the name of the group of `key`, kept across rebuilds;
+        None when there is no such group. ValueError for an empty name."""
+        group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+        if group is None:
+            return None
         return overrides.correct_name(session, group, name, downstream=self._downstream)
 
-    def remove_group(self, session: Session, group: EntityGroupRecord) -> None:
+    def remove_group(self, session: Session, key: str) -> str | None:
+        """Remove the group of `key` as nobody, in the caller's transaction: its name, or
+        None when there is no such group."""
+        group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+        if group is None:
+            return None
+        name = group.name
         removals.remove(session, group)
+        return name
 
     def restore_group(self, session: Session, key: str) -> bool:
         return removals.restore(session, key)
 
-    def removed_groups(self, session: Session) -> list[EntityRemovalRecord]:
+    def removed_groups(self, session: Session) -> list[removals.Removal]:
         return removals.removals(session)
 
 

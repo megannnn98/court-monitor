@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Protocol
 
-from sqlalchemy import ColumnElement, func, literal, select, text
+from sqlalchemy import ColumnElement, Text, cast, exists, func, literal, or_, select, text
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from db.arrays import any_of, any_text
@@ -968,3 +968,77 @@ def publication_charges(
     ):
         found.setdefault((key, publication), set()).add(article)
     return found
+
+
+# -- «Все люди»: the groups under the list's filters ---------------------------------
+
+
+def filtered_group_ids(session: Session, *, q: str, article: str, region: str) -> list[int]:
+    """The groups whose name or written form holds `q`, charged under `article`, of a
+    region holding `region` (case-insensitive; an empty filter does not narrow)."""
+    query = select(EntityGroupRecord.id)
+    if q.strip():
+        pattern = f"%{q.strip()}%"
+        query = query.where(
+            or_(
+                EntityGroupRecord.name.ilike(pattern),
+                cast(EntityGroupRecord.variants, Text).ilike(pattern),
+            )
+        )
+    if article:
+        query = query.where(
+            exists().where(
+                EntityGroupChargeRecord.group_id == EntityGroupRecord.id,
+                EntityGroupChargeRecord.article == article,
+            )
+        )
+    if region:
+        query = query.where(cast(EntityGroupRecord.regions, Text).ilike(f"%{region}%"))
+    return list(session.scalars(query))
+
+
+def any_roles(session: Session) -> bool:
+    """Whether step 4 has given anybody a role."""
+    return bool(session.scalar(select(exists().select_from(EntityGroupRoleRecord))))
+
+
+_ORDERS: dict[str, tuple[ColumnElement[Any], ...]] = {
+    "mentions": (EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key.asc()),
+    "articles": (EntityGroupRecord.article_count.desc(), EntityGroupRecord.key.asc()),
+    "recent": (
+        EntityGroupRecord.last_published_at.desc().nulls_last(),
+        EntityGroupRecord.key.asc(),
+    ),
+}
+GROUP_ORDERS = tuple(_ORDERS)
+
+
+def ordered_groups(
+    session: Session, ids: Collection[int], *, order: str, offset: int, limit: int
+) -> list[Group]:
+    """A page of the groups asked for, in one of `GROUP_ORDERS` (the key, the tie-break,
+    in the database's collation)."""
+    if not ids:
+        return []
+    return [
+        _group(record)
+        for record in session.scalars(
+            select(EntityGroupRecord)
+            .where(any_of(EntityGroupRecord.id, ids))
+            .order_by(*_ORDERS[order])
+            .offset(offset)
+            .limit(limit)
+        )
+    ]
+
+
+def all_regions(session: Session) -> list[str]:
+    """Every region a group is of, each once, in the database's collation."""
+    return list(
+        session.scalars(
+            text(
+                "SELECT DISTINCT region->>0 FROM entity_groups, "
+                "jsonb_array_elements(regions) AS region ORDER BY 1"
+            )
+        )
+    )

@@ -87,6 +87,8 @@ ORCHESTRATOR_MAY_IMPORT = frozenset(
         "persons.resolution.stage",
         "analysis.service",
         "results.service",
+        # its owner read API: the count of active findings on the status page
+        "results.read",
     }
 )
 

@@ -236,6 +236,17 @@ def politics(session: Session, groups: Collection[int] | None = None) -> dict[in
     }
 
 
+def verdicts(session: Session) -> dict[int, str]:
+    """Every group's politics verdict, and nothing else of it."""
+    return dict(
+        session.execute(
+            select(EntityGroupPoliticsRecord.group_id, EntityGroupPoliticsRecord.verdict)
+        )
+        .tuples()
+        .all()
+    )
+
+
 def groups_with_verdict(session: Session, verdict: str) -> list[int]:
     """The groups of one politics verdict («political», …), in id order."""
     return list(

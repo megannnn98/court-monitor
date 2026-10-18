@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from results.storage.models import ChatQuestionRecord
+from results.storage.models import ChatQuestionRecord, MonitoringFindingRecord
 
 
 @dataclass(frozen=True)
@@ -52,3 +52,15 @@ def recent_answers(session: Session, *, limit: int) -> list[QuestionAnswer]:
             select(ChatQuestionRecord).order_by(ChatQuestionRecord.id.desc()).limit(limit)
         )
     ]
+
+
+def active_finding_count(session: Session) -> int:
+    """How many monitoring findings are active."""
+    return int(
+        session.scalar(
+            select(func.count(MonitoringFindingRecord.id)).where(
+                MonitoringFindingRecord.active.is_(True)
+            )
+        )
+        or 0
+    )
