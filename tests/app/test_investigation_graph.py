@@ -715,9 +715,9 @@ def test_what_is_not_there_and_what_does_not_open(session_factory: sessionmaker[
 
 
 # Statements of each read, the same for a person of one event and of six.
-INITIAL_QUERIES = 0
-PERSON_QUERIES = 0
-EVENT_QUERIES = 0
+INITIAL_QUERIES = 19
+PERSON_QUERIES = 11
+EVENT_QUERIES = 10
 
 
 def test_the_queries_do_not_grow_with_the_case(session_factory: sessionmaker[Session]) -> None:

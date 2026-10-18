@@ -342,21 +342,38 @@ def _spaced(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
     return literal(" ").concat(func.translate(folded, NAME_SEPARATORS, " " * len(NAME_SEPARATORS)))
 
 
-def groups_named_like(session: Session, stems: Sequence[str], *, limit: int) -> list[Group]:
+@dataclass(frozen=True)
+class GroupHit:
+    """A group found by its name: what a list of hits shows, no JSON of the group."""
+
+    key: str
+    name: str
+    mention_count: int
+    article_count: int
+    last_published_at: datetime | None
+
+
+def groups_named_like(session: Session, stems: Sequence[str], *, limit: int) -> list[GroupHit]:
     """The groups with a word of the name beginning with each stem (folded: lower case,
     «ё» as «е»), the most mentioned first. The whole filter runs in SQL, under its
-    LIMIT."""
+    LIMIT, and only the columns of a hit are read."""
     if not stems:
         return []
     spaced = _spaced(EntityGroupRecord.name)
     return [
-        _group(record)
-        for record in session.scalars(
-            select(EntityGroupRecord)
+        GroupHit(*row)
+        for row in session.execute(
+            select(
+                EntityGroupRecord.key,
+                EntityGroupRecord.name,
+                EntityGroupRecord.mention_count,
+                EntityGroupRecord.article_count,
+                EntityGroupRecord.last_published_at,
+            )
             .where(*(spaced.like(f"% {stem}%") for stem in stems))
             .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
             .limit(limit)
-        )
+        ).all()
     ]
 
 
