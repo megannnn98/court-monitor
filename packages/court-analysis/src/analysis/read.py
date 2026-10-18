@@ -41,6 +41,7 @@ class PersonClassification:
     evidence_types: list[str]
     classifier_name: str
     classifier_version: str
+    classified_at: datetime | None = None
 
 
 def person_classification(session: Session, person_id: int) -> PersonClassification | None:
@@ -64,6 +65,7 @@ def _classification(row: PersecutionClassificationRecord) -> PersonClassificatio
         list(row.evidence_types),
         row.classifier_name,
         row.classifier_version,
+        row.classified_at,
     )
 
 

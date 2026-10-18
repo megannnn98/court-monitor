@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.persecution.classifier import RuleBasedPersecutionClassifier
 from analysis.persecution.models import PersecutionClassification
+from analysis.read import PersonClassification, _classification
 from analysis.storage.models import PersecutionClassificationRecord
 from ingestion import read
 from persons import read as person_read
@@ -146,8 +147,8 @@ class PersecutionClassificationService:
         self,
         person_id: int,
         classifier_name: str | None = None,
-    ) -> PersecutionClassificationRecord | None:
-        """Get the latest classification for a person."""
+    ) -> PersonClassification | None:
+        """Latest classification by time, optionally by classifier, as a value."""
         with self.session_factory() as session:
             query = select(PersecutionClassificationRecord).where(
                 PersecutionClassificationRecord.person_id == person_id
@@ -160,7 +161,8 @@ class PersecutionClassificationService:
 
             query = query.order_by(PersecutionClassificationRecord.classified_at.desc()).limit(1)
 
-            return session.scalar(query)
+            row = session.scalar(query)
+            return None if row is None else _classification(row)
 
     def _get_person_mentions(self, session: Session, person_id: int) -> list[MentionSpan]:
         """Get this person's own resolved mentions (not other people's)."""

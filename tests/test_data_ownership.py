@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import os
 import re
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
@@ -22,7 +25,7 @@ from typing import Any
 import pytest
 from support.workspace import REPOSITORY, SOURCE_ROOTS
 
-# The owner of every table, by distribution. A new table is added here, in its owner's
+# The owner of every modeled table, by distribution. A new table is added here, in its owner's
 # `storage`, and in `migrations/model_registry.py`.
 OWNER_OF_TABLE: dict[str, str] = {
     **dict.fromkeys(("sources", "source_documents", "parsed_articles"), "court-ingestion"),
@@ -99,6 +102,11 @@ OWNER_OF_TABLE: dict[str, str] = {
     "investigation_runs": "court-investigation",
     **dict.fromkeys(("app_settings", "entity_model_spend"), "court-platform"),
 }
+
+# Migration a7b8c9d0e1f2 created this table, but main already has no model or runtime
+# reader/writer for it. Keep it owned without changing metadata or the baseline drift.
+LEGACY_OWNER_OF_TABLE: dict[str, str] = {"rosfinmonitoring_checks": "court-analysis"}
+ALL_TABLE_OWNERS = OWNER_OF_TABLE | LEGACY_OWNER_OF_TABLE
 
 # Top-level module -> distribution (the wheels' `packages`, tests/test_package_graph.py).
 DISTRIBUTION_OF_MODULE: dict[str, str] = {
@@ -184,7 +192,7 @@ def _sql_strings(tree: ast.AST) -> Iterator[str]:
             yield node.value
 
 
-_TABLE = re.compile(r"\b(" + "|".join(sorted(OWNER_OF_TABLE, key=len, reverse=True)) + r")\b")
+_TABLE = re.compile(r"\b(" + "|".join(sorted(ALL_TABLE_OWNERS, key=len, reverse=True)) + r")\b")
 _WRITE = r"\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE(?:\s+TABLE)?)\s+(?:[\w, ]*?\b)?{}\b"
 
 
@@ -208,7 +216,7 @@ def _foreign_sql(*, writes: bool) -> set[str]:
     for file, path, distribution in _source_files():
         for sql in _sql_strings(ast.parse(file.read_text(encoding="utf-8"))):
             for table in set(_TABLE.findall(sql)):
-                if OWNER_OF_TABLE[table] == distribution:
+                if ALL_TABLE_OWNERS[table] == distribution:
                     continue
                 written = re.search(_WRITE.format(table), sql, re.IGNORECASE)
                 if bool(written) is writes:
@@ -255,6 +263,12 @@ def test_the_platform_holds_no_domain_model() -> None:
     ]
 
 
+def test_legacy_tables_have_owners_without_changing_baseline_metadata() -> None:
+    assert not (OWNER_OF_TABLE.keys() & LEGACY_OWNER_OF_TABLE.keys())
+    assert not (_registry().metadata.tables.keys() & LEGACY_OWNER_OF_TABLE.keys())
+    assert set(LEGACY_OWNER_OF_TABLE.values()) <= set(OWNER_OF_TABLE.values())
+
+
 def test_the_platform_names_no_domain_table() -> None:
     # Not even to wipe it: each owner names its disposable tables in its testing API.
     platform = REPOSITORY / "packages/court-platform/src"
@@ -264,7 +278,7 @@ def test_the_platform_names_no_domain_table() -> None:
         for node in ast.walk(ast.parse(file.read_text(encoding="utf-8")))
         if isinstance(node, ast.Constant)
         and isinstance(node.value, str)
-        and OWNER_OF_TABLE.get(node.value, "court-platform") != "court-platform"
+        and ALL_TABLE_OWNERS.get(node.value, "court-platform") != "court-platform"
     )
 
     assert named == []
@@ -329,6 +343,33 @@ def test_the_registry_is_the_one_place_that_imports_every_owner() -> None:
     }
 
     assert owners == set(OWNER_OF_TABLE.values())
+
+
+def test_alembic_can_load_the_registry_outside_the_checkout(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            (
+                "from alembic.config import Config; "
+                "from alembic.script import ScriptDirectory; "
+                "import sys; "
+                "ScriptDirectory.from_config(Config(sys.argv[1])); "
+                "from migrations.model_registry import metadata; "
+                "assert 'parsed_articles' in metadata.tables; "
+                "assert 'investigation_runs' in metadata.tables"
+            ),
+            str(REPOSITORY / "alembic.ini"),
+        ],
+        cwd=tmp_path,
+        env={key: value for key, value in os.environ.items() if key != "PYTHONPATH"},
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize(
