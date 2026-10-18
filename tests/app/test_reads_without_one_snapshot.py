@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from processing import read as identity
 from processing.read import Group
 from web.ui import dossier, publications
 
@@ -40,7 +41,7 @@ def test_a_publication_lists_only_the_groups_still_there(monkeypatch: pytest.Mon
     monkeypatch.setattr(
         publications.identity, "groups", lambda _db, _ids: {1: _group(1, "Иван Петров")}
     )
-    monkeypatch.setattr(publications.identity, "event_counts", lambda _db, _ids: [])
+    monkeypatch.setattr(identity, "event_counts", lambda _db, _ids: [])
     monkeypatch.setattr(publications, "group_followers", lambda: None)
 
     people, _events = publications.people_and_events(None, [10])  # type: ignore[arg-type]
@@ -55,8 +56,8 @@ def test_related_people_leave_out_a_group_gone_between_two_reads(
         dossier, "person_evidence", lambda *_a, **_k: _evidence((10, 1), (10, 2), (10, 3))
     )
     # Group 3 is gone by the ordering read, group 2 by the names' read.
-    monkeypatch.setattr(dossier.identity, "by_name", lambda _db, _ids: [2, 1])
-    monkeypatch.setattr(dossier.identity, "groups", lambda _db, _ids: {1: _group(1, "Иван Петров")})
+    monkeypatch.setattr(identity, "by_name", lambda _db, _ids: [2, 1])
+    monkeypatch.setattr(identity, "groups", lambda _db, _ids: {1: _group(1, "Иван Петров")})
 
     related = dossier.related_people(None, 99, _evidence((10, 99)), None)  # type: ignore[arg-type]
 
