@@ -779,3 +779,46 @@ def event_mentions(session: Session, ids: Collection[int]) -> list[EventMention]
     return [
         EventMention(*row) for row in session.execute(_EVENT_MENTIONS, {"events": sorted(set(ids))})
     ]
+
+
+@dataclass(frozen=True)
+class ArticlePerson:
+    """A group named in an article: how often there, and the charges it is told of there."""
+
+    key: str
+    name: str
+    article_id: int
+    mentions: int
+    charges: list[str]
+
+
+_PEOPLE_IN = text(
+    """
+    SELECT g.key, g.name, r.article_id, count(*) AS mentions,
+           coalesce(
+               (SELECT array_agg(DISTINCT c.article ORDER BY c.article)
+                FROM entity_group_charges c
+                WHERE c.group_id = g.id AND c.publication_id = r.article_id),
+               ARRAY[]::varchar[]) AS charges
+    FROM entity_group_mentions gm
+    JOIN entity_groups g ON g.id = gm.group_id
+    JOIN entity_mentions m ON m.id = gm.mention_id
+    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
+    WHERE r.article_id = ANY(:article_ids)
+    GROUP BY g.id, g.key, g.name, r.article_id
+    ORDER BY mentions DESC, g.key
+    LIMIT :limit
+    """
+)
+
+
+def people_in(session: Session, article_ids: Collection[int], *, limit: int) -> list[ArticlePerson]:
+    """The groups named in these articles, by group and article: the most mentioned first,
+    then by key (in the database's collation), at most `limit`."""
+    if not article_ids:
+        return []
+    rows = session.execute(_PEOPLE_IN, {"article_ids": list(article_ids), "limit": limit})
+    return [
+        ArticlePerson(row.key, row.name, row.article_id, row.mentions, list(row.charges or []))
+        for row in rows
+    ]

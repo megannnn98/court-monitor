@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from analysis.persecution.queries import latest_persecution_classification_ids
-from analysis.storage.models import (
-    PersecutionClassificationRecord,
-    RosfinMatchRecord,
-    RosfinmonitoringSnapshotRecord,
-)
-from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
-from processing.storage.models import ExtractedEventRecord
+from analysis import read as analysis_read
+from analysis.rosfinmonitoring import read as rf_read
+from persons import read as person_read
 from results.candidates.models import (
     DEFAULT_MIN_PERSECUTION_CONFIDENCE,
     CandidateQueryResult,
@@ -97,53 +91,26 @@ class CandidateQueryService:
         include_rf_statuses: frozenset[RosfinmonitoringStatus],
     ) -> CandidateQueryResult:
         """Internal implementation that works with an existing session."""
-        snapshot = session.get(RosfinmonitoringSnapshotRecord, snapshot_id)
-        if snapshot is None:
+        if rf_read.snapshot(session, snapshot_id) is None:
             raise ValueError(f"Rosfinmonitoring snapshot {snapshot_id} not found")
-        # Get all persons with political persecution classification
-        persecution_query = (
-            select(
-                PersonRecord.id.label("person_id"),
-                PersonRecord.canonical_name,
-                PersonRecord.normalized_name,
-                PersecutionClassificationRecord.status.label("persecution_status"),
-                PersecutionClassificationRecord.confidence.label("persecution_confidence"),
-                PersecutionClassificationRecord.reasons.label("persecution_reasons"),
-            )
-            .join(
-                PersecutionClassificationRecord,
-                PersonRecord.id == PersecutionClassificationRecord.person_id,
-            )
-            .where(
-                PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
-                PersecutionClassificationRecord.status == "political",
-                PersecutionClassificationRecord.confidence >= min_persecution_confidence,
-                PersonRecord.status == "active",
-            )
+        # Every active person with a political persecution classification, in id order:
+        # `limit` pages must be stable between calls.
+        classifications = analysis_read.political_classifications(
+            session, min_confidence=min_persecution_confidence
         )
-
-        # Ordered: `limit` pages must be stable between calls.
-        persecution_results = session.execute(persecution_query.order_by(PersonRecord.id)).all()
+        people = person_read.persons(session, [item.person_id for item in classifications])
+        persecution_results = sorted(
+            (
+                item
+                for item in classifications
+                if item.person_id in people and people[item.person_id].status == "active"
+            ),
+            key=lambda item: item.person_id,
+        )
         person_ids = [row.person_id for row in persecution_results]
 
         # One query per concern, not per person (was 3 queries per candidate).
-        matches = (
-            {
-                person_id: (status, confidence)
-                for person_id, status, confidence in session.execute(
-                    select(
-                        RosfinMatchRecord.person_id,
-                        RosfinMatchRecord.status,
-                        RosfinMatchRecord.confidence,
-                    ).where(
-                        RosfinMatchRecord.snapshot_id == snapshot_id,
-                        RosfinMatchRecord.person_id.in_(person_ids),
-                    )
-                ).all()
-            }
-            if person_ids
-            else {}
-        )
+        matches = analysis_read.person_matches(session, snapshot_id, person_ids)
 
         included = []
         for row in persecution_results:
@@ -151,61 +118,28 @@ class CandidateQueryService:
             # No match record means matching was never run for this person —
             # that is NOT a confirmed absence, so it is excluded by default just
             # like AMBIGUOUS/NEEDS_REVIEW/INSUFFICIENT_DATA.
-            rf_status = resolve_rosfinmonitoring_status(None if match is None else match[0])
+            rf_status = resolve_rosfinmonitoring_status(None if match is None else match.status)
             if rf_status not in include_rf_statuses:
                 continue
-            included.append((row, rf_status, None if match is None else match[1]))
+            included.append((row, rf_status, None if match is None else match.confidence))
             if limit is not None and len(included) >= limit:
                 break
 
-        included_ids = [row.person_id for row, _, _ in included]
-        event_stats = (
-            {
-                person_id: (event_count, last_event_date)
-                for person_id, event_count, last_event_date in session.execute(
-                    select(
-                        PersonEventLinkRecord.person_id,
-                        func.count(PersonEventLinkRecord.id),
-                        func.max(ExtractedEventRecord.event_date),
-                    )
-                    .join(
-                        ExtractedEventRecord,
-                        PersonEventLinkRecord.event_id == ExtractedEventRecord.id,
-                    )
-                    .where(PersonEventLinkRecord.person_id.in_(included_ids))
-                    .group_by(PersonEventLinkRecord.person_id)
-                ).all()
-            }
-            if included_ids
-            else {}
-        )
-        alias_counts = (
-            dict(
-                session.execute(
-                    select(PersonAliasRecord.person_id, func.count(PersonAliasRecord.id))
-                    .where(PersonAliasRecord.person_id.in_(included_ids))
-                    .group_by(PersonAliasRecord.person_id)
-                )
-                .tuples()
-                .all()
-            )
-            if included_ids
-            else {}
-        )
+        stats = person_read.person_stats(session, [row.person_id for row, _, _ in included])
 
         candidates = [
             PoliticalPersecutionCandidate(
                 person_id=row.person_id,
-                canonical_name=row.canonical_name,
-                normalized_name=row.normalized_name,
-                persecution_status=row.persecution_status,
-                persecution_confidence=row.persecution_confidence,
-                persecution_reasons=row.persecution_reasons or [],
+                canonical_name=people[row.person_id].canonical_name,
+                normalized_name=people[row.person_id].normalized_name,
+                persecution_status=row.status,
+                persecution_confidence=row.confidence,
+                persecution_reasons=row.reasons or [],
                 rosfinmonitoring_status=rf_status,
                 rosfinmonitoring_match_confidence=rf_confidence,
-                event_count=event_stats.get(row.person_id, (0, None))[0],
-                alias_count=alias_counts.get(row.person_id, 0),
-                last_event_date=event_stats.get(row.person_id, (0, None))[1],
+                event_count=stats[row.person_id].event_count,
+                alias_count=stats[row.person_id].alias_count,
+                last_event_date=stats[row.person_id].last_event_date,
             )
             for row, rf_status, rf_confidence in included
         ]

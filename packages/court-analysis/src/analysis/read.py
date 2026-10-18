@@ -48,20 +48,74 @@ def person_classification(session: Session, person_id: int) -> PersonClassificat
             PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
         )
     ).first()
-    return (
-        None
-        if row is None
-        else PersonClassification(
-            row.id,
-            row.person_id,
-            row.status,
-            row.confidence,
-            list(row.reasons),
-            list(row.evidence_types),
-            row.classifier_name,
-            row.classifier_version,
+    return None if row is None else _classification(row)
+
+
+def _classification(row: PersecutionClassificationRecord) -> PersonClassification:
+    return PersonClassification(
+        row.id,
+        row.person_id,
+        row.status,
+        row.confidence,
+        list(row.reasons),
+        list(row.evidence_types),
+        row.classifier_name,
+        row.classifier_version,
+    )
+
+
+def political_classifications(
+    session: Session, *, min_confidence: float
+) -> list[PersonClassification]:
+    """The ER v2 people whose latest classification is political, at least that sure."""
+    rows = session.scalars(
+        select(PersecutionClassificationRecord).where(
+            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
+            PersecutionClassificationRecord.status == "political",
+            PersecutionClassificationRecord.confidence >= min_confidence,
         )
     )
+    return [_classification(row) for row in rows]
+
+
+def latest_classification_ids(session: Session, person_ids: Collection[int]) -> dict[int, int]:
+    """Per person asked for, the id of its latest persecution classification."""
+    if not person_ids:
+        return {}
+    rows = session.execute(
+        select(PersecutionClassificationRecord.person_id, PersecutionClassificationRecord.id).where(
+            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
+            any_of(PersecutionClassificationRecord.person_id, person_ids),
+        )
+    ).all()
+    return {person_id: classification_id for person_id, classification_id in rows}
+
+
+@dataclass(frozen=True)
+class PersonMatch:
+    id: int
+    status: str
+    confidence: float
+
+
+def person_matches(
+    session: Session, snapshot_id: int, person_ids: Collection[int]
+) -> dict[int, PersonMatch]:
+    """The ER v2 people's matches against one snapshot of the list."""
+    if not person_ids:
+        return {}
+    rows = session.execute(
+        select(
+            RosfinMatchRecord.person_id,
+            RosfinMatchRecord.id,
+            RosfinMatchRecord.status,
+            RosfinMatchRecord.confidence,
+        ).where(
+            RosfinMatchRecord.snapshot_id == snapshot_id,
+            any_of(RosfinMatchRecord.person_id, person_ids),
+        )
+    ).all()
+    return {person_id: PersonMatch(*rest) for person_id, *rest in rows}
 
 
 @dataclass(frozen=True)
@@ -280,12 +334,14 @@ def list_matches(session: Session, group_id: int) -> tuple[list[ListMatch], date
 
 
 @dataclass(frozen=True)
-class OpenFigurant:
-    """An unnamed figurant no resolution of the ones asked for has closed."""
+class Figurant:
+    """An unnamed figurant: a quote of an article that describes a person it does not name."""
 
     id: int
     key: str
     article_id: int
+    start_offset: int
+    end_offset: int
     age: int | None
     gender: str | None
     place: str
@@ -297,28 +353,41 @@ class OpenFigurant:
     published_at: datetime | None
 
 
-def open_figurants(session: Session, *, closed: Collection[str]) -> list[OpenFigurant]:
+_FIGURANT = (
+    UnnamedFigurantRecord.id,
+    UnnamedFigurantRecord.key,
+    UnnamedFigurantRecord.article_id,
+    UnnamedFigurantRecord.start_offset,
+    UnnamedFigurantRecord.end_offset,
+    UnnamedFigurantRecord.age,
+    UnnamedFigurantRecord.gender,
+    UnnamedFigurantRecord.place,
+    UnnamedFigurantRecord.initial,
+    UnnamedFigurantRecord.articles,
+    UnnamedFigurantRecord.event_type,
+    UnnamedFigurantRecord.quote,
+    UnnamedFigurantRecord.explanation,
+    UnnamedFigurantRecord.published_at,
+)
+
+
+def article_figurants(session: Session, article_id: int) -> list[Figurant]:
+    """The unnamed figurants of one article, in text order."""
+    rows = session.execute(
+        select(*_FIGURANT)
+        .where(UnnamedFigurantRecord.article_id == article_id)
+        .order_by(UnnamedFigurantRecord.start_offset)
+    ).all()
+    return [Figurant(*row) for row in rows]
+
+
+def open_figurants(session: Session, *, closed: Collection[str]) -> list[Figurant]:
     """The unnamed figurants without a resolution in `closed`, in id order."""
     resolved = select(UnnamedIdentityResolutionRecord.figurant_key).where(
         UnnamedIdentityResolutionRecord.figurant_key == UnnamedFigurantRecord.key,
         any_text(UnnamedIdentityResolutionRecord.resolution, closed, name="closed"),
     )
     rows = session.execute(
-        select(
-            UnnamedFigurantRecord.id,
-            UnnamedFigurantRecord.key,
-            UnnamedFigurantRecord.article_id,
-            UnnamedFigurantRecord.age,
-            UnnamedFigurantRecord.gender,
-            UnnamedFigurantRecord.place,
-            UnnamedFigurantRecord.initial,
-            UnnamedFigurantRecord.articles,
-            UnnamedFigurantRecord.event_type,
-            UnnamedFigurantRecord.quote,
-            UnnamedFigurantRecord.explanation,
-            UnnamedFigurantRecord.published_at,
-        )
-        .where(~resolved.exists())
-        .order_by(UnnamedFigurantRecord.id)
+        select(*_FIGURANT).where(~resolved.exists()).order_by(UnnamedFigurantRecord.id)
     ).all()
-    return [OpenFigurant(*row) for row in rows]
+    return [Figurant(*row) for row in rows]

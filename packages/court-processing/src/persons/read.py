@@ -9,7 +9,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from db.arrays import any_of
@@ -213,3 +213,46 @@ def reviews(
         )
         for r in session.scalars(query)
     ]
+
+
+@dataclass(frozen=True)
+class PersonStats:
+    event_count: int
+    last_event_date: datetime | None
+    alias_count: int
+
+
+def person_stats(session: Session, ids: Collection[int]) -> dict[int, PersonStats]:
+    """Per person asked for: its linked events, the latest event date and its aliases."""
+    if not ids:
+        return {}
+    events = {
+        person_id: (count, last)
+        for person_id, count, last in session.execute(
+            select(
+                PersonEventLinkRecord.person_id,
+                func.count(PersonEventLinkRecord.id),
+                func.max(ExtractedEventRecord.event_date),
+            )
+            .join(ExtractedEventRecord, PersonEventLinkRecord.event_id == ExtractedEventRecord.id)
+            .where(any_of(PersonEventLinkRecord.person_id, ids))
+            .group_by(PersonEventLinkRecord.person_id)
+        ).all()
+    }
+    aliases = dict(
+        session.execute(
+            select(PersonAliasRecord.person_id, func.count(PersonAliasRecord.id))
+            .where(any_of(PersonAliasRecord.person_id, ids))
+            .group_by(PersonAliasRecord.person_id)
+        )
+        .tuples()
+        .all()
+    )
+    return {
+        person_id: PersonStats(
+            events.get(person_id, (0, None))[0],
+            events.get(person_id, (0, None))[1],
+            aliases.get(person_id, 0),
+        )
+        for person_id in ids
+    }
