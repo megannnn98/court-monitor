@@ -10,7 +10,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.database import create_database_engine, create_session_factory
-from db.maintenance import truncate_disposable_tables
+from evaluation.disposable import wipe
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,7 +23,7 @@ def _no_outside_sources(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _truncate_test_tables(engine: Engine) -> None:
-    truncate_disposable_tables(engine)
+    wipe(engine)
 
 
 @pytest.fixture(scope="session")

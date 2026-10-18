@@ -14,6 +14,15 @@ from sqlalchemy.orm import Session
 
 from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 
+# The tables a disposable test or evaluation database is wiped of between runs
+# (`db.maintenance.truncate_disposable_tables`); a cache of model answers worth keeping
+# is not among them.
+DISPOSABLE_TABLES = (
+    "parsed_articles",
+    "source_documents",
+    "sources",
+)
+
 
 def source_named(session: Session, name: str, base_url: str) -> int:
     """The id of the source of this name, added with `base_url` when there is none."""

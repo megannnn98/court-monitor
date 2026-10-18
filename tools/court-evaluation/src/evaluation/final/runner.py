@@ -27,7 +27,8 @@ from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipelin
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
 from db.database import create_session_factory
-from db.maintenance import require_disposable_database, truncate_disposable_tables
+from db.maintenance import require_disposable_database
+from evaluation.disposable import wipe
 from evaluation.final.corpus import (
     RF_NO_MATCH_RECORD,
     RF_NO_SNAPSHOT,
@@ -89,11 +90,11 @@ class FinalEvaluationRunner:
         for case in corpus.cases:
             logger.info("event=final_evaluation_case_started case=%s", case.id)
             results.append(self.run_case(case))
-        truncate_disposable_tables(self._engine)
+        wipe(self._engine)
         return results
 
     def run_case(self, case: FinalCase) -> CaseResult:
-        truncate_disposable_tables(self._engine)
+        wipe(self._engine)
         session_factory = self._session_factory
         result = CaseResult(
             case_id=case.id, categories=case.categories, known_limitation=case.known_limitation

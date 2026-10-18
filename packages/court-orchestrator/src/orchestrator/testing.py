@@ -14,6 +14,16 @@ from sqlalchemy.engine import Connection
 
 from orchestrator.storage.models import MonitoringRunRecord
 
+# The tables a disposable test or evaluation database is wiped of between runs
+# (`db.maintenance.truncate_disposable_tables`); a cache of model answers worth keeping
+# is not among them.
+DISPOSABLE_TABLES = (
+    "operator_operation_runs",
+    "monitoring_run_items",
+    "source_monitoring_state",
+    "monitoring_runs",
+)
+
 
 def stage_metrics(connection: Connection) -> list[dict[str, Any] | None]:
     """The stage metrics of every monitoring run."""

@@ -37,6 +37,31 @@ _UNNAMED_ARTICLES = text(
     """
 )
 
+# The tables a disposable test or evaluation database is wiped of between runs
+# (`db.maintenance.truncate_disposable_tables`); a cache of model answers worth keeping
+# is not among them.
+DISPOSABLE_TABLES = (
+    "entity_news_answers",
+    "entity_group_news",
+    "unnamed_identity_resolutions",
+    "unnamed_decisions",
+    "unnamed_answers",
+    "unnamed_figurants",
+    "unnamed_screened",
+    "unnamed_keeps",
+    "airtable_known_persons",
+    "criminal_articles",
+    "entity_politics_decisions",
+    "entity_politics_answers",
+    "entity_group_politics",
+    "entity_group_rf_matches",
+    "rosfin_matches",
+    "rfm_operator_entries",
+    "rosfinmonitoring_entries",
+    "rosfinmonitoring_snapshots",
+    "persecution_classifications",
+)
+
 
 def group_facts(session: Session, group_id: int) -> list[tuple[str, str | None]]:
     """(fact, value) of a group: its politics verdict, its latest news, its list levels."""

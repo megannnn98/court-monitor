@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from db.database import create_database_engine, create_session_factory
-from db.maintenance import require_disposable_database, truncate_disposable_tables
+from db.maintenance import require_disposable_database
+from evaluation.disposable import wipe
 from evaluation.person_resolution.er_run import (
     format_er_evaluation,
     load_er_corpus,
@@ -45,7 +46,7 @@ def run_evaluate_er(args: argparse.Namespace) -> None:
         )
     engine = create_database_engine(database_url)
     require_disposable_database(engine)
-    truncate_disposable_tables(engine)
+    wipe(engine)
     session_factory = create_session_factory(engine)
     config = CandidateConfig.from_env(os.environ)
     run = run_er_evaluation(

@@ -263,7 +263,8 @@ def test_a_decision_table_is_truncated_only_in_a_disposable_database(table: str)
     """
     import sqlalchemy as sa
 
-    from db.maintenance import DISPOSABLE_TABLES, require_disposable_database
+    from db.maintenance import require_disposable_database
+    from evaluation.disposable import DISPOSABLE_TABLES
 
     assert table in DISPOSABLE_TABLES, f"{table} would leak between tests otherwise"
     with pytest.raises(Exception):  # noqa: B017 - the refusal is the assertion

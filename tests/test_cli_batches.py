@@ -21,7 +21,7 @@ from cli_batches import (
     run_chunks,
     worker_count,
 )
-from db.maintenance import truncate_disposable_tables
+from evaluation.disposable import wipe
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from ingestion.storage.models import ParsedArticleRecord
 from monitor_core.model import ParsedArticle, RawDocument
@@ -132,7 +132,7 @@ def test_parallel_extraction_finds_what_one_process_finds(
 
     _extract(session_factory, database_url, workers=1)
     sequential = _mentions(session_factory)
-    truncate_disposable_tables(test_engine)
+    wipe(test_engine)
     _extract(session_factory, database_url, workers=3)
     parallel = _mentions(session_factory)
 

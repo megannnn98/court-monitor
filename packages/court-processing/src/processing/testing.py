@@ -52,6 +52,32 @@ _NAMESAKE_SURNAMES = text(
     """
 )
 
+# The tables a disposable test or evaluation database is wiped of between runs
+# (`db.maintenance.truncate_disposable_tables`); a cache of model answers worth keeping
+# is not among them.
+DISPOSABLE_TABLES = (
+    "article_sentences",
+    "article_sentence_readings",
+    "junk_screen_holds",
+    "entity_group_unnamed_mentions",
+    "entity_name_normalizations",
+    "entity_name_overrides",
+    "entity_removals",
+    "entity_official_marks",
+    "excluded_persons",
+    "entity_role_decisions",
+    "entity_pair_decisions",
+    "entity_role_answers",
+    "entity_group_roles",
+    "entity_group_charges",
+    "entity_group_mentions",
+    "entity_groups",
+    "event_entity_mentions",
+    "extracted_events",
+    "entity_mentions",
+    "article_extraction_runs",
+)
+
 
 def golden_people(session: Session, *, limit: int) -> list[tuple[int, str, str, list[Any]]]:
     """(id, key, name, variants) of the figurants (or possible ones) of two words and two

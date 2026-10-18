@@ -24,7 +24,8 @@ from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipelin
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
 from db.database import create_session_factory
-from db.maintenance import require_disposable_database, truncate_disposable_tables
+from db.maintenance import require_disposable_database
+from evaluation.disposable import wipe
 from evaluation.real_world.corpus_cache import RawCorpusCache
 from evaluation.real_world.models import (
     CorpusManifest,
@@ -137,7 +138,7 @@ class CorpusRunner:
         self.service = self._build_service()
 
     def reset(self, rf_snapshot: RfSnapshotFile | None) -> None:
-        truncate_disposable_tables(self.engine)
+        wipe(self.engine)
         self.upstream.published.clear()
         self.snapshot_id = (
             import_rf_snapshot(self.session_factory, rf_snapshot) if rf_snapshot else None

@@ -11,6 +11,15 @@ from sqlalchemy.orm import Session
 
 from results.storage.models import MonitoringFindingRecord
 
+# The tables a disposable test or evaluation database is wiped of between runs
+# (`db.maintenance.truncate_disposable_tables`); a cache of model answers worth keeping
+# is not among them.
+DISPOSABLE_TABLES = (
+    "chat_questions",
+    "entity_done_marks",
+    "monitoring_findings",
+)
+
 
 def active_finding_person_ids(session: Session) -> set[int]:
     """The ER v2 people with an active monitoring finding."""

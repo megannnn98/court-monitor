@@ -14,7 +14,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 
 from db.database import create_session_factory
-from db.maintenance import truncate_disposable_tables
+from evaluation.disposable import wipe
 from evaluation.person_resolution.er_run import ErCorpus, load_er_corpus, run_er_evaluation
 from evaluation.real_world.models import DEFAULT_DATA_DIR
 from evaluation.real_world.results import NamesakeSection, SectionStatus
@@ -32,11 +32,11 @@ def load_namesakes(path: Path = DEFAULT_NAMESAKE_PATH) -> NamesakeCorpus | None:
 def evaluate_namesakes(engine: Engine, corpus: NamesakeCorpus | None) -> NamesakeSection:
     if corpus is None or not corpus.cases:
         return NamesakeSection(status=SectionStatus.NOT_RUN, not_run_reason="no namesake cases")
-    truncate_disposable_tables(engine)
+    wipe(engine)
     try:
         run = run_er_evaluation(create_session_factory(engine), corpus)
     finally:
-        truncate_disposable_tables(engine)
+        wipe(engine)
     different_person_links = sum(
         1
         for outcome in run.outcomes

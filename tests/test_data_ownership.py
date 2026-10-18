@@ -255,6 +255,21 @@ def test_the_platform_holds_no_domain_model() -> None:
     ]
 
 
+def test_the_platform_names_no_domain_table() -> None:
+    # Not even to wipe it: each owner names its disposable tables in its testing API.
+    platform = REPOSITORY / "packages/court-platform/src"
+    named = sorted(
+        f"{file.relative_to(REPOSITORY).as_posix()} -> {node.value}"
+        for file in platform.rglob("*.py")
+        for node in ast.walk(ast.parse(file.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and OWNER_OF_TABLE.get(node.value, "court-platform") != "court-platform"
+    )
+
+    assert named == []
+
+
 def test_no_aggregate_of_every_model_is_left() -> None:
     offenders = sorted(
         path

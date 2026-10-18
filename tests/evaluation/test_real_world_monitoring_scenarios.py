@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine
 
-from db.maintenance import truncate_disposable_tables
+from evaluation.disposable import wipe
 from evaluation.real_world.corpus_cache import CacheEntryStatus, RawCorpusCache, article_entry
 from evaluation.real_world.corpus_run import CorpusRunner, RfSnapshotFile, articles_by_period
 from evaluation.real_world.models import (
@@ -117,7 +117,7 @@ def build_corpus(
 
 @pytest.fixture
 def runner(test_engine: Engine, tmp_path: Path) -> Iterator[CorpusRunner]:
-    truncate_disposable_tables(test_engine)
+    wipe(test_engine)
     manifest, cache = build_corpus(tmp_path / "cache")
     yield CorpusRunner(
         engine=test_engine,
@@ -125,7 +125,7 @@ def runner(test_engine: Engine, tmp_path: Path) -> Iterator[CorpusRunner]:
         cache=cache,
         definitions={OVD_INFO.name: OVD_INFO},
     )
-    truncate_disposable_tables(test_engine)
+    wipe(test_engine)
 
 
 @pytest.fixture
@@ -203,7 +203,7 @@ def test_crash_is_injected_into_the_source_that_processes_the_increment(
     """
     from dataclasses import replace
 
-    truncate_disposable_tables(test_engine)
+    wipe(test_engine)
     manifest, cache = build_corpus(tmp_path / "cache", source="sota-vision")
     published = datetime(2026, 3, 2, 18, tzinfo=UTC)
     external_id = "/express-news/2026/03/02/archive"
@@ -249,7 +249,7 @@ def test_crash_is_injected_into_the_source_that_processes_the_increment(
             [*periods[TemporalPeriod.T1], *periods[TemporalPeriod.T2]],
         )
     finally:
-        truncate_disposable_tables(test_engine)
+        wipe(test_engine)
     for result in results:
         assert result.status is GateStatus.PASS, result.detail
         assert result.metrics["crashed_source"] == "sota-vision", result.metrics

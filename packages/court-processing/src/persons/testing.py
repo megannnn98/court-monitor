@@ -19,6 +19,18 @@ from persons.storage.models import (
     PersonResolutionDecisionRecord,
 )
 
+# The tables a disposable test or evaluation database is wiped of between runs
+# (`db.maintenance.truncate_disposable_tables`); a cache of model answers worth keeping
+# is not among them.
+DISPOSABLE_TABLES = (
+    "person_resolution_decisions",
+    "person_event_links",
+    "review_records",
+    "person_merges",
+    "person_aliases",
+    "persons",
+)
+
 
 def add_person(
     session: Session,
