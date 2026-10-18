@@ -476,3 +476,15 @@ def mention_articles(session: Session, ids: Collection[int]) -> list[tuple[int, 
         )
         if person_id is not None
     ]
+
+
+def active_person_ids(session: Session, *, limit: int) -> list[int]:
+    """The first `limit` active people, by id."""
+    return list(
+        session.scalars(
+            select(PersonRecord.id)
+            .where(PersonRecord.status == PersonStatus.ACTIVE.value)
+            .order_by(PersonRecord.id)
+            .limit(limit)
+        ).all()
+    )

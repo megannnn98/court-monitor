@@ -7,7 +7,7 @@ import argparse
 from analysis.persecution.classification_service import PersecutionClassificationService
 from cli.context import CliContext
 from cli_progress import ProgressBar
-from persons.persistence import SqlAlchemyPersonPersistence
+from persons import read as person_read
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -32,11 +32,11 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 
 def run_classify_persecution(args: argparse.Namespace, context: CliContext) -> None:
     session_factory = context.session_factory
-    person_persistence = SqlAlchemyPersonPersistence(session_factory)
     classification_service = PersecutionClassificationService(session_factory)
 
     if args.person_id is not None:
-        person = person_persistence.get_person(args.person_id)
+        with session_factory() as session:
+            person = person_read.person(session, args.person_id)
         if person is None:
             raise SystemExit(f"Person not found: {args.person_id}")
 
@@ -48,13 +48,14 @@ def run_classify_persecution(args: argparse.Namespace, context: CliContext) -> N
             for reason in classification.reasons:
                 print(f"  - {reason}")
     else:
-        persons = person_persistence.list_active_persons(limit=args.limit)
+        with session_factory() as session:
+            persons = person_read.active_person_ids(session, limit=args.limit)
         classified_count = 0
         political_count = 0
 
         with ProgressBar("classify-persecution", len(persons)) as progress:
-            for person in persons:
-                classification = classification_service.classify_person(person.id)
+            for person_id in persons:
+                classification = classification_service.classify_person(person_id)
                 classified_count += 1
                 if classification.status == "political":
                     political_count += 1
