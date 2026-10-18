@@ -12,19 +12,19 @@ import random
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
-from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis import testing as analysis_testing
 from analysis.politics.classification import (
     PoliticsClassifier,
     PoliticsItem,
     verdict_of,
 )
 from analysis.service import GroupFollowers
-from analysis.storage.models import EntityGroupPoliticsRecord
 from processing import read as identity
+from processing import testing as processing_testing
 from processing.identity.grouping import name_key
 from processing.identity.normalizer import NameItem, NameNormalizer
 from processing.roles.roles import (
@@ -35,7 +35,6 @@ from processing.roles.roles import (
     latest_quotes,
     role_of,
 )
-from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 
 logger = logging.getLogger("entities")
 
@@ -118,11 +117,7 @@ def compare_roles(
 ) -> Comparison:
     """The roles the model gave (step 4) against the other model's."""
     with session_factory() as session:
-        rows = session.execute(
-            select(EntityGroupRecord.id, EntityGroupRecord.name, EntityGroupRoleRecord.role)
-            .join(EntityGroupRoleRecord, EntityGroupRoleRecord.group_id == EntityGroupRecord.id)
-            .where(EntityGroupRoleRecord.method == "model")
-        ).all()
+        rows = processing_testing.model_roles(session)
         picked = _sample(rows, size, seed)
         quotes = _quotes(session, [row.id for row in picked])
     items = [RoleItem(row.id, row.name, tuple(quotes.get(row.id, []))) for row in picked]
@@ -135,32 +130,29 @@ def compare_roles(
     return result
 
 
+class _Verdict(NamedTuple):
+    id: int
+    name: str
+    verdict: str
+
+
 def compare_politics(
     session_factory: sessionmaker[Session], other: PoliticsClassifier, *, size: int, seed: int
 ) -> Comparison:
     """The verdicts the model gave (step 5) against the other model's."""
     with session_factory() as session:
-        rows = session.execute(
-            select(EntityGroupRecord.id, EntityGroupRecord.name, EntityGroupPoliticsRecord.verdict)
-            .join(
-                EntityGroupPoliticsRecord,
-                EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id,
-            )
-            .where(EntityGroupPoliticsRecord.method == "model")
-        ).all()
+        verdicts = analysis_testing.model_verdicts(session)
+        names = identity.groups(session, [group_id for group_id, _ in verdicts])
+        rows = [
+            _Verdict(group_id, names[group_id].name, verdict)
+            for group_id, verdict in verdicts
+            if group_id in names
+        ]
         picked = _sample(rows, size, seed)
         ids = [row.id for row in picked]
         quotes = _quotes(session, ids)
         memorial = identity.memorial_categories(session, ids)
-        articles: dict[int, list[str]] = {}
-        for group_id, article in session.execute(
-            text(
-                "SELECT DISTINCT group_id, article FROM entity_group_charges "
-                "WHERE group_id = ANY(:groups) ORDER BY group_id, article"
-            ),
-            {"groups": ids},
-        ).all():
-            articles.setdefault(group_id, []).append(article)
+        articles = processing_testing.sorted_charge_articles(session, ids)
     items = [
         PoliticsItem(
             row.id,
@@ -186,11 +178,7 @@ def compare_names(
     """The names the model gave (step 3) against the other model's, by their key: the
     patronymic and the order kept, the case and «ё» folded."""
     with session_factory() as session:
-        rows = session.execute(
-            select(EntityGroupRecord.name, EntityGroupRecord.variants).where(
-                EntityGroupRecord.name_source == "model"
-            )
-        ).all()
+        rows = processing_testing.model_names(session)
     picked = _sample(rows, size, seed)
     items = [
         NameItem(position, tuple(str(form) for form, _ in row.variants[:8]), "")

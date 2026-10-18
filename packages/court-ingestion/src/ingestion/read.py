@@ -8,7 +8,7 @@ what it shows, not once per row.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -465,3 +465,27 @@ def active_source_count(session: Session) -> int:
     return (
         session.scalar(select(func.count()).select_from(Source).where(Source.active.is_(True))) or 0
     )
+
+
+def every_article_with_text(session: Session) -> Iterator[StoredArticle]:
+    """Every article with a text, by id, read a batch at a time."""
+    statement = (
+        _joined(*_STORED)
+        .where(func.coalesce(ParsedArticleRecord.text, "") != "")
+        .order_by(ParsedArticleRecord.id)
+        .execution_options(yield_per=500)
+    )
+    for row in session.execute(statement):
+        yield StoredArticle(*row)
+
+
+def external_ids(session: Session, ids: Collection[int]) -> dict[int, str]:
+    """The source's own id of each article's document."""
+    if not ids:
+        return {}
+    rows = session.execute(
+        _joined(ParsedArticleRecord.id, SourceDocument.external_id).where(
+            any_of(ParsedArticleRecord.id, ids)
+        )
+    ).all()
+    return {article_id: external_id for article_id, external_id in rows}

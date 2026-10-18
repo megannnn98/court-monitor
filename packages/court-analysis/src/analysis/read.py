@@ -586,3 +586,18 @@ def reference_counts(session: Session) -> tuple[int, int]:
         or 0
     )
     return int(known), int(articles)
+
+
+def latest_classification_statuses(session: Session, person_ids: Collection[int]) -> dict[int, str]:
+    """Per ER v2 person asked for, the status of its latest persecution classification."""
+    if not person_ids:
+        return {}
+    rows = session.execute(
+        select(
+            PersecutionClassificationRecord.person_id, PersecutionClassificationRecord.status
+        ).where(
+            PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
+            any_of(PersecutionClassificationRecord.person_id, person_ids),
+        )
+    ).all()
+    return {person_id: status for person_id, status in rows}

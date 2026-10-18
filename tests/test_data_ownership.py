@@ -126,13 +126,6 @@ MODEL_REGISTRY = "migrations/model_registry.py"
 # new crossing fails. All of them are empty when the refactor is done (ADR 0031).
 STORAGE_IMPORT_DEBT: frozenset[str] = frozenset(
     {
-        "tools/court-evaluation/src/evaluation/final/runner.py -> analysis.storage",
-        "tools/court-evaluation/src/evaluation/final/runner.py -> ingestion.storage",
-        "tools/court-evaluation/src/evaluation/final/runner.py -> persons.storage",
-        "tools/court-evaluation/src/evaluation/final/runner.py -> processing.storage",
-        "tools/court-evaluation/src/evaluation/final/runner.py -> results.storage",
-        "tools/court-evaluation/src/evaluation/model_comparison/compare.py -> analysis.storage",
-        "tools/court-evaluation/src/evaluation/model_comparison/compare.py -> processing.storage",
         "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> analysis.storage",
         "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> ingestion.storage",
         "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> persons.storage",
@@ -175,18 +168,6 @@ FOREIGN_SQL_READS: frozenset[str] = frozenset(
         "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> parsed_articles",
         "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> person_resolution_decisions",
         "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> persons",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> entity_group_charges",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> entity_group_news",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> entity_group_politics",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> entity_group_rf_matches",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> entity_group_roles",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> entity_groups",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> unnamed_figurants",
-        "tools/court-evaluation/src/evaluation/investigation/golden.py -> unnamed_identity_resolutions",
-        "tools/court-evaluation/src/evaluation/junk_screen/corpus.py -> parsed_articles",
-        "tools/court-evaluation/src/evaluation/junk_screen/corpus.py -> source_documents",
-        "tools/court-evaluation/src/evaluation/junk_screen/corpus.py -> sources",
-        "tools/court-evaluation/src/evaluation/model_comparison/compare.py -> entity_group_charges",
         "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> article_extraction_runs",
         "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> entity_mentions",
         "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> monitoring_findings",
@@ -352,6 +333,26 @@ def test_only_the_owner_writes_its_tables() -> None:
 
 def test_reads_of_another_package_s_tables_in_sql_are_the_listed_ones() -> None:
     assert sorted(_foreign_sql(writes=False)) == sorted(FOREIGN_SQL_READS)
+
+
+def _is_testing_api(module: str) -> bool:
+    """An owner's explicit testing API: `<package>.testing`, or a name imported from it."""
+    parts = module.split(".")
+    return len(parts) > 1 and parts[1] == "testing" and parts[0] in DISTRIBUTION_OF_MODULE
+
+
+def test_no_production_code_reads_through_a_testing_api() -> None:
+    # `<package>.testing` reads an owner's storage for the evaluation and the tests only:
+    # nothing a page or a step runs may stand on it.
+    offenders = sorted(
+        f"{path} -> {module}"
+        for file, path, _ in _source_files()
+        if not path.startswith("tools/")
+        for module in _imports(ast.parse(file.read_text(encoding="utf-8")))
+        if _is_testing_api(module) and not path.endswith(f"/{module.split('.')[0]}/testing.py")
+    )
+
+    assert offenders == []
 
 
 def test_the_registry_is_the_one_place_that_imports_every_owner() -> None:

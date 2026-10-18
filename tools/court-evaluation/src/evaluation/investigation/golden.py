@@ -24,7 +24,9 @@ from typing import Any, Literal
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from analysis import testing as analysis_testing
 from analysis.service import GroupFollowers
+from processing import testing as processing_testing
 from processing.evidence.publications import person_evidence
 
 Form = Literal["nominative", "declined", "reversed", "initial"]
@@ -78,53 +80,6 @@ class GoldenSet:
         )
 
 
-_PEOPLE = text(
-    """
-    SELECT g.id, g.key, g.name, g.variants
-    FROM entity_groups g
-    JOIN entity_group_roles r ON r.group_id = g.id
-    WHERE r.role IN ('figurant', 'possible') AND g.article_count >= 2
-      AND array_length(regexp_split_to_array(g.name, '\\s+'), 1) = 2
-    ORDER BY g.mention_count DESC, g.key
-    LIMIT :limit
-    """
-)
-_FACTS = text(
-    """
-    SELECT 'role' AS fact, r.role AS value FROM entity_group_roles r WHERE r.group_id = :id
-    UNION ALL
-    SELECT 'politics', p.verdict FROM entity_group_politics p WHERE p.group_id = :id
-    UNION ALL
-    SELECT 'charges', string_agg(DISTINCT c.article, ', ' ORDER BY c.article)
-      FROM entity_group_charges c WHERE c.group_id = :id HAVING count(*) > 0
-    UNION ALL
-    SELECT 'latest_news', n.kind FROM entity_group_news n WHERE n.group_id = :id
-    UNION ALL
-    SELECT 'rf_list', string_agg(DISTINCT m.level, ', ' ORDER BY m.level)
-      FROM entity_group_rf_matches m WHERE m.group_id = :id HAVING count(*) > 0
-    """
-)
-_SURNAMES = text(
-    """
-    SELECT split_part(g.key, ' ', 2) AS surname, array_agg(g.key ORDER BY g.mention_count DESC)
-    FROM entity_groups g
-    WHERE array_length(regexp_split_to_array(g.key, '\\s+'), 1) = 2
-    GROUP BY 1 HAVING count(*) >= 2 AND length(split_part(g.key, ' ', 2)) >= 5
-    ORDER BY count(*) DESC, 1
-    LIMIT :limit
-    """
-)
-_UNNAMED = text(
-    """
-    SELECT DISTINCT ON (u.article_id) u.article_id, ir.resolution
-    FROM unnamed_figurants u
-    LEFT JOIN unnamed_identity_resolutions ir ON ir.figurant_key = u.key
-    ORDER BY u.article_id, ir.resolution NULLS LAST
-    LIMIT :limit
-    """
-)
-
-
 def _declined(name: str, variants: list[Any]) -> str | None:
     """The most frequent form the news wrote that is not the nominative."""
     for form, _count in variants or []:
@@ -138,20 +93,27 @@ def build(
 ) -> GoldenSet:
     session.execute(text("SET TRANSACTION READ ONLY"))
     golden = GoldenSet()
-    for row in session.execute(_PEOPLE, {"limit": people}):
+    for group_id, key, name, variants in processing_testing.golden_people(session, limit=people):
         relevant = sorted(
             {
                 item.article_id
                 for item in person_evidence(
-                    session, GroupFollowers(), groups=[row.id], quotes=False
+                    session, GroupFollowers(), groups=[group_id], quotes=False
                 )
             }
         )
-        facts = {fact: value for fact, value in session.execute(_FACTS, {"id": row.id}) if value}
-        given, surname = row.name.split()
+        # The order of the facts as one query of both owners gave them before.
+        processing_facts = dict(processing_testing.group_facts(session, group_id))
+        analysis_facts = dict(analysis_testing.group_facts(session, group_id))
+        facts = {
+            fact: value
+            for fact in ("role", "politics", "charges", "latest_news", "rf_list")
+            if (value := processing_facts.get(fact) or analysis_facts.get(fact))
+        }
+        given, surname = name.split()
         forms: dict[Form, str | None] = {
-            "nominative": row.name,
-            "declined": _declined(row.name, row.variants),
+            "nominative": name,
+            "declined": _declined(name, variants),
             "reversed": f"{surname} {given}",
             "initial": f"{given[0]}. {surname}",
         }
@@ -159,22 +121,22 @@ def build(
             if query:
                 golden.persons.append(
                     PersonCase(
-                        case_id=f"{row.key}|{form}",
+                        case_id=f"{key}|{form}",
                         query=query,
                         form=form,
-                        entity_key=row.key,
-                        name=row.name,
+                        entity_key=key,
+                        name=name,
                         relevant_articles=relevant,
                         facts=facts,
                     )
                 )
-    for surname, keys in session.execute(_SURNAMES, {"limit": namesakes}):
+    for surname, keys in processing_testing.namesake_surnames(session, limit=namesakes):
         golden.namesakes.append(
             NamesakeCase(
                 case_id=f"namesake|{surname}", query=surname.capitalize(), entity_keys=list(keys)
             )
         )
-    for article_id, resolution in session.execute(_UNNAMED, {"limit": unnamed}):
+    for article_id, resolution in analysis_testing.unnamed_articles(session, limit=unnamed):
         golden.unnamed.append(
             UnnamedCase(
                 case_id=f"unnamed|{article_id}", article_id=article_id, resolution=resolution

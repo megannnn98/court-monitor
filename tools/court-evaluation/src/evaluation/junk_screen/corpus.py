@@ -15,8 +15,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
+from ingestion import read
 from processing.extraction.documents import content_hash_for_text
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
@@ -31,17 +33,6 @@ LEGAL_WORDS = re.compile(
     r"задерж|арест|приговор|осуд|обвин|возбуд|уголовн|\bУК\b|обыск|СИЗО|колони|"
     r"подозрева|розыск|суд",
     re.IGNORECASE,
-)
-
-_ARTICLES = text(
-    """
-    SELECT a.id, a.title, a.text, a.published_at, s.name AS source, d.canonical_url
-    FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE coalesce(a.text, '') <> ''
-    ORDER BY a.id
-    """
 )
 
 
@@ -88,15 +79,15 @@ def judged_articles(database_url: str) -> Iterator[tuple[JudgedArticle, str]]:
         persistence=captured,
     )
     engine = create_engine(database_url)
-    with engine.connect() as connection:
-        for row in connection.execute(_ARTICLES):
+    with Session(engine) as session:
+        for row in read.every_article_with_text(session):
             document = ExtractionDocument(
                 article_id=row.id,
                 title=row.title or "",
                 text=row.text,
                 published_at=row.published_at,
-                source_name=row.source,
-                source_url=row.canonical_url,
+                source_name=row.source_name,
+                source_url=row.url,
                 content_hash=content_hash_for_text(row.text),
             )
             pipeline.run(document)
@@ -108,8 +99,8 @@ def judged_articles(database_url: str) -> Iterator[tuple[JudgedArticle, str]]:
             yield (
                 JudgedArticle(
                     article_id=row.id,
-                    source=row.source,
-                    url=row.canonical_url,
+                    source=row.source_name,
+                    url=row.url,
                     published_at=row.published_at.isoformat() if row.published_at else None,
                     title=row.title or "",
                     rule_keeps=any(event in CRIMINAL_EVENT_TYPES for event in events),
