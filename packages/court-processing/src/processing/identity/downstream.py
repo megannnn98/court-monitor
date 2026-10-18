@@ -67,6 +67,12 @@ class IdentityDownstream(Protocol):
         """The figurants asked for that have a resolution, whatever it is now."""
         ...
 
+    def figurants_in(
+        self, session: Session, articles: Collection[int]
+    ) -> dict[str, FigurantEvidence]:
+        """The figurants of the articles asked for that have a resolution, whatever it is."""
+        ...
+
     def role_withdrawn(self, session: Session, group_id: int) -> None:
         """The group is no longer a figurant: what put it on «Результат» goes."""
         ...

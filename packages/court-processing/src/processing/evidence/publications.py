@@ -19,7 +19,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.arrays import any_of
+from db.arrays import any_of, any_text
 from ingestion import read
 from processing.identity.downstream import IdentityDownstream
 from processing.storage.models import (
@@ -96,8 +96,25 @@ def person_evidence(
         link_query = link_query.where(
             any_of(EntityGroupUnnamedMentionRecord.group_id, groups, name="groups")
         )
-    links = session.execute(link_query).all()
-    figurants = downstream.figurants(session, {key for _, key in links})
+    if articles is not None:
+        # The articles' figurants first (the analysis's), then only their links: a page
+        # of publications reads what it shows, not every unnamed quote of the corpus.
+        figurants = downstream.figurants_in(session, articles)
+        links: list[tuple[int, str]] = []
+        if figurants:
+            links = [
+                (group_id, key)
+                for group_id, key in session.execute(
+                    link_query.where(
+                        any_text(
+                            EntityGroupUnnamedMentionRecord.figurant_key, figurants, name="keys"
+                        )
+                    )
+                ).all()
+            ]
+    else:
+        links = [(group_id, key) for group_id, key in session.execute(link_query).all()]
+        figurants = downstream.figurants(session, {key for _, key in links})
     unnamed = [
         (group_id, figurants[key])
         for group_id, key in links

@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from collections.abc import Collection
 
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import ColumnElement, delete, select, text, update
 from sqlalchemy.orm import Session
 
 from analysis.storage.models import (
@@ -15,7 +15,7 @@ from analysis.storage.models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
-from db.arrays import any_text
+from db.arrays import any_of, any_text
 from processing.identity.downstream import (
     IDENTIFYING_RESOLUTIONS,
     FigurantEvidence,
@@ -70,13 +70,26 @@ class GroupFollowers:
     def figurants(self, session: Session, keys: Collection[str]) -> dict[str, FigurantEvidence]:
         if not keys:
             return {}
+        return self._figurants(session, any_text(UnnamedFigurantRecord.key, keys, name="keys"))
+
+    def figurants_in(
+        self, session: Session, articles: Collection[int]
+    ) -> dict[str, FigurantEvidence]:
+        if not articles:
+            return {}
+        return self._figurants(
+            session, any_of(UnnamedFigurantRecord.article_id, articles, name="articles")
+        )
+
+    @staticmethod
+    def _figurants(session: Session, chosen: ColumnElement[bool]) -> dict[str, FigurantEvidence]:
         rows = session.execute(
             select(UnnamedFigurantRecord, UnnamedIdentityResolutionRecord)
             .join(
                 UnnamedIdentityResolutionRecord,
                 UnnamedIdentityResolutionRecord.figurant_key == UnnamedFigurantRecord.key,
             )
-            .where(any_text(UnnamedFigurantRecord.key, keys, name="keys"))
+            .where(chosen)
         ).all()
         return {
             figurant.key: FigurantEvidence(

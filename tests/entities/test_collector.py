@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import UTC, datetime
 
 import pytest
@@ -19,10 +19,13 @@ from analysis.storage.models import (
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
+from processing.evidence.publications import person_evidence
 from processing.identity.collector import EntityCollector
+from processing.identity.downstream import FigurantEvidence
 from processing.identity.normalizer import NameItem, NameNormalizerError, NormalizedName
 from processing.roles.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
 from processing.storage.models import (
+    ArticleExtractionRunRecord,
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
     EntityGroupRecord,
@@ -535,6 +538,45 @@ def test_existing_person_resolution_adds_the_unnamed_publication_to_today_s_grou
         linked = set(session.scalars(select(EntityGroupMentionRecord.mention_id)))
         assert ids["arrested"] in linked
         assert session.scalar(select(EntityGroupUnnamedMentionRecord.figurant_key)) == "u" * 64
+
+
+def test_publication_evidence_reads_only_the_chosen_articles_figurants(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
+    with session_factory() as session:
+        key = session.scalars(select(EntityGroupRecord.key)).one()
+    _seed_unnamed(session_factory, resolution="existing_person", existing_key=key)
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
+    read: list[str] = []
+
+    class Spy(GroupFollowers):
+        def figurants(self, session: Session, keys: Collection[str]) -> dict[str, FigurantEvidence]:
+            raise AssertionError("a page of publications must not read every figurant")
+
+        def figurants_in(
+            self, session: Session, articles: Collection[int]
+        ) -> dict[str, FigurantEvidence]:
+            found = super().figurants_in(session, articles)
+            read.extend(found)
+            return found
+
+    with session_factory() as session:
+        named_article = session.scalars(
+            select(ArticleExtractionRunRecord.article_id)
+            .join(
+                EntityMentionRecord,
+                EntityMentionRecord.extraction_run_id == ArticleExtractionRunRecord.id,
+            )
+            .where(EntityMentionRecord.id == ids["arrested"])
+        ).one()
+        unnamed_article = session.scalars(select(UnnamedFigurantRecord.article_id)).one()
+
+        named = person_evidence(session, Spy(), articles=[named_article], quotes=False)
+        assert (read, {item.kind for item in named}) == ([], {"mention"})
+        unnamed = person_evidence(session, Spy(), articles=[unnamed_article], quotes=False)
+        assert (read, [item.kind for item in unnamed]) == (["u" * 64], ["unnamed_resolution"])
 
 
 def test_no_rf_match_and_insufficient_create_no_person(
