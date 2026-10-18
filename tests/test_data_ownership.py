@@ -163,22 +163,6 @@ FOREIGN_WRITE_DEBT: frozenset[str] = frozenset()
 # named in docs/architecture/data-ownership.md («Read facades»), with its reason.
 FOREIGN_SQL_READS: frozenset[str] = frozenset(
     {
-        "apps/court-monitor/src/web/ui/funnel.py -> article_extraction_runs",
-        "apps/court-monitor/src/web/ui/funnel.py -> entity_group_politics",
-        "apps/court-monitor/src/web/ui/funnel.py -> entity_group_rf_matches",
-        "apps/court-monitor/src/web/ui/funnel.py -> entity_group_roles",
-        "apps/court-monitor/src/web/ui/funnel.py -> entity_groups",
-        "apps/court-monitor/src/web/ui/funnel.py -> extracted_events",
-        "apps/court-monitor/src/web/ui/funnel.py -> junk_screen_holds",
-        "apps/court-monitor/src/web/ui/funnel.py -> parsed_articles",
-        "apps/court-monitor/src/web/ui/funnel.py -> source_documents",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> article_extraction_runs",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> entity_mentions",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> extracted_events",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> junk_screen_holds",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> parsed_articles",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> source_documents",
-        "apps/court-monitor/src/web/ui/junk_holds.py -> sources",
         "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> article_extraction_runs",
         "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> entity_mentions",
         "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> event_entity_mentions",

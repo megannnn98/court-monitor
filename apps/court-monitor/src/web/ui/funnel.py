@@ -10,49 +10,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from html import escape
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
+from ingestion import read as ingestion_read
+from processing import read as identity
 from processing.junk.purge import CRIMINAL_EVENT_TYPES, EXPIRED_CONTENT_TYPE
 from processing.junk.screen import HELD
 from processing.roles.officials import OFFICIAL_KINDS
-
-_COUNTS = text(
-    """
-    SELECT
-      (SELECT count(*) FROM source_documents WHERE content_type <> :expired),
-      (SELECT count(*) FROM entity_groups),
-      (SELECT count(DISTINCT group_id) FROM entity_group_rf_matches WHERE level = 'full'),
-      (SELECT count(*) FROM entity_group_roles WHERE role = 'figurant'),
-      (SELECT count(*) FROM entity_group_roles WHERE kind = ANY(:officials)),
-      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'political'),
-      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'criminal'),
-      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'unclear'),
-      (SELECT min(published_at) FROM parsed_articles),
-      (SELECT max(published_at) FROM parsed_articles)
-    """
-)
-# The publications whose latest successful extraction found a criminal-case event: the
-# very ones step 3 collects people from (`processing.identity.collector`) and the purge keeps. An
-# earlier extraction does not count — the purge and the holds go by the latest too.
-_CRIMINAL_PUBLICATIONS = text(
-    """
-    WITH latest AS (
-        SELECT DISTINCT ON (article_id) id, article_id FROM article_extraction_runs
-        WHERE status = 'succeeded' ORDER BY article_id, id DESC
-    ),
-    criminal AS (
-        SELECT DISTINCT l.article_id FROM latest l
-        JOIN extracted_events e ON e.extraction_run_id = l.id
-        WHERE e.event_type = ANY(:criminal)
-    )
-    SELECT (SELECT count(*) FROM criminal),
-           -- Held for a person to look at, and not a case by the latest extraction: an
-           -- article read again since it was held may be a case now, and is counted there.
-           (SELECT count(*) FROM junk_screen_holds h
-            WHERE h.status = :held AND h.article_id NOT IN (SELECT article_id FROM criminal))
-    """
-)
 
 
 @dataclass(frozen=True)
@@ -84,23 +49,22 @@ def _n(value: int) -> str:
 
 
 def funnel(db: Session) -> Funnel:
-    (
-        documents,
-        entities,
-        listed,
-        figurants,
-        officials,
-        political,
-        criminal,
-        unclear,
-        since,
-        until,
-    ) = db.execute(
-        _COUNTS, {"officials": sorted(OFFICIAL_KINDS), "expired": EXPIRED_CONTENT_TYPE}
-    ).one()
-    criminal_publications, held = db.execute(
-        _CRIMINAL_PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES), "held": HELD}
-    ).one()
+    # Each owner counts its own: the documents and dates (ingestion), steps 2–4
+    # (processing), the list and the verdicts (analysis).
+    documents = ingestion_read.live_document_count(db, expired_type=EXPIRED_CONTENT_TYPE)
+    since, until = ingestion_read.published_span(db)
+    selection = identity.selection_counts(
+        db, criminal=CRIMINAL_EVENT_TYPES, held=HELD, officials=OFFICIAL_KINDS
+    )
+    criminal_publications, held = selection.criminal_publications, selection.held
+    entities, figurants, officials = selection.groups, selection.figurants, selection.officials
+    verdicts = analysis_read.verdict_counts(db)
+    listed, political, criminal, unclear = (
+        verdicts.listed,
+        verdicts.political,
+        verdicts.criminal,
+        verdicts.unclear,
+    )
     stages = [
         Stage("1", "Публикаций скачано", documents, "", "/ui/runs"),
         Stage(

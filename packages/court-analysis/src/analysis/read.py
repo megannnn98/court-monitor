@@ -546,3 +546,28 @@ def latest_open_figurants(
         .limit(limit)
     ).all()
     return [Figurant(*row) for row in rows]
+
+
+@dataclass(frozen=True)
+class VerdictCounts:
+    """The groups on the list for certain, and the politics verdicts by kind."""
+
+    listed: int
+    political: int
+    criminal: int
+    unclear: int
+
+
+_VERDICT_COUNTS = text(
+    """
+    SELECT
+      (SELECT count(DISTINCT group_id) FROM entity_group_rf_matches WHERE level = 'full'),
+      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'political'),
+      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'criminal'),
+      (SELECT count(*) FROM entity_group_politics WHERE verdict = 'unclear')
+    """
+)
+
+
+def verdict_counts(session: Session) -> VerdictCounts:
+    return VerdictCounts(*session.execute(_VERDICT_COUNTS).one())

@@ -409,3 +409,53 @@ __all__: Sequence[str] = (
     "texts_containing",
     "texts_with",
 )
+
+
+def live_document_count(session: Session, *, expired_type: str) -> int:
+    """The documents stored, but the tombstones of `expired_type`."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(SourceDocument)
+            .where(SourceDocument.content_type != expired_type)
+        )
+        or 0
+    )
+
+
+def published_span(session: Session) -> tuple[datetime | None, datetime | None]:
+    """The dates of the first and the latest article."""
+    first, last = session.execute(
+        select(
+            func.min(ParsedArticleRecord.published_at), func.max(ParsedArticleRecord.published_at)
+        )
+    ).one()
+    return first, last
+
+
+_SIMILAR_TITLES = text(
+    """
+    WITH titled AS (
+        SELECT a.id, left(a.title, 300) AS title FROM parsed_articles a
+        WHERE a.id = ANY(:ids) AND a.title IS NOT NULL AND length(a.title) >= :shortest
+    )
+    SELECT x.id, y.id FROM titled x JOIN titled y ON x.id < y.id
+    WHERE similarity(x.title, y.title) >= :similarity
+    """
+)
+
+
+def similar_titles(
+    session: Session, ids: Collection[int], *, similarity: float, shortest: int = 20
+) -> list[tuple[int, int]]:
+    """Pairs of the articles asked for whose titles (their first 300 characters, those of
+    at least `shortest`) are nearly the same text: trigram similarity (pg_trgm) of at
+    least `similarity`. The lower id first."""
+    if not ids:
+        return []
+    return [
+        (first, second)
+        for first, second in session.execute(
+            _SIMILAR_TITLES, {"ids": list(ids), "similarity": similarity, "shortest": shortest}
+        )
+    ]
