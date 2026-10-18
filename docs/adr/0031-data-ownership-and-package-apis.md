@@ -66,23 +66,45 @@ on the list from its caller instead of reading the analysis's matches.
 - `investigation_runs` is the **investigation**'s: its model and its store
   (`investigation.run_store`) are the investigation's only SQL; the rest of it reads
   the domain through `results.service` and `ingestion.search` as before (ADR 0027).
+- Legacy `rosfinmonitoring_checks` is **analysis**'s. It exists only in the migration
+  history/database, with no current model or runtime access on main or this branch.
+  It is included in the ownership guard as a legacy table, not registered in metadata:
+  registering a new model would change the required baseline Alembic drift.
 
 **Read facades.** A cross-domain read that cannot be expressed through the owners'
 APIs without many round trips is composed in the package that owns the result
 (usually `results`) over specialized bulk owner APIs, returning DTOs. Any proposed
-exception needs its own documented justification, query-count and timing evidence;
-the transitional SQL debt is not such an approved exception. The target is that the
-console does no SQL on domain tables; implementation is not complete yet.
+exception needs its own documented justification, query-count and timing evidence.
+The console does no SQL on domain tables. All production cross-owner reads use
+public typed APIs; there is no transitional foreign storage/SQL debt allowlist.
+
+**Evaluation.** Fixture and persistence measurements use explicit owner-local
+`<package>.testing` APIs; production imports of these APIs are forbidden. Five named
+database probes may read foreign tables directly: identity_comparison/{annotation,
+production,real}.py read old restored schema snapshots; real_world/state_snapshot.py
+measures the whole database's logical digest; real_world/monitoring_simulation.py
+measures row counts and SQL fault handling. They import no foreign ORM and write no
+foreign tables. `tests/test_data_ownership.py::DATABASE_PROBES` names every exception
+with its reason. Evaluation business code is not otherwise exempt from ownership.
+
+**Disposable databases.** Each owner declares its disposable tables in its testing
+API. Evaluation composition assembles the same 58-table set; platform's guarded
+TRUNCATE primitive accepts that explicit list and contains no domain table names.
+This preserves one transaction, the database-name safety check and existing resets
+without making platform depend on domain packages.
 
 ## Consequences
 
-- `tests/test_data_ownership.py` checks one owner per table, complete metadata and no
-  domain model in the platform. Its explicit shrinking debt sets still permit legacy
-  foreign storage imports and SQL reads; these are unfinished work, not read facades
-  approved by this ADR. Raw foreign writes have been removed; ORM writes still need
-  the remaining storage imports eliminated before the ownership guarantee is complete.
+- `tests/test_data_ownership.py` checks one owner per modeled table, the legacy table's
+  owner, complete unchanged metadata, no domain model in platform, zero foreign storage
+  imports/writes, only the five named SQL probes and no production use of testing APIs.
+  It catches obvious SQL strings, not arbitrary generated SQL; API return values and
+  transaction behavior still require tests and review.
 - `tests/test_package_graph.py` and `tests/test_module_boundaries.py` keep the layering;
   no dependency was reversed (`court-analysis` now declares `court-ingestion`, which it
-  read through the platform before).
+  read through the platform before; results also declares ingestion directly).
 - A package can be moved to another repository with its tables' models; the tables stay
   in the one database.
+- Ownership implementation and validation are separate gates: final full DB pytest
+  and Docker smoke must pass before this branch is accepted. Current evidence and
+  measured query/time changes are recorded in data-ownership.md.
