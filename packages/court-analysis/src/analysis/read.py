@@ -10,6 +10,7 @@ from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -21,8 +22,10 @@ from analysis.storage.models import (
     EntityGroupRfMatchRecord,
     PersecutionClassificationRecord,
     RosfinMatchRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
 )
-from db.arrays import any_of
+from db.arrays import any_of, any_text
 
 
 @dataclass(frozen=True)
@@ -274,3 +277,48 @@ def list_matches(session: Session, group_id: int) -> tuple[list[ListMatch], date
     matches = [ListMatch(*row) for row in rows if row.level is not None]
     latest = next((row.snapshot_date for row in rows if row.level is None), None)
     return matches, latest
+
+
+@dataclass(frozen=True)
+class OpenFigurant:
+    """An unnamed figurant no resolution of the ones asked for has closed."""
+
+    id: int
+    key: str
+    article_id: int
+    age: int | None
+    gender: str | None
+    place: str
+    initial: str | None
+    articles: list[Any]
+    event_type: str
+    quote: str
+    explanation: str
+    published_at: datetime | None
+
+
+def open_figurants(session: Session, *, closed: Collection[str]) -> list[OpenFigurant]:
+    """The unnamed figurants without a resolution in `closed`, in id order."""
+    resolved = select(UnnamedIdentityResolutionRecord.figurant_key).where(
+        UnnamedIdentityResolutionRecord.figurant_key == UnnamedFigurantRecord.key,
+        any_text(UnnamedIdentityResolutionRecord.resolution, closed, name="closed"),
+    )
+    rows = session.execute(
+        select(
+            UnnamedFigurantRecord.id,
+            UnnamedFigurantRecord.key,
+            UnnamedFigurantRecord.article_id,
+            UnnamedFigurantRecord.age,
+            UnnamedFigurantRecord.gender,
+            UnnamedFigurantRecord.place,
+            UnnamedFigurantRecord.initial,
+            UnnamedFigurantRecord.articles,
+            UnnamedFigurantRecord.event_type,
+            UnnamedFigurantRecord.quote,
+            UnnamedFigurantRecord.explanation,
+            UnnamedFigurantRecord.published_at,
+        )
+        .where(~resolved.exists())
+        .order_by(UnnamedFigurantRecord.id)
+    ).all()
+    return [OpenFigurant(*row) for row in rows]

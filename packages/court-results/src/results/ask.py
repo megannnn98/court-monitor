@@ -28,9 +28,10 @@ from typing import Any, Protocol
 
 import httpx
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion import fulltext
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -417,51 +418,28 @@ def _case_row(case: Case) -> dict[str, object]:
     }
 
 
-# The marks around a found word: the page turns them into a highlight.
-MARK_OPEN, MARK_CLOSE = "[[", "]]"
-_HEADLINE = f"StartSel={MARK_OPEN}, StopSel={MARK_CLOSE}, MaxWords=40, MinWords=15, MaxFragments=2"
+# The marks around a found word in a snippet: the page turns them into a highlight.
+MARK_OPEN, MARK_CLOSE = fulltext.MARK_OPEN, fulltext.MARK_CLOSE
 
 
 def _search(session: Session, words: Sequence[str]) -> dict[str, object]:
     wanted = [word.strip()[:60] for word in words if word.strip()][:6]
     if not wanted:
         return {"tool": SEARCH, "what": "поиск публикаций: слова не названы", "total": 0}
-    # Any of the words finds an article; the more of them it has, the higher it stands.
-    query = " || ".join(f"plainto_tsquery('russian', :w{index})" for index in range(len(wanted)))
-    rows = session.execute(
-        text(
-            f"""
-            SELECT a.id, a.title, a.published_at, s.name AS source,
-                   ts_headline('russian', a.text, q.query, :headline) AS snippet,
-                   count(*) OVER () AS total
-            FROM parsed_articles a
-            JOIN source_documents d ON d.id = a.document_id
-            JOIN sources s ON s.id = d.source_id
-            CROSS JOIN (SELECT {query} AS query) q
-            WHERE a.search_vector @@ q.query
-            ORDER BY ts_rank(a.search_vector, q.query) DESC, a.published_at DESC NULLS LAST, a.id
-            LIMIT :found
-            """
-        ),
-        {
-            **{f"w{index}": word for index, word in enumerate(wanted)},
-            "headline": _HEADLINE,
-            "found": FOUND,
-        },
-    ).all()
+    total, found = fulltext.headlines(session, wanted, limit=FOUND)
     return {
         "tool": SEARCH,
         "what": "поиск публикаций по словам: " + ", ".join(wanted),
-        "total": rows[0].total if rows else 0,
+        "total": total,
         "publications": [
             {
-                "article_id": row.id,
-                "title": row.title,
-                "source": row.source,
-                "published": row.published_at.date().isoformat() if row.published_at else "",
-                "snippet": " ".join(row.snippet.split()),
+                "article_id": item.article_id,
+                "title": item.title,
+                "source": item.source,
+                "published": item.published_at.date().isoformat() if item.published_at else "",
+                "snippet": " ".join(item.snippet.split()),
             }
-            for row in rows
+            for item in found
         ],
     }
 

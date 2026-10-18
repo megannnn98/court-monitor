@@ -28,11 +28,12 @@ from datetime import UTC, datetime
 from functools import lru_cache
 
 from pymorphy3 import MorphAnalyzer
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
 from analysis.persecution.classifier import POLITICAL_ARTICLES
 from analysis.unnamed.figurants import IDENTIFIED, INSUFFICIENT
+from ingestion import read
 
 # The operator's list of the перечень's articles: every 205.x beside the political ones.
 # Kept here and not added to `POLITICAL_ARTICLES`: that set decides the verdict of the
@@ -290,48 +291,46 @@ def group_cases(sentences: Sequence[Sentence]) -> list[Case]:
     return cases
 
 
-_SENTENCES = text(
-    """
-    SELECT u.key, u.article_id, u.age, coalesce(u.gender, '') AS gender, u.place,
-           coalesce(u.initial, '') AS initial, u.articles, u.event_type, u.quote,
-           u.explanation, coalesce(u.published_at, a.published_at) AS published_at,
-           coalesce(a.title, '') AS title, d.canonical_url AS url, s.name AS source
-    FROM unnamed_figurants u
-    JOIN parsed_articles a ON a.id = u.article_id
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE NOT EXISTS (
-        SELECT 1 FROM unnamed_identity_resolutions r
-        WHERE r.figurant_key = u.key AND r.resolution = ANY(:closed)
-    )
-    ORDER BY coalesce(u.published_at, a.published_at) NULLS LAST, u.id
-    """
-)
+# A sort key: the earliest first, an unknown date last (`NULLS LAST`).
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def all_cases(session: Session) -> list[Case]:
     """Every unnamed person not yet identified, political or not, in the order of the
     first sentence about them."""
+    figurants = analysis_read.open_figurants(session, closed=sorted(IDENTIFIED | {INSUFFICIENT}))
+    cards = read.article_cards(session, {figurant.article_id for figurant in figurants})
     sentences = [
-        Sentence(
-            key=row.key,
-            article_id=row.article_id,
-            age=row.age,
-            gender=row.gender,
-            place=row.place or "",
-            initial=row.initial,
-            articles=tuple(str(article).strip() for article in row.articles or ()),
-            event_type=row.event_type,
-            quote=row.quote,
-            explanation=row.explanation,
-            published_at=row.published_at,
-            title=row.title,
-            url=row.url or "",
-            source=row.source,
+        (
+            figurant.id,
+            Sentence(
+                key=figurant.key,
+                article_id=figurant.article_id,
+                age=figurant.age,
+                gender=figurant.gender or "",
+                place=figurant.place or "",
+                initial=figurant.initial or "",
+                articles=tuple(str(article).strip() for article in figurant.articles or ()),
+                event_type=figurant.event_type,
+                quote=figurant.quote,
+                explanation=figurant.explanation,
+                published_at=figurant.published_at or card.published_at,
+                title=card.title or "",
+                url=card.url or "",
+                source=card.source_name,
+            ),
         )
-        for row in session.execute(_SENTENCES, {"closed": sorted(IDENTIFIED | {INSUFFICIENT})})
+        for figurant in figurants
+        if (card := cards.get(figurant.article_id)) is not None
     ]
-    return group_cases(sentences)
+    sentences.sort(
+        key=lambda pair: (
+            pair[1].published_at is None,
+            (pair[1].published_at or _EPOCH).timestamp(),
+            pair[0],
+        )
+    )
+    return group_cases([sentence for _, sentence in sentences])
 
 
 def political_cases(session: Session) -> list[Case]:

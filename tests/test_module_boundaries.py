@@ -129,7 +129,7 @@ INTERNAL = frozenset(
         "analysis.persecution.classification_service",
         "results.findings",
         "results.dossier",
-        "results.search",
+        "ingestion.fulltext",
         "results.figurant",
         "orchestrator.repository",
         "orchestrator.locks",
