@@ -6,18 +6,11 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonEventLinkRecord,
-    RosfinmonitoringSnapshotRecord,
-    SourceDocument,
-)
+from analysis.rosfinmonitoring import read as rf_read
+from ingestion import read
+from persons import read as person_read
 from processing.extraction.name_frequency import lookup_gender
 from results.candidates.models import (
     DEFAULT_MIN_PERSECUTION_CONFIDENCE,
@@ -88,63 +81,37 @@ def _candidate_news(db: Session, person_ids: list[int]) -> dict[int, _CandidateN
     """
     if not person_ids:
         return {}
-    from_events = db.execute(
-        select(
-            PersonEventLinkRecord.person_id,
-            SourceDocument.canonical_url,
-            ParsedArticleRecord.published_at,
-            ExtractedEventRecord.event_type,
-            ExtractedEventRecord.event_date,
-        )
-        .join(ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id)
-        .join(
-            ArticleExtractionRunRecord,
-            ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
-        )
-        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
-        .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
-        .where(PersonEventLinkRecord.person_id.in_(person_ids))
-        .distinct(PersonEventLinkRecord.person_id)
-        .order_by(
-            PersonEventLinkRecord.person_id,
-            ExtractedEventRecord.event_date.desc().nullslast(),
-            ExtractedEventRecord.id.desc(),
-        )
-    ).tuples()
+    events = person_read.latest_events(db, person_ids)
+    without_events = [person_id for person_id in person_ids if person_id not in events]
+    mentions = person_read.mention_articles(db, without_events)
+    cards = read.article_cards(
+        db,
+        {event.article_id for event in events.values()} | {article for _, article, _ in mentions},
+    )
     news = {
-        person_id: _CandidateNews(url, published_at, event_type, event_date)
-        for person_id, url, published_at, event_type, event_date in from_events.all()
-    }
-    without_events = [person_id for person_id in person_ids if person_id not in news]
-    if without_events:
-        from_mentions = db.execute(
-            select(
-                EntityMentionRecord.person_id,
-                SourceDocument.canonical_url,
-                ParsedArticleRecord.published_at,
-            )
-            .join(
-                ArticleExtractionRunRecord,
-                ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
-            )
-            .join(
-                ParsedArticleRecord,
-                ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id,
-            )
-            .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
-            .where(EntityMentionRecord.person_id.in_(without_events))
-            .distinct(EntityMentionRecord.person_id)
-            .order_by(
-                EntityMentionRecord.person_id,
-                ParsedArticleRecord.published_at.asc().nullslast(),
-                EntityMentionRecord.id,
-            )
-        ).tuples()
-        news.update(
-            (person_id, _CandidateNews(url, published_at, None))
-            for person_id, url, published_at in from_mentions.all()
-            if person_id is not None
+        person_id: _CandidateNews(
+            cards[event.article_id].url,
+            cards[event.article_id].published_at,
+            event.event_type,
+            event.event_date,
         )
+        for person_id, event in events.items()
+        if event.article_id in cards
+    }
+    # A person without events: the article of the first mention, the earliest published
+    # (unknown last), then the first mention.
+    first: dict[int, tuple[tuple[bool, float, int], int]] = {}
+    for person_id, article_id, mention_id in mentions:
+        if article_id not in cards:
+            continue
+        published = cards[article_id].published_at
+        rank = (published is None, published.timestamp() if published else 0.0, mention_id)
+        if person_id not in first or rank < first[person_id][0]:
+            first[person_id] = (rank, article_id)
+    news.update(
+        (person_id, _CandidateNews(cards[article].url, cards[article].published_at, None))
+        for person_id, (_, article) in first.items()
+    )
     return news
 
 
@@ -213,14 +180,7 @@ def latest_snapshot_id(db: Session) -> int | None:
     The Airtable-sourced snapshot is excluded however recent it is: the page answers
     «who is absent from the перечень», and only the published list answers that.
     """
-    return db.scalar(
-        select(RosfinmonitoringSnapshotRecord.id)
-        .order_by(
-            RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
-            RosfinmonitoringSnapshotRecord.id.desc(),
-        )
-        .limit(1)
-    )
+    return rf_read.latest_snapshot_id(db)
 
 
 def read_candidate_rows(

@@ -26,17 +26,17 @@ from __future__ import annotations
 import logging
 import os
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
+from ingestion import read
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -51,6 +51,24 @@ from llm.chat import (
 )
 from processing.evidence.regions import canonical
 from processing.identity.grouping import name_key
+from processing.storage.models import ArticleSentenceReadingRecord, ArticleSentenceRecord
+
+
+def set_sentence_hidden(session: Session, ids: Collection[int], *, hidden: bool) -> list[int]:
+    """Change visibility of the selected evidence in the caller's transaction.
+
+    Return affected ids so the caller can refuse a stale or partially missing case
+    before committing. PostgreSQL performs one bulk UPDATE regardless of case size.
+    """
+    return list(
+        session.scalars(
+            update(ArticleSentenceRecord)
+            .where(ArticleSentenceRecord.id.in_(ids))
+            .values(hidden=hidden)
+            .returning(ArticleSentenceRecord.id)
+        )
+    )
+
 
 logger = logging.getLogger("entities")
 
@@ -359,23 +377,22 @@ def rows_of(publication: Publication, answers: list[SentenceAnswer]) -> list[dic
     return rows
 
 
-# The articles whose latest extraction found a sentence and which this prompt has not read.
+# The articles whose latest extraction found a sentence and which this prompt has not
+# read; the articles themselves are the ingestion's (`ingestion.read`).
 _UNREAD = text(
     """
-    SELECT a.id, s.name AS source, a.title, a.published_at, a.text
-    FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
+    WITH latest AS (
+        SELECT DISTINCT ON (article_id) id, article_id FROM article_extraction_runs
+        WHERE status = 'succeeded' ORDER BY article_id, id DESC
+    )
+    SELECT l.article_id FROM latest l
     WHERE EXISTS (
         SELECT 1 FROM extracted_events e
-        WHERE e.event_type = ANY(:events) AND e.extraction_run_id = (
-            SELECT r.id FROM article_extraction_runs r
-            WHERE r.article_id = a.id AND r.status = 'succeeded'
-            ORDER BY r.id DESC LIMIT 1))
+        WHERE e.event_type = ANY(:events) AND e.extraction_run_id = l.id)
       AND NOT EXISTS (
         SELECT 1 FROM article_sentence_readings g
-        WHERE g.article_id = a.id AND g.prompt_version = :version)
-    ORDER BY a.id
+        WHERE g.article_id = l.article_id AND g.prompt_version = :version)
+    ORDER BY l.article_id
     """
 )
 _READ = text("SELECT count(*) FROM article_sentence_readings WHERE prompt_version = :version")
@@ -433,6 +450,14 @@ def store(
     )
 
 
+def _unread_articles(session: Session) -> list[read.StoredArticle]:
+    ids = list(
+        session.scalars(_UNREAD, {"events": list(SENTENCE_EVENTS), "version": PROMPT_VERSION})
+    )
+    found = read.stored_articles(session, ids)
+    return [found[article_id] for article_id in ids if article_id in found]
+
+
 class SentenceFinder:
     def __init__(
         self,
@@ -452,14 +477,12 @@ class SentenceFinder:
             unread = [
                 Publication(
                     article_id=row.id,
-                    source=row.source,
+                    source=row.source_name,
                     title=row.title,
                     published=row.published_at.date().isoformat() if row.published_at else "",
                     text=row.text,
                 )
-                for row in session.execute(
-                    _UNREAD, {"events": list(SENTENCE_EVENTS), "version": PROMPT_VERSION}
-                )
+                for row in _unread_articles(session)
             ]
         reader = self._reader
         if reader is None or not unread:

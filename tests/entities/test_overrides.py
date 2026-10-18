@@ -8,10 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityGroupRecord, EntityMentionRecord
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
 from processing.identity.grouping import Entity
 from processing.identity.overrides import apply_overrides, clean_name, correct_name
+from processing.storage.models import EntityGroupRecord, EntityMentionRecord
 
 
 def test_a_correction_names_the_entity_and_holds_after_the_region_entered_the_key() -> None:
@@ -66,12 +67,12 @@ def test_a_correction_survives_a_rebuild(session_factory: sessionmaker[Session])
         }
         seed.event(run, "оштрафовал", event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         entity = session.scalars(select(EntityGroupRecord)).one()
-        correct_name(session, entity, "Мониава Лидия")
+        correct_name(session, entity, "Мониава Лидия", downstream=GroupFollowers())
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         entity = session.scalars(select(EntityGroupRecord)).one()

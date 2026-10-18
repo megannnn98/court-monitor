@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
+from processing.storage.models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityOfficialMarkRecord,

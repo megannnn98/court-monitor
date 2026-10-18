@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from api import app, get_db
-from db.orm_models import MonitoringRunRecord
 from orchestrator.operations import OperationParameters, OperationRegistry
+from orchestrator.storage.models import MonitoringRunRecord
 from web.dependencies import OPERATION_COMMAND_LINE
 
 

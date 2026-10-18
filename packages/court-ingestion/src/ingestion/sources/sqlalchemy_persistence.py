@@ -3,11 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ParsedArticleRecord,
-    Source,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
 from monitor_core.errors import PersistenceError
 from monitor_core.model import ParsedArticle, RawDocument
 

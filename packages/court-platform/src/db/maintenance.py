@@ -2,69 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import Engine, text
 
-# Tables written by current domains plus retained legacy-schema tables.
-DISPOSABLE_TABLES = (
-    "app_settings",
-    "entity_model_spend",
-    "investigation_runs",
-    "chat_questions",
-    "article_sentences",
-    "article_sentence_readings",
-    "junk_screen_holds",
-    "entity_news_answers",
-    "entity_group_news",
-    "entity_group_unnamed_mentions",
-    "unnamed_identity_resolutions",
-    "unnamed_decisions",
-    "unnamed_answers",
-    "unnamed_figurants",
-    "unnamed_screened",
-    "unnamed_keeps",
-    "entity_name_normalizations",
-    "entity_name_overrides",
-    "entity_removals",
-    "entity_official_marks",
-    "entity_done_marks",
-    "excluded_persons",
-    "airtable_known_persons",
-    "criminal_articles",
-    "entity_role_decisions",
-    "entity_politics_decisions",
-    "entity_politics_answers",
-    "entity_group_politics",
-    "entity_pair_decisions",
-    "entity_role_answers",
-    "entity_group_roles",
-    "entity_group_rf_matches",
-    "entity_group_charges",
-    "entity_group_mentions",
-    "entity_groups",
-    "operator_operation_runs",
-    "monitoring_findings",
-    "monitoring_run_items",
-    "source_monitoring_state",
-    "monitoring_runs",
-    "rosfin_matches",
-    "rfm_operator_entries",
-    "rosfinmonitoring_entries",
-    "rosfinmonitoring_snapshots",
-    "persecution_classifications",
-    "person_resolution_decisions",
-    "person_event_links",
-    "review_records",
-    "person_merges",
-    "person_aliases",
-    "persons",
-    "event_entity_mentions",
-    "extracted_events",
-    "entity_mentions",
-    "article_extraction_runs",
-    "parsed_articles",
-    "source_documents",
-    "sources",
-)
+# The platform's own tables a disposable database is wiped of; each owner names its own
+# (`<package>.testing.DISPOSABLE_TABLES`), and the caller passes them all.
+PLATFORM_TABLES = ("app_settings", "entity_model_spend")
 
 DISPOSABLE_DATABASE_SUFFIXES = ("_test", "_eval")
 
@@ -82,9 +26,8 @@ def require_disposable_database(engine: Engine) -> None:
         )
 
 
-def truncate_disposable_tables(engine: Engine) -> None:
+def truncate_disposable_tables(engine: Engine, tables: Sequence[str]) -> None:
+    """Wipe `tables` of a disposable database in one statement, their sequences reset."""
     require_disposable_database(engine)
     with engine.begin() as connection:
-        connection.execute(
-            text(f"TRUNCATE TABLE {', '.join(DISPOSABLE_TABLES)} RESTART IDENTITY CASCADE")
-        )
+        connection.execute(text(f"TRUNCATE TABLE {', '.join(tables)} RESTART IDENTITY CASCADE"))

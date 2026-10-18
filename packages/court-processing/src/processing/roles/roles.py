@@ -28,14 +28,6 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import delete, insert, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityOfficialMarkRecord,
-    EntityRoleAnswerRecord,
-    EntityRoleDecisionRecord,
-)
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -48,15 +40,24 @@ from llm.chat import (
     endpoint_from_env,
 )
 from processing.answers import AnswerCache, ask_missing, input_hash
-from processing.evidence.publications import person_evidence_cte
+from processing.evidence.publications import latest_evidence
 from processing.identity.disputes import KeyIndex
+from processing.identity.downstream import IdentityDownstream
 from processing.junk.hold_reader import EXTRACTOR_NAME
+from processing.read import GroupIdentity
 from processing.roles.officials import (
     OFFICIAL_KINDS,
     official_entity_ids,
     official_marks,
     remember_titled,
     titled_entities,
+)
+from processing.storage.models import (
+    EntityGroupRoleRecord,
+    EntityGroupUnnamedMentionRecord,
+    EntityOfficialMarkRecord,
+    EntityRoleAnswerRecord,
+    EntityRoleDecisionRecord,
 )
 
 logger = logging.getLogger("entities")
@@ -161,7 +162,9 @@ def role_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, str]:
     return {**by_stem, **exact}
 
 
-def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
+def decide_role(
+    session: Session, entity: GroupIdentity, role: str, *, downstream: IdentityDownstream
+) -> None:
     """A person's word on the entity's role, applied at once and kept for every rebuild.
     `processing.roles.roles.FigurantFinder` writes it again over whatever step 4 finds.
 
@@ -197,9 +200,7 @@ def decide_role(session: Session, entity: EntityGroupRecord, role: str) -> None:
     if role != FIGURANT:
         # No longer a figurant: the verdict that put it on «Результат» goes with it, as
         # `processing.roles.officials.mark_official` does.
-        session.execute(
-            delete(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == entity.id)
-        )
+        downstream.role_withdrawn(session, entity.id)
 
 
 SYSTEM_PROMPT = """Ты определяешь роль человека в уголовном деле по цитатам из \
@@ -384,14 +385,7 @@ def role_classifier_from_env(env: Mapping[str, str] | None = None) -> RoleClassi
 # article names it the only target.
 _ENTITIES = text(
     """
-    SELECT g.id, g.key, g.name, c.article, c.quote,
-           EXISTS (
-               SELECT 1
-               FROM entity_group_unnamed_mentions gum
-               JOIN unnamed_identity_resolutions ir ON ir.figurant_key = gum.figurant_key
-               WHERE gum.group_id = g.id
-                 AND ir.resolution IN ('rf_entry', 'existing_person', 'supplied_name')
-           ) AS operator_identified
+    SELECT g.id, g.key, g.name, c.article, c.quote
     FROM entity_groups g
     LEFT JOIN LATERAL (
         SELECT article, quote FROM entity_group_charges
@@ -400,26 +394,6 @@ _ENTITIES = text(
     ORDER BY g.id
     """
 )
-# Per entity, one mention of each of its latest publications, with the text around it.
-_QUOTES = text(
-    f"""
-    WITH {person_evidence_cte()},
-    m AS (
-        SELECT group_id, article_id AS publication, published_at, quote,
-               row_number() OVER (PARTITION BY group_id, article_id ORDER BY start_offset) AS n
-        FROM person_evidence
-        WHERE group_id = ANY(:groups)
-    ), latest AS (
-        SELECT group_id, quote, publication,
-               row_number() OVER (PARTITION BY group_id
-                                  ORDER BY published_at DESC NULLS LAST, publication DESC) AS k
-        FROM m WHERE n = 1
-    )
-    SELECT group_id, quote, publication FROM latest WHERE k <= :quotes ORDER BY group_id, k
-    """
-)
-
-
 # The entities an article names that is in the work by a model's reading alone
 # (`processing.junk.hold_reader`), each with that article: the rules found no case in it.
 _MODEL_READ = text(
@@ -434,11 +408,32 @@ _MODEL_READ = text(
 )
 
 
-# No limit of publications per entity, for `_QUOTES`.
+# No limit of publications per entity, for `quotes_of`.
 _EVERY = 1_000_000
 
 
-def quotes_of(session: Session, groups: Sequence[int]) -> dict[int, list[str]]:
+def latest_quotes(
+    session: Session,
+    groups: Sequence[int],
+    downstream: IdentityDownstream,
+    *,
+    context: int,
+    per_group: int,
+) -> dict[tuple[int, int], str]:
+    """Per entity and publication, one quote of its first mention there (`context`
+    characters around it), of the latest `per_group` publications: in entity order, the
+    latest publication first."""
+    return {
+        (item.group_id, item.article_id): " ".join((item.quote or "").split())
+        for item in latest_evidence(
+            session, groups, downstream, context=context, per_group=per_group
+        )
+    }
+
+
+def quotes_of(
+    session: Session, groups: Sequence[int], downstream: IdentityDownstream
+) -> dict[int, list[str]]:
     """The quotes a model is shown of each entity: short ones of its latest articles, and
     before them a wide one of each article read by a model alone, however old. The rules
     had no wording for such an article, so what it tells stands where a short quote does
@@ -453,12 +448,7 @@ def quotes_of(session: Session, groups: Sequence[int]) -> dict[int, list[str]]:
 
     def read(ids: Sequence[int], context: int, limit: int) -> dict[tuple[int, int], str]:
         """Per entity and publication, the latest publication first."""
-        return {
-            (group_id, publication): " ".join((quote or "").split())
-            for group_id, quote, publication in session.execute(
-                _QUOTES, {"groups": list(ids), "context": context, "quotes": limit}
-            ).all()
-        }
+        return latest_quotes(session, ids, downstream, context=context, per_group=limit)
 
     quotes: dict[int, list[str]] = {}
     # Every publication of these entities: the one a model read may not be among the latest.
@@ -526,10 +516,13 @@ class FigurantFinder:
         self,
         session_factory: sessionmaker[Session],
         *,
+        downstream: IdentityDownstream,
         classifier: RoleClassifier | None = None,
         on_stage: Callable[[str], None] = lambda _stage: None,
     ) -> None:
         self._session_factory = session_factory
+        # The operator's identifications and the groups' evidence of unnamed figurants.
+        self._downstream = downstream
         self._classifier = classifier
         self._on_stage = on_stage
 
@@ -542,7 +535,20 @@ class FigurantFinder:
             marks = official_marks(session, {row.id: row.key for row in entities})
             excluded = official_entity_ids(session, {row.id: row.key for row in entities})
             decisions = role_decisions(session, {row.id: row.key for row in entities})
-            quotes = quotes_of(session, ids)
+            quotes = quotes_of(session, ids, self._downstream)
+            identified = {
+                figurant.key for figurant in self._downstream.identified_figurants(session)
+            }
+            operator_identified = {
+                group_id
+                for group_id, key in session.execute(
+                    select(
+                        EntityGroupUnnamedMentionRecord.group_id,
+                        EntityGroupUnnamedMentionRecord.figurant_key,
+                    )
+                ).all()
+                if key in identified
+            }
         # An official is named in cases, never their figurant: no need to ask.
         # A person's mark first, either way; then a name they wrote on the exclusion
         # list; then a title before the name in the texts.
@@ -591,7 +597,7 @@ class FigurantFinder:
         # political case, and step 5 asks a person then (`politics.NAMELESS`). Sent to a
         # person here, a bribe-taker named by his surname waited in the queue unread.
         operator_rows = [
-            row for row in entities if row.id not in officials and row.operator_identified
+            row for row in entities if row.id not in officials and row.id in operator_identified
         ]
         for row in operator_rows:
             rows.append(

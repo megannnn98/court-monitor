@@ -10,11 +10,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
 from analysis.unnamed.matching import candidates
-from db.orm_models import UnnamedFigurantRecord
+from ingestion import read
+from processing import read as identity
 
 
 @dataclass(frozen=True)
@@ -75,28 +76,12 @@ class PublicationPerson:
     published_at: datetime | None
 
 
-_ARTICLE = text(
-    """
-    SELECT a.id, a.title, a.published_at, d.canonical_url, s.name AS source
-    FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE a.id = :article_id
-    """
-)
-
-
 def figurant_clues(session: Session, article_id: int) -> list[FigurantClue] | None:
     """The unnamed figurants of the publication, in text order; None when no such
     publication is stored."""
-    article = session.execute(_ARTICLE, {"article_id": article_id}).first()
+    article = read.article_cards(session, [article_id]).get(article_id)
     if article is None:
         return None
-    rows = session.scalars(
-        select(UnnamedFigurantRecord)
-        .where(UnnamedFigurantRecord.article_id == article_id)
-        .order_by(UnnamedFigurantRecord.start_offset)
-    )
     return [
         FigurantClue(
             key=row.key,
@@ -112,10 +97,10 @@ def figurant_clues(session: Session, article_id: int) -> list[FigurantClue] | No
             event_type=row.event_type,
             published_at=row.published_at or article.published_at,
             title=article.title or "",
-            url=article.canonical_url,
-            source=article.source,
+            url=article.url,
+            source=article.source_name,
         )
-        for row in rows
+        for row in analysis_read.article_figurants(session, article_id)
     ]
 
 
@@ -142,41 +127,20 @@ def list_candidates(session: Session, clue: FigurantClue, *, shown: int) -> List
     )
 
 
-_PEOPLE_OF = text(
-    """
-    SELECT g.key, g.name, r.article_id, count(*) AS mentions, max(a.published_at) AS published_at,
-           coalesce(
-               (SELECT array_agg(DISTINCT c.article ORDER BY c.article)
-                FROM entity_group_charges c
-                WHERE c.group_id = g.id AND c.publication_id = r.article_id),
-               ARRAY[]::varchar[]) AS charges
-    FROM entity_group_mentions gm
-    JOIN entity_groups g ON g.id = gm.group_id
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
-    WHERE r.article_id = ANY(:article_ids)
-    GROUP BY g.id, g.key, g.name, r.article_id
-    ORDER BY mentions DESC, g.key
-    LIMIT :limit
-    """
-)
-
-
 def people_of_publications(
     session: Session, article_ids: Sequence[int], *, limit: int
 ) -> list[PublicationPerson]:
     """The people the pipeline grouped from mentions in these publications."""
-    if not article_ids:
-        return []
+    people = identity.people_in(session, article_ids, limit=limit)
+    published = read.published_at(session, {person.article_id for person in people})
     return [
         PublicationPerson(
-            key=row.key,
-            name=row.name,
-            article_id=row.article_id,
-            mention_count=row.mentions,
-            charges=list(row.charges or []),
-            published_at=row.published_at,
+            key=person.key,
+            name=person.name,
+            article_id=person.article_id,
+            mention_count=person.mentions,
+            charges=person.charges,
+            published_at=published.get(person.article_id),
         )
-        for row in session.execute(_PEOPLE_OF, {"article_ids": list(article_ids), "limit": limit})
+        for person in people
     ]

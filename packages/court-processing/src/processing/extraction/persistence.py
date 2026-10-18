@@ -5,17 +5,17 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-)
 from processing.extraction.models import (
     ArticleExtractionResult,
     ExtractionDocument,
     ExtractionRunStatus,
     ExtractionSaveResult,
+)
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
 )
 
 

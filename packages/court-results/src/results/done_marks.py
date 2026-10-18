@@ -14,7 +14,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityDoneMarkRecord
+from results.storage.models import EntityDoneMarkRecord
 
 # The news each mark was made at, by the person's key.
 Marks = Mapping[str, datetime | None]
@@ -28,6 +28,18 @@ def done_marks(db: Session) -> dict[str, datetime | None]:
             select(EntityDoneMarkRecord.key, EntityDoneMarkRecord.news_at)
         ).all()
     }
+
+
+def mark_done(session: Session, key: str, *, done: bool, news_at: datetime | None) -> None:
+    """Apply the operator's mark in the caller's transaction, retaining its news cutoff."""
+    mark = session.get(EntityDoneMarkRecord, key)
+    if done:
+        if mark is None:
+            mark = EntityDoneMarkRecord(key=key)
+            session.add(mark)
+        mark.news_at = news_at
+    elif mark is not None:
+        session.delete(mark)
 
 
 def is_done(marks: Marks, key: str, latest: datetime | None) -> bool:

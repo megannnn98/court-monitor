@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from orchestrator.read import live_operation
 from orchestrator.source_health import layout_suspects
 from web.response_models import (
     BalanceResponse,
@@ -14,7 +15,7 @@ from web.response_models import (
     StatusResponse,
 )
 from web.ui import spend
-from web.ui.layout import LIVE_RUN, strip_numbers
+from web.ui.layout import strip_numbers
 from web.ui.run_cards import MODE_TITLES
 from web.ui.work_cycle import live_next_action
 from web.ui.workload import workload
@@ -25,11 +26,13 @@ __all__ = ["read_status"]
 def read_status(db: Session) -> StatusResponse:
     work = workload(db)
     numbers = strip_numbers(db)
-    row = db.execute(LIVE_RUN).first()
+    operation = live_operation(db)
     live = (
         None
-        if row is None
-        else LiveOperationResponse(mode=row[0], title=MODE_TITLES.get(row[0], MODE_TITLES[None]))
+        if operation is None
+        else LiveOperationResponse(
+            mode=operation.mode, title=MODE_TITLES.get(operation.mode, MODE_TITLES[None])
+        )
     )
     return StatusResponse(
         articles=numbers.articles,

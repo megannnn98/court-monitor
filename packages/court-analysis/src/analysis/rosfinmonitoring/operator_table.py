@@ -31,7 +31,7 @@ from sqlalchemy import delete, func, insert, select
 from sqlalchemy.orm import Session
 
 from analysis.rosfinmonitoring.inclusion_dates import InclusionDates, normalize_name
-from db.orm_models import RfmOperatorEntryRecord
+from analysis.storage.models import RfmOperatorEntryRecord
 
 logger = logging.getLogger("entities")
 

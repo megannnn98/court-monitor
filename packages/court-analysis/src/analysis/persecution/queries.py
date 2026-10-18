@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import Select, func, select
 
-from db.orm_models import PersecutionClassificationRecord
+from analysis.storage.models import PersecutionClassificationRecord
 
 
 def latest_persecution_classification_ids() -> Select[tuple[int]]:

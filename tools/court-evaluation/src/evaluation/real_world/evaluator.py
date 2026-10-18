@@ -21,7 +21,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.maintenance import truncate_disposable_tables
+from evaluation.disposable import wipe
 from evaluation.final.report import code_commit, component_versions
 from evaluation.real_world.component_evaluation import (
     IdentityMap,
@@ -189,7 +189,7 @@ def run_evaluation(
     identity_scope = golden.select(None, verified_only=verified_only)
 
     # 1. Namesake benchmark (existing ER evaluation, own seeded persons).
-    truncate_disposable_tables(engine)
+    wipe(engine)
     namesake = evaluate_namesakes(engine, inputs.namesakes)
 
     # 2. Corpus run.

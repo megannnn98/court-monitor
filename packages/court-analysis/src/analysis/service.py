@@ -18,6 +18,7 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.group_followers import GroupFollowers
 from analysis.news.case_news import NewsFinder, NewsResult, news_reader_from_env
 from analysis.persecution.classification_service import PersecutionClassificationService
 from analysis.politics.classification import (
@@ -40,6 +41,7 @@ logger = logging.getLogger("monitoring")
 
 __all__ = [
     "AnalysisService",
+    "GroupFollowers",
     "NewsResult",
     "PoliticsResult",
     "RfCheckResult",

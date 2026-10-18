@@ -4,7 +4,7 @@ A «статья» on these pages is a Criminal Code article; a news item is a �
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,29 +14,23 @@ from urllib.parse import parse_qs, quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import Text, cast, exists, func, or_, select, text
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import ColumnElement
 
+from analysis import read as analysis_read
 from analysis.persecution.classifier import POLITICAL_ARTICLES
 from analysis.politics.classification import CRIMINAL, POLITICAL
 from analysis.rosfinmonitoring.rf_check import FULL
-from db.orm_models import (
-    EntityGroupChargeRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRfMatchRecord,
-    EntityGroupRoleRecord,
-)
+from application import build_identity_commands, group_followers
 from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
     OperationRun,
 )
+from processing import read as identity
 from processing.extraction.name_frequency import lookup_gender
-from processing.identity.service import MANUAL, IdentityService
-from processing.roles.officials import mark_official
+from processing.identity.service import MANUAL
+from processing.roles.commands import mark_official_of
 from processing.roles.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, UNCLEAR
 from web.candidate_rows import surname_first
 from web.dependencies import get_db, get_operation_registry
@@ -67,14 +61,6 @@ EVENT_LABELS = {
     "fine": "Штраф",
     "release": "Освобождение",
 }
-_SORTS: dict[str, tuple[ColumnElement[Any], ...]] = {
-    "mentions": (EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key.asc()),
-    "articles": (EntityGroupRecord.article_count.desc(), EntityGroupRecord.key.asc()),
-    "recent": (
-        EntityGroupRecord.last_published_at.desc().nulls_last(),
-        EntityGroupRecord.key.asc(),
-    ),
-}
 
 
 def display_name(name: str) -> str:
@@ -94,11 +80,11 @@ def display_name(name: str) -> str:
     return " ".join([surname_first(" ".join(full)), *initials])
 
 
-def _surname_key(entity: EntityGroupRecord) -> tuple[str, str]:
+def _surname_key(entity: identity.Group) -> tuple[str, str]:
     return display_name(entity.name).lower().replace("ё", "е"), entity.key
 
 
-def _events(event_types: dict[str, int]) -> str:
+def _events(event_types: Mapping[str, int]) -> str:
     return " ".join(
         badge(f"{EVENT_LABELS.get(kind, kind)}: {count}")
         for kind, count in sorted(event_types.items(), key=lambda item: -item[1])
@@ -132,18 +118,7 @@ def _date(published_at: datetime | None) -> str:
 
 def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[tuple[str, bool]]]:
     """Per entity of a page, its articles in number order and whether any is its own."""
-    rows = db.execute(
-        select(
-            EntityGroupChargeRecord.group_id,
-            EntityGroupChargeRecord.article,
-            func.bool_or(EntityGroupChargeRecord.other_targets == 0),
-        )
-        .where(EntityGroupChargeRecord.group_id.in_(group_ids))
-        .group_by(EntityGroupChargeRecord.group_id, EntityGroupChargeRecord.article)
-    ).all()
-    articles: dict[int, list[tuple[str, bool]]] = {}
-    for group_id, article, sole in rows:
-        articles.setdefault(group_id, []).append((article, bool(sole)))
+    articles = identity.charge_articles(db, group_ids)
     for found in articles.values():
         found.sort(key=lambda item: article_order(item[0]))
     return articles
@@ -157,25 +132,32 @@ def _article_links(articles: list[tuple[str, bool]], keep: dict[str, str]) -> st
     )
 
 
+def _strongest(levels: set[str]) -> str:
+    """An entity's strongest Rosfinmonitoring match: full, else name."""
+    return FULL if FULL in levels else min(levels)
+
+
 def _rf_levels(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
-    """Per entity of a page, its strongest Rosfinmonitoring match: full, else name."""
-    levels: dict[int, str] = {}
-    for group_id, level in db.execute(
-        select(EntityGroupRfMatchRecord.group_id, EntityGroupRfMatchRecord.level)
-        .where(EntityGroupRfMatchRecord.group_id.in_(group_ids))
-        .distinct()
-    ).all():
-        if levels.get(group_id) != FULL:
-            levels[group_id] = level
-    return levels
+    """Per entity of a page, its strongest Rosfinmonitoring match."""
+    return {
+        group_id: _strongest(found)
+        for group_id, found in analysis_read.list_levels(db, group_ids).items()
+    }
 
 
-def regions_text(regions: list[Any]) -> str:
+def _roles(db: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str | None]]:
+    return {
+        group_id: (found.role, found.kind)
+        for group_id, found in identity.roles(db, group_ids).items()
+    }
+
+
+def regions_text(regions: Sequence[Any]) -> str:
     """The regions of a person as plain text, for a cell."""
     return ", ".join(str(region) for region, _count in regions)
 
 
-def _regions(regions: list[Any], *, short: bool = False) -> str:
+def _regions(regions: Sequence[Any], *, short: bool = False) -> str:
     """The regions registry cards give: in the list after the name, on the card in full."""
     if not regions:
         return ""
@@ -191,19 +173,6 @@ def _box(name: str, value: str, ticked: bool, label: str, title: str) -> str:
         f'<input id="box-{name}" type="checkbox" name="{name}" value="{value}"'
         f'{" checked" if ticked else ""} onchange="this.form.submit()"> {escape(label)}</label>'
     )
-
-
-def _roles(db: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str | None]]:
-    return {
-        group_id: (role, kind)
-        for group_id, role, kind in db.execute(
-            select(
-                EntityGroupRoleRecord.group_id,
-                EntityGroupRoleRecord.role,
-                EntityGroupRoleRecord.kind,
-            ).where(EntityGroupRoleRecord.group_id.in_(group_ids))
-        ).all()
-    }
 
 
 def role_label(role: str, kind: str | None) -> str:
@@ -241,13 +210,12 @@ async def correct_entity_name(
 ) -> RedirectResponse:
     """A person's correction of the name, applied at once and kept for every rebuild."""
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
-    if entity is None:
-        raise HTTPException(status_code=404, detail="Сущность не найдена")
     try:
-        IdentityService().correct_name(db, entity, (form.get("name") or [""])[0])
+        corrected = build_identity_commands().correct_name(db, key, (form.get("name") or [""])[0])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Пустое имя") from exc
+    if corrected is None:
+        raise HTTPException(status_code=404, detail="Сущность не найдена")
     db.commit()
     return RedirectResponse(f"/ui/investigations/{quote(key)}", status_code=303)
 
@@ -260,10 +228,10 @@ async def mark_entity_official(
 ) -> RedirectResponse:
     """A person's word: this entity is (or is not) an official; applied at once."""
     form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
-    if entity is None:
+    if not mark_official_of(
+        db, key, (form.get("official") or [""])[0] == "yes", downstream=group_followers()
+    ):
         raise HTTPException(status_code=404, detail="Сущность не найдена")
-    mark_official(db, entity, (form.get("official") or [""])[0] == "yes")
     db.commit()
     back = (form.get("back") or [""])[0]
     return RedirectResponse(
@@ -375,23 +343,12 @@ def _select(name: str, label: str, options: dict[str, str], chosen: str) -> str:
     )
 
 
-def _all_regions(db: Session) -> list[str]:
-    return list(
-        db.scalars(
-            text(
-                "SELECT DISTINCT region->>0 FROM entity_groups, "
-                "jsonb_array_elements(regions) AS region ORDER BY 1"
-            )
-        )
-    )
-
-
 @dataclass(frozen=True)
 class EntityPage:
     """One page of «Все люди» under its filters, and what the filters' labels count. Read
     by the legacy page and by `GET /api/v1/entities`."""
 
-    entities: list[EntityGroupRecord]
+    entities: list[identity.Group]
     total: int
     # In the list for certain, and maybe (a namesake), before those are hidden.
     hidden: int
@@ -419,86 +376,61 @@ def read_entity_page(
     page: int,
 ) -> EntityPage:
     """`article` and `region` come stripped; `role` is one of the filters, never empty."""
-    query = select(EntityGroupRecord)
-    if q.strip():
-        pattern = f"%{q.strip()}%"
-        query = query.where(
-            or_(
-                EntityGroupRecord.name.ilike(pattern),
-                cast(EntityGroupRecord.variants, Text).ilike(pattern),
-            )
-        )
-    if article:
-        query = query.where(
-            exists().where(
-                EntityGroupChargeRecord.group_id == EntityGroupRecord.id,
-                EntityGroupChargeRecord.article == article,
-            )
-        )
-    if region:
-        query = query.where(cast(EntityGroupRecord.regions, Text).ilike(f"%{region}%"))
+    # Each owner filters by its own columns: the groups' words and charges here, the
+    # analysis's verdicts and list matches below.
+    ids = identity.filtered_group_ids(db, q=q, article=article, region=region)
     if verdict != "all":
-        judged = exists().where(EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id)
-        query = query.where(
-            ~judged
-            if verdict == "none"
-            else exists().where(
-                EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id,
-                EntityGroupPoliticsRecord.verdict == verdict,
+        verdicts = analysis_read.verdicts(db)
+        ids = [
+            group_id
+            for group_id in ids
+            if (
+                group_id not in verdicts if verdict == "none" else verdicts.get(group_id) == verdict
             )
-        )
-    in_list = exists().where(
-        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
-        EntityGroupRfMatchRecord.level == FULL,
-    )
+        ]
+    levels = analysis_read.list_levels(db)
+    in_list = {group_id for group_id, found in levels.items() if FULL in found}
     # Given name and surname only: not on the list for certain, maybe a namesake.
-    maybe_listed = ~in_list & exists().where(
-        EntityGroupRfMatchRecord.group_id == EntityGroupRecord.id,
-        EntityGroupRfMatchRecord.level != FULL,
-    )
-    hidden = db.scalar(select(func.count()).select_from(query.where(in_list).subquery())) or 0
-    hidden_possible = (
-        db.scalar(select(func.count()).select_from(query.where(maybe_listed).subquery())) or 0
-    )
+    maybe_listed = {group_id for group_id, found in levels.items() if found - {FULL}} - in_list
+    hidden = sum(group_id in in_list for group_id in ids)
+    hidden_possible = sum(group_id in maybe_listed for group_id in ids)
     if rf == "hide":
-        query = query.where(~in_list)
+        ids = [group_id for group_id in ids if group_id not in in_list]
     if rf_possible == "hide":
-        query = query.where(~maybe_listed)
+        ids = [group_id for group_id in ids if group_id not in maybe_listed]
     # Before step 4 has run nobody has a role: the role then filters nothing.
-    roles_known = db.scalar(select(exists().select_from(EntityGroupRoleRecord))) or False
+    roles_known = identity.any_roles(db)
     if role != "all" and roles_known:
-        query = query.where(
-            exists().where(
-                EntityGroupRoleRecord.group_id == EntityGroupRecord.id,
-                EntityGroupRoleRecord.role == (FIGURANT if role == "figurant" else role),
-            )
-        )
-    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        holding = set(identity.groups_with_role(db, FIGURANT if role == "figurant" else role))
+        ids = [group_id for group_id in ids if group_id in holding]
+    total = len(ids)
     if sort == "name":
         # By the name as shown: the surname is not a column, and ten thousand short rows
         # sort here in milliseconds.
-        ordered = sorted(db.scalars(query).all(), key=_surname_key)
+        ordered = sorted(identity.groups(db, ids).values(), key=_surname_key)
         entities = ordered[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
     else:
-        entities = list(
-            db.scalars(
-                query.order_by(*_SORTS[sort]).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
-            ).all()
+        entities = identity.ordered_groups(
+            db, ids, order=sort, offset=(page - 1) * PAGE_SIZE, limit=PAGE_SIZE
         )
-    ids = [entity.id for entity in entities]
-    charges, listed, roles = _articles_by_group(db, ids), _rf_levels(db, ids), _roles(db, ids)
-    verdicts = _verdicts(db, ids)
+    page_ids = [entity.id for entity in entities]
+    roles = _roles(db, page_ids)
+    verdicts_shown = {
+        group_id: found.verdict for group_id, found in analysis_read.politics(db, page_ids).items()
+    }
     return EntityPage(
         entities=entities,
         total=total,
         hidden=hidden,
         hidden_possible=hidden_possible,
-        roles_known=bool(roles_known),
-        charges=charges,
-        listed=listed,
+        roles_known=roles_known,
+        charges=_articles_by_group(db, page_ids),
+        listed={
+            group_id: _strongest(levels[group_id]) for group_id in page_ids if group_id in levels
+        },
         roles=roles,
-        verdicts=verdicts,
-        regions=_all_regions(db),
+        verdicts=verdicts_shown,
+        regions=identity.all_regions(db),
     )
 
 
@@ -646,17 +578,6 @@ document.querySelectorAll("tr[data-href]").forEach((row) => row.addEventListener
         ),
         db=db,
     )
-
-
-def _verdicts(db: Session, group_ids: Sequence[int]) -> dict[int, str]:
-    return {
-        group_id: verdict
-        for group_id, verdict in db.execute(
-            select(EntityGroupPoliticsRecord.group_id, EntityGroupPoliticsRecord.verdict).where(
-                EntityGroupPoliticsRecord.group_id.in_(group_ids)
-            )
-        ).all()
-    }
 
 
 def _verdict_mark(verdict: str | None) -> str:

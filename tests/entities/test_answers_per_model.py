@@ -12,9 +12,9 @@ from collections.abc import Sequence
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.models.entities import EntityRoleAnswerRecord
 from processing.answers import ask_missing, input_hash
 from processing.roles.roles import ROLE_CACHE, RoleAnswer, RoleClassifierError, RoleItem
+from processing.storage.models import EntityRoleAnswerRecord
 
 FREE = "nvidia/nemotron-3.5-super-vl:free"
 DEEPSEEK = "deepseek/deepseek-v4.1-flash"

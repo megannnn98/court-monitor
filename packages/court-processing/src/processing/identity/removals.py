@@ -9,13 +9,14 @@ does not bring the entity back by itself: only the next rebuild gathers it again
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord, EntityRemovalRecord
 from processing.identity.disputes import KeyIndex
 from processing.identity.grouping import Entity
+from processing.storage.models import EntityGroupRecord, EntityRemovalRecord
 
 
 def removed_keys(session: Session) -> list[str]:
@@ -51,12 +52,21 @@ def restore(session: Session, key: str) -> bool:
     return True
 
 
-def removals(session: Session) -> list[EntityRemovalRecord]:
+@dataclass(frozen=True)
+class Removal:
+    """A person's word that the entity of `key` is nobody."""
+
+    key: str
+    name: str
+
+
+def removals(session: Session) -> list[Removal]:
     """Every removal, the latest first."""
-    return list(
-        session.scalars(
-            select(EntityRemovalRecord).order_by(
+    return [
+        Removal(key, name)
+        for key, name in session.execute(
+            select(EntityRemovalRecord.key, EntityRemovalRecord.name).order_by(
                 EntityRemovalRecord.decided_at.desc(), EntityRemovalRecord.key
             )
         )
-    )
+    ]

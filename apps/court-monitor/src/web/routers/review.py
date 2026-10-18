@@ -6,7 +6,7 @@ irreversible and stays on the legacy page."""
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from db.orm_models import EntityGroupRecord
+from processing.read import Group
 from web.dependencies import get_db
 from web.response_models import (
     DecisionResponse,
@@ -90,7 +90,7 @@ def decide_politics(
     return DecisionResponse(key=entity.key, decision=body.verdict)
 
 
-def _side(entity: EntityGroupRecord, data: PairPage) -> PairSideResponse:
+def _side(entity: Group, data: PairPage) -> PairSideResponse:
     role = data.roles.get(entity.id)
     return PairSideResponse(
         key=entity.key,

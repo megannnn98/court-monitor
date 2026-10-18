@@ -1,6 +1,8 @@
 # Package map
 
-Status: current, 2026-10-17 (branch `refactor/workspace-packages`).
+Status: data ownership implemented; final runtime validation pending, 2026-10-18
+(branch `refactor/data-ownership-apis`). See [data ownership](data-ownership.md)
+for public/testing contracts, the five evaluation SQL probes and validation evidence.
 
 The repository is one [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/):
 the modules of [ADR 0025](../adr/0025-modular-monolith-and-pipeline-orchestrator.md) are
@@ -77,9 +79,11 @@ processing --> ingestion
 processing --> platform
 processing --> core
 analysis --> processing
+analysis --> ingestion
 analysis --> platform
 results --> analysis
 results --> processing
+results --> ingestion
 results --> platform
 investigation --> results : ResultsService
 investigation --> ingestion : ingestion.search
@@ -153,8 +157,8 @@ What may not be (each a test of `tests/test_package_graph.py`, transitively):
 |---|---|
 | Workspace dependencies | court-core |
 | Libraries | httpx[socks], psycopg[binary], pydantic, sqlalchemy |
-| Public API | `db.database` (engine, sessions, pool settings), `db.orm_models` / `db.models.*` (the ORM of the one database), `db.locks`, `db.maintenance`, `db.investigation_runs`; `llm.chat`, `llm.structured`, `llm.together_client`, `llm.model_choice`; `observability` |
-| Owns | the ORM definitions of every table, centrally (ownership of tables by module is a later task); `app_settings`, `entity_model_spend` (the model choice and its spend) |
+| Public API | `db.database` (engine, sessions, pool settings), `db.models.base.Base`, `db.arrays`, `db.locks`, `db.maintenance`; `llm.chat`, `llm.structured`, `llm.together_client`, `llm.model_choice`; `observability` |
+| Owns | `app_settings`, `entity_model_spend` (model selection and its spend); domain ORM definitions live in their owner's internal storage |
 | Called by | every other distribution |
 
 Infrastructure, not a domain: it imports no module (`SHARED` in the boundary test).
@@ -165,7 +169,7 @@ Infrastructure, not a domain: it imports no module (`SHARED` in the boundary tes
 |---|---|
 | Workspace dependencies | court-core, court-platform |
 | Libraries | httpx, pydantic, selectolax, sqlalchemy |
-| Public API | `ingestion.service.IngestionService`; `ingestion.sources.source_registry` (the sources' names and kinds); `ingestion.search` (the read-only search of configured sources, for the investigation); `ingestion.concurrency` (fetch limits, for the composition root) |
+| Public API | `ingestion.service.IngestionService`; `ingestion.read`, `ingestion.commands` (typed owner access); `ingestion.sources.source_registry` (the sources' names and kinds); `ingestion.search` (the read-only search of configured sources, for the investigation); `ingestion.concurrency` (fetch limits, for the composition root) |
 | Owns | `sources`, `source_documents`, `parsed_articles`: what was discovered, fetched and parsed |
 | Called by | the orchestrator, processing (`processing.extraction.models` reads a source name), the investigation (`ingestion.search`), the app |
 
@@ -175,8 +179,8 @@ Infrastructure, not a domain: it imports no module (`SHARED` in the boundary tes
 |---|---|
 | Workspace dependencies | court-core, court-platform, court-ingestion |
 | Libraries | anthropic, httpx, pydantic, pymorphy3, rapidfuzz, sqlalchemy; extra `semantic`: sentence-transformers, torch |
-| Public API | `processing.service.ProcessingService`, `processing.identity.service.IdentityService`, `persons.resolution.stage.PersonResolutionStage`; the console's read models listed in `CONSOLE_READ_MODELS` |
-| Owns | extraction (`article_extraction_runs`, `entity_mentions`, `extracted_events`, `event_entity_mentions`), entity groups and their decisions (`entity_groups*`, `entity_role_*`, `entity_pair_decisions`, `entity_name_*`, `entity_removals`, …), evidence (`article_sentences`, `article_sentence_readings`, `article_digest_answers`), the junk screen (`junk_screen_holds`), ER v2 (`persons`, `person_*`, `review_records`) |
+| Public API | `processing.service.ProcessingService`, `processing.identity.service.IdentityService`, `persons.resolution.stage.PersonResolutionStage`; `processing.read`, `persons.read`, owner commands and the console's contracts listed in `CONSOLE_READ_MODELS` |
+| Owns | extraction (`article_extraction_runs`, `entity_mentions`, `extracted_events`, `event_entity_mentions`), entity groups and their decisions (`entity_groups*`, `entity_role_*`, `entity_pair_decisions`, `entity_name_*`, `entity_removals`, …), evidence (`article_sentences`, `article_sentence_readings`, `article_digest_answers`), the junk screen (`junk_screen_holds`), the officials' exclusion list (`excluded_persons`), ER v2 (`persons`, `person_*`, `review_records`) |
 | Called by | the orchestrator, analysis, results, the app |
 
 The `semantic` extra is the junk screen's embedding mode (`JUNK_SCREEN=1`). It is
@@ -186,19 +190,19 @@ loaded lazily by `processing.junk.embedder`; nothing else needs it installed.
 
 | | |
 |---|---|
-| Workspace dependencies | court-platform, court-processing |
+| Workspace dependencies | court-platform, court-ingestion, court-processing |
 | Libraries | curl-cffi, httpx, pyarrow, pydantic, rapidfuzz, sqlalchemy |
-| Public API | `analysis.service.AnalysisService`; `airtable.service`; the vocabularies and read models in `CONSOLE_READ_MODELS` |
-| Owns | politics (`entity_group_politics`, `entity_politics_*`), the Rosfinmonitoring list (`rosfinmonitoring_*`, `rfm_operator_entries`, `rosfin_matches`, `entity_group_rf_matches`), case news (`entity_group_news`, `entity_news_answers`), unnamed figurants (`unnamed_*`), persecution of persons (`persecution_classifications`), the operator's reference lists (`airtable_known_persons`, `criminal_articles`, `excluded_persons`) |
+| Public API | `analysis.service.AnalysisService`; `analysis.read`, `analysis.rosfinmonitoring.read`; `airtable.service`; the vocabularies and decision contracts in `CONSOLE_READ_MODELS` |
+| Owns | politics (`entity_group_politics`, `entity_politics_*`), the Rosfinmonitoring list (`rosfinmonitoring_*`, `rfm_operator_entries`, `rosfin_matches`, `entity_group_rf_matches`), case news (`entity_group_news`, `entity_news_answers`), unnamed figurants (`unnamed_*`), persecution of persons (`persecution_classifications`), the operator's reference lists (`airtable_known_persons`, `criminal_articles`). Airtable sync edits processing-owned exclusions through processing's commands |
 | Called by | the orchestrator, results, the app |
 
 ### court-results
 
 | | |
 |---|---|
-| Workspace dependencies | court-platform, court-processing, court-analysis |
+| Workspace dependencies | court-platform, court-ingestion, court-processing, court-analysis |
 | Libraries | httpx, pydantic, pymorphy3, sqlalchemy |
-| Public API | `results.service.ResultsService`; `results.candidates.service`; the read models in `CONSOLE_READ_MODELS` (`results.models`, `results.ask`, `results.done_marks`, `results.queries.*`) |
+| Public API | `results.service.ResultsService`; `results.candidates.service`; `results.read`, `results.review` and the contracts in `CONSOLE_READ_MODELS` (`results.models`, `results.ask`, `results.done_marks`, `results.queries.*`) |
 | Owns | `monitoring_findings`, `entity_done_marks`, `chat_questions` (the operator's questions) |
 | Called by | the orchestrator, the investigation, the app |
 
@@ -207,14 +211,14 @@ loaded lazily by `processing.junk.embedder`; nothing else needs it installed.
 | | |
 |---|---|
 | Workspace dependencies | court-platform, court-ingestion, court-results |
-| Libraries | httpx, langchain-core, langgraph, pydantic, pymorphy3 |
+| Libraries | httpx, langchain-core, langgraph, pydantic, pymorphy3, sqlalchemy |
 | Public API | `investigation.service.InvestigationService` |
-| Owns | `investigation_runs` (through `db.investigation_runs`, given by the app) |
+| Owns | `investigation_runs` (`investigation.storage.models`; internal run store given by the app) |
 | Called by | the app (CLI `investigate`, `POST /api/v1/investigation`) |
 
 Not part of the monitoring pipeline. It reads only `results.service` and
-`ingestion.search` (`INVESTIGATION_MAY_IMPORT`), runs no SQL of its own and never
-imports ER v2.
+`ingestion.search` (`INVESTIGATION_MAY_IMPORT`); the graph runs no domain SQL and never
+imports ER v2. Its internal run store uses SQL only for its own investigation_runs.
 
 ### court-orchestrator
 
@@ -222,7 +226,7 @@ imports ER v2.
 |---|---|
 | Workspace dependencies | court-core, court-platform, court-ingestion, court-processing, court-analysis, court-results |
 | Libraries | dagster, httpx, pydantic, sqlalchemy |
-| Public API | `orchestrator.service.MonitoringService`, `orchestrator.cycle.OperatorCycle`, `orchestrator.runs.MonitoringRuns`, `orchestrator.operations.OperationRegistry` (with `CommandLine`), `orchestrator.models`; `orchestrator.dagster` (assets, jobs, schedules) |
+| Public API | `orchestrator.service.MonitoringService`, `orchestrator.cycle.OperatorCycle`, `orchestrator.runs.MonitoringRuns`, `orchestrator.operations.OperationRegistry` (with `CommandLine`), `orchestrator.read`, `orchestrator.models`; `orchestrator.dagster` (assets, jobs, schedules) |
 | Owns | `monitoring_runs`, `monitoring_run_items`, `source_monitoring_state`, `operator_operation_runs`, the advisory locks |
 | Called by | the app (CLI, API, Dagster's code location) |
 

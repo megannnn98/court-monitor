@@ -12,19 +12,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from analysis.persecution.queries import latest_persecution_classification_ids
-from db.orm_models import (
-    MonitoringFindingRecord,
-    PersecutionClassificationRecord,
-    RosfinMatchRecord,
-)
+from analysis import read as analysis_read
 from results.candidates.models import DEFAULT_MIN_PERSECUTION_CONFIDENCE, RosfinmonitoringStatus
 from results.candidates.service import CandidateQueryService
 from results.models import MonitoringFindingStatus, MonitoringFindingView
+from results.storage.models import MonitoringFindingRecord
 
 logger = logging.getLogger("monitoring")
 
@@ -219,31 +215,18 @@ class MonitoringFindingService:
     def _latest_classification_ids(session: Session, person_ids: Sequence[int]) -> dict[int, int]:
         if not person_ids:
             return {}
-        rows = session.execute(
-            select(
-                PersecutionClassificationRecord.person_id, PersecutionClassificationRecord.id
-            ).where(
-                PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
-                PersecutionClassificationRecord.person_id.in_(list(person_ids)),
-            )
-        ).all()
-        return {person_id: classification_id for person_id, classification_id in rows}
+        return analysis_read.latest_classification_ids(session, person_ids)
 
     @staticmethod
     def _rf_match_ids(
         session: Session, person_ids: Sequence[int], snapshot_id: int
     ) -> dict[int, int]:
-        if not person_ids:
-            return {}
-        rows = session.execute(
-            select(RosfinMatchRecord.person_id, RosfinMatchRecord.id).where(
-                and_(
-                    RosfinMatchRecord.snapshot_id == snapshot_id,
-                    RosfinMatchRecord.person_id.in_(list(person_ids)),
-                )
-            )
-        ).all()
-        return {person_id: match_id for person_id, match_id in rows}
+        return {
+            person_id: match.id
+            for person_id, match in analysis_read.person_matches(
+                session, snapshot_id, person_ids
+            ).items()
+        }
 
     def list_findings(
         self, *, active_only: bool = True, limit: int = 100, offset: int = 0

@@ -13,7 +13,7 @@ from analysis.rosfinmonitoring.matcher_models import (
     RosfinMatchResult,
     RosfinMatchStatus,
 )
-from db.orm_models import RosfinMatchRecord
+from analysis.storage.models import RosfinMatchRecord
 
 
 class RosfinMatchPersistence:

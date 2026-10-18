@@ -1,4 +1,11 @@
-"""Canonical persons, aliases, merges, reviews and entity-resolution decisions."""
+"""ER v2's tables (ADR 0024): canonical persons, their aliases, merges, links to events, resolution decisions and their reviews.
+
+Internal: only this package reads and writes them; others go through its public
+API (docs/architecture/data-ownership.md). Every class registers its table on
+`db.models.base.Base`; `migrations/model_registry.py` composes them for Alembic.
+"""
+
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any

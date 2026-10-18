@@ -20,13 +20,12 @@ from analysis.persecution.classification_service import PersecutionClassificatio
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from analysis.service import AnalysisService
+from analysis.service import AnalysisService, GroupFollowers
 from db.database import (
     create_database_engine,
     create_session_factory,
     with_statement_timeout,
 )
-from db.investigation_runs import SqlAlchemyInvestigationRuns
 from ingestion.concurrency import FetchLimits, build_http_client
 from ingestion.search import configured_telegram_channels, telegram_searches
 from ingestion.service import IngestionService
@@ -35,6 +34,7 @@ from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersiste
 from ingestion.sources.website_adapter import WebsiteAdapter
 from ingestion.stored import SqlAlchemyStoredDocuments
 from investigation.models import Limits
+from investigation.run_store import SqlAlchemyInvestigationRuns
 from investigation.service import InvestigationService
 from investigation.services.external import SourceSearchRetriever
 from investigation.services.model import investigation_model_from_env
@@ -68,7 +68,8 @@ from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.pending import SqlAlchemyPendingExtraction
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
-from processing.identity.service import identity_service_from_env
+from processing.identity.downstream import IdentityDownstream
+from processing.identity.service import IdentityService, identity_service_from_env
 from processing.service import ProcessingService
 from results.findings import MonitoringFindingService, MonitoringQueryProvider
 from results.service import ResultsService
@@ -131,6 +132,7 @@ def build_processing_service(
         pipeline=extraction_pipeline or default_extraction_pipeline(session_factory),
         documents=SqlAlchemyExtractionDocumentRepository(session_factory),
         pending=SqlAlchemyPendingExtraction(session_factory),
+        downstream=group_followers(),
     )
 
 
@@ -236,9 +238,21 @@ def build_operator_cycle(
     return OperatorCycle(
         session_factory=session_factory,
         processing=build_processing_service(session_factory),
-        identity=identity_service_from_env(env),
+        identity=identity_service_from_env(GroupFollowers(), env),
         analysis=build_analysis_service(session_factory),
     )
+
+
+def group_followers() -> IdentityDownstream:
+    """What the analysis keeps of an entity group, following it (ADR 0031): handed to
+    every command that changes a group."""
+    return GroupFollowers()
+
+
+def build_identity_commands() -> IdentityService:
+    """`IdentityService` for a person's decisions on groups (pairs, names, removals): no
+    model, which only names groups when they are rebuilt."""
+    return IdentityService(downstream=group_followers())
 
 
 def build_investigation_retrievers(

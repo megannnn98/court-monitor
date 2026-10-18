@@ -7,21 +7,19 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
+from analysis.storage.models import (
+    PersecutionClassificationRecord,
+    RosfinMatchRecord,
+    RosfinmonitoringEntryRecord,
+    RosfinmonitoringSnapshotRecord,
+)
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
+from processing.storage.models import (
     ArticleExtractionRunRecord,
     EntityMentionRecord,
     EventEntityMentionRecord,
     ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonAliasRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    RosfinMatchRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-    Source,
-    SourceDocument,
 )
 
 FIXED_TIME = datetime(2024, 1, 1, tzinfo=UTC)

@@ -8,12 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
-    EntityGroupMentionRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityMentionRecord,
-)
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
 from processing.identity.disputes import (
     DIFFERENT,
@@ -24,6 +19,12 @@ from processing.identity.disputes import (
     merge_decided,
 )
 from processing.identity.grouping import Entity
+from processing.storage.models import (
+    EntityGroupMentionRecord,
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityMentionRecord,
+)
 
 
 def ref(id_: int, key: str, name: str, mentions: int = 1) -> EntityRef:
@@ -121,7 +122,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
             _person(session, seed, run, "Игоря Ранава", "Игорь", "Ранав")
             seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def _entities(
@@ -162,7 +163,7 @@ def test_one_person_merges_at_once_keeps_the_stronger_role_and_again_after_a_reb
     assert set(_entities(session_factory)) == {"Игорь Ранав", "Игорь Александрович Ранав"}
 
     with session_factory.begin() as session:
-        kept = decide(session, "игорь ранав", RANAV, SAME)
+        kept = decide(session, "игорь ранав", RANAV, SAME, downstream=GroupFollowers())
 
     merged = _entities(session_factory)
     assert merged == {"Игорь Александрович Ранав": (3, 3, [["Чукотский автономный округ", 1]])}
@@ -171,7 +172,7 @@ def test_one_person_merges_at_once_keeps_the_stronger_role_and_again_after_a_reb
         assert session.scalar(select(EntityGroupRoleRecord.role)) == "figurant"
         assert set(session.scalars(select(EntityGroupMentionRecord.group_id))) == {kept}
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     assert _entities(session_factory) == merged
 
@@ -180,7 +181,7 @@ def test_different_people_stay_apart(session_factory: sessionmaker[Session]) -> 
     _seed(session_factory)
 
     with session_factory.begin() as session:
-        kept = decide(session, "игорь ранав", RANAV, DIFFERENT)
+        kept = decide(session, "игорь ранав", RANAV, DIFFERENT, downstream=GroupFollowers())
 
     assert kept is None
     assert set(_entities(session_factory)) == {"Игорь Ранав", "Игорь Александрович Ранав"}

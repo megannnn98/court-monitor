@@ -24,6 +24,7 @@ import httpx
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.group_followers import GroupFollowers
 from analysis.rosfinmonitoring.download import (
     ListPage,
     RosfinmonitoringDownloadError,
@@ -51,11 +52,8 @@ from analysis.rosfinmonitoring.operator_table import store as store_operator_tab
 from analysis.rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from db.orm_models import (
-    EntityGroupRecord,
-    EntityGroupRfMatchRecord,
-    RosfinmonitoringEntryRecord,
-)
+from analysis.storage.models import EntityGroupRfMatchRecord, RosfinmonitoringEntryRecord
+from processing import read as identity_read
 from processing.identity.service import BY_REGION, BY_RF, IdentityService
 
 logger = logging.getLogger("entities")
@@ -160,7 +158,7 @@ class EntityRfCheck:
         with self._session_factory() as session:
             by_name = self._by_name(session, latest.snapshot_id)
             probable = self._by_name(session, airtable.snapshot_id) if airtable is not None else {}
-            groups = session.execute(select(EntityGroupRecord.id, EntityGroupRecord.name)).all()
+            groups = [(ref.id, ref.name) for ref in identity_read.group_references(session)]
         rows: list[dict[str, object]] = []
         levels: dict[int, str] = {}
         for group_id, name in groups:
@@ -193,7 +191,10 @@ class EntityRfCheck:
                     insert(EntityGroupRfMatchRecord), rows[start : start + INSERT_CHUNK]
                 )
             self._on_stage("merging")
-            merged = IdentityService().merge_confirmed_pairs(session, listed_level=FULL)
+            listed = {group_id for group_id, level in levels.items() if level == FULL}
+            merged = IdentityService(downstream=GroupFollowers()).merge_confirmed_pairs(
+                session, listed=listed
+            )
         full = sum(level == FULL for level in levels.values())
         result = RfCheckResult(
             snapshot_id=latest.snapshot_id,

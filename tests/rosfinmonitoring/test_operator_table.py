@@ -27,7 +27,7 @@ from analysis.rosfinmonitoring.operator_table import (
     share_url,
     store,
 )
-from db.orm_models import (
+from analysis.storage.models import (
     RfmOperatorEntryRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,

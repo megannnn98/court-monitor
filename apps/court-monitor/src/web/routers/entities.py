@@ -4,12 +4,12 @@ person's removals of entities that are nobody."""
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from analysis.rosfinmonitoring.rf_check import FULL
-from db.orm_models import EntityGroupRecord
-from processing.identity.service import MANUAL, IdentityService
+from application import build_identity_commands
+from processing.identity.service import MANUAL
+from processing.read import Group
 from web.dependencies import get_db
 from web.response_models import (
     EntityArticleResponse,
@@ -45,7 +45,7 @@ def rf_label(level: str | None) -> str | None:
     return "в перечне" if level == FULL else "возможно в перечне"
 
 
-def _row(entity: EntityGroupRecord, data: EntityPage) -> EntityRowResponse:
+def _row(entity: Group, data: EntityPage) -> EntityRowResponse:
     role = data.roles.get(entity.id)
     verdict = data.verdicts.get(entity.id)
     level = data.listed.get(entity.id)
@@ -126,7 +126,7 @@ def list_removals(db: Session = Depends(get_db)) -> RemovalListResponse:  # noqa
     return RemovalListResponse(
         items=[
             RemovalResponse(key=record.key, name=display_name(record.name), removed=True)
-            for record in IdentityService().removed_groups(db)
+            for record in build_identity_commands().removed_groups(db)
         ]
     )
 
@@ -139,13 +139,12 @@ def set_removal(
     """Remove an entity that is nobody, or take that word back. A removed entity leaves
     every list at once; one whose removal is taken back returns at the next rebuild."""
     if body.removed:
-        entity = db.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == body.key))
-        if entity is None:
+        removed = build_identity_commands().remove_group(db, body.key)
+        if removed is None:
             raise HTTPException(status_code=404, detail="Человек не найден")
-        name = entity.name
-        IdentityService().remove_group(db, entity)
+        name = removed
     else:
-        identity = IdentityService()
+        identity = build_identity_commands()
         kept = next(
             (record.name for record in identity.removed_groups(db) if record.key == body.key),
             None,

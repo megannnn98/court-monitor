@@ -5,12 +5,12 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import PersonRecord
 from persons.manual_review_service import (
     ReviewStatus,
     ReviewType,
     SqlAlchemyManualReviewService,
 )
+from persons.storage.models import PersonRecord
 
 
 def _create_person(session: Session) -> int:

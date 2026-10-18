@@ -20,11 +20,9 @@ from airtable.service import (
     SyncSource,
     build_sync_service,
 )
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    ExcludedPersonRecord,
-    Source,
-)
+from analysis.storage.models import AirtableKnownPersonRecord
+from ingestion.storage.models import Source
+from processing.storage.models import ExcludedPersonRecord
 
 _ENV = {
     "AIRTABLE_TOKEN": "secret-token",

@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion import read
 from llm.chat import (
     BudgetExceededError,
     Endpoint,
@@ -199,8 +200,7 @@ class HoldsRead:
 
 _UNREAD = text(
     """
-    SELECT h.article_id, a.title, a.text FROM junk_screen_holds h
-    JOIN parsed_articles a ON a.id = h.article_id
+    SELECT h.article_id FROM junk_screen_holds h
     WHERE h.status = :held AND h.reader IS NULL
     ORDER BY h.article_id
     """
@@ -224,25 +224,27 @@ _ADD_EVENT = text(
     """
     INSERT INTO extracted_events (extraction_run_id, event_type, event_date, start_offset,
         end_offset, confidence, attributes, extractor_name, extractor_version)
-    SELECT (SELECT r.id FROM article_extraction_runs r
-            WHERE r.article_id = a.id AND r.status = 'succeeded' ORDER BY r.id DESC LIMIT 1),
-           :event, NULL, 0, least(length(split_part(a.text, E'\\n', 1)), 300), :confidence,
+    SELECT r.id, :event, NULL, 0, :end, :confidence,
            jsonb_build_object('trigger_text', '', 'explanation', CAST(:explanation AS text)),
            :extractor, :version
-    FROM parsed_articles a
-    WHERE a.id = :article AND EXISTS (
-        SELECT 1 FROM article_extraction_runs r
-        WHERE r.article_id = a.id AND r.status = 'succeeded')
+    FROM article_extraction_runs r
+    WHERE r.article_id = :article AND r.status = 'succeeded'
+    ORDER BY r.id DESC LIMIT 1
     """
 )
 
 
 def add_event(session: Session, article_id: int, event: str, explanation: str) -> bool:
     """False when the article has no successful extraction to write the event to."""
+    article = read.stored_articles(session, [article_id]).get(article_id)
+    if article is None:
+        return False
     added = session.execute(
         _ADD_EVENT,
         {
             "article": article_id,
+            # The event spans the article's first line, at most 300 characters.
+            "end": min(len(article.text.split("\n", 1)[0]), 300),
             "event": event,
             "explanation": explanation,
             "confidence": CONFIDENCE,
@@ -343,12 +345,17 @@ def read_holds(session_factory: sessionmaker[Session], reader: HoldReader | None
     if reader is None:
         return result
     with session_factory() as session:
+        held = list(session.scalars(_UNREAD, {"held": HELD}))
+        texts = read.stored_articles(session, held)
         items = [
             HoldItem(
-                row.article_id,
-                " ".join(f"{row.title or ''}\n{row.text or ''}".split())[:ARTICLE_CHARS],
+                article_id,
+                " ".join(
+                    f"{texts[article_id].title or ''}\n{texts[article_id].text or ''}".split()
+                )[:ARTICLE_CHARS],
             )
-            for row in session.execute(_UNREAD, {"held": HELD}).all()
+            for article_id in held
+            if article_id in texts
         ]
     spend: Spend | None = getattr(reader, "spend", None)
     batches = [items[start : start + BATCH_SIZE] for start in range(0, len(items), BATCH_SIZE)]

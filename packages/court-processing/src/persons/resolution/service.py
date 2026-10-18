@@ -21,14 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonResolutionDecisionRecord,
-)
+from ingestion import read
 from persons.manual_review_service import SqlAlchemyManualReviewService
 from persons.models import AliasOrigin
 from persons.persistence import SqlAlchemyPersonPersistence
@@ -50,6 +43,13 @@ from persons.resolution.models import (
 )
 from persons.resolution.normalizer import PersonNameNormalizer
 from persons.resolution.scoring import PersonResolutionScorer
+from persons.storage.models import PersonResolutionDecisionRecord
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 logger = logging.getLogger("person_resolution")
 
@@ -243,29 +243,35 @@ def persons_in_case_context(
         )
         .limit(1)
     )
-    published_at = session.scalar(
-        select(ParsedArticleRecord.published_at).where(
-            ParsedArticleRecord.id == identity.article_id
-        )
+    published_at = (
+        read.published_at(session, [identity.article_id]).get(identity.article_id)
+        if identity.article_id is not None
+        else None
     )
     if is_case_target is None or published_at is None:
         return set()
-    query = (
-        select(EntityMentionRecord.person_id)
+    mentioned = session.execute(
+        select(EntityMentionRecord.person_id, ArticleExtractionRunRecord.article_id)
         .join(
             ArticleExtractionRunRecord,
             ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
         )
-        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
-        .where(
-            EntityMentionRecord.person_id.in_(person_ids),
-            ParsedArticleRecord.published_at.between(
-                published_at - CASE_CONTEXT_WINDOW, published_at + CASE_CONTEXT_WINDOW
-            ),
-        )
+        .where(EntityMentionRecord.person_id.in_(person_ids))
         .distinct()
+    ).all()
+    near = set(
+        read.published_between(
+            session,
+            {article_id for _, article_id in mentioned},
+            published_at - CASE_CONTEXT_WINDOW,
+            published_at + CASE_CONTEXT_WINDOW,
+        )
     )
-    return {person_id for person_id in session.scalars(query).all() if person_id is not None}
+    return {
+        person_id
+        for person_id, article_id in mentioned
+        if person_id is not None and article_id in near
+    }
 
 
 def known_distinct_pairs(session: Session, person_ids: Sequence[int]) -> set[frozenset[int]]:

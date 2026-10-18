@@ -9,15 +9,12 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    MonitoringRunRecord,
-    ParsedArticleRecord,
-)
+from analysis.read import verdict_count
+from ingestion.read import article_count
+from orchestrator.read import latest_monitoring_status, live_operation
+from processing.read import group_count
 from web.ui import spend
 from web.ui.work_cycle import live_next_action
 from web.ui.workload import Workload, workload
@@ -63,19 +60,11 @@ class StripNumbers:
 
 
 def strip_numbers(db: Session) -> StripNumbers:
-    latest_run = db.scalars(
-        select(MonitoringRunRecord).order_by(MonitoringRunRecord.started_at.desc()).limit(1)
-    ).first()
-    status = getattr(latest_run.status, "value", latest_run.status) if latest_run else None
+    status = latest_monitoring_status(db)
     return StripNumbers(
-        articles=db.scalar(select(func.count()).select_from(ParsedArticleRecord)) or 0,
-        people=db.scalar(select(func.count()).select_from(EntityGroupRecord)) or 0,
-        result=db.scalar(
-            select(func.count())
-            .select_from(EntityGroupPoliticsRecord)
-            .where(EntityGroupPoliticsRecord.verdict == "political")
-        )
-        or 0,
+        articles=article_count(db),
+        people=group_count(db),
+        result=verdict_count(db, verdict="political"),
         latest_monitoring_status=None if status is None else str(status),
     )
 
@@ -238,13 +227,6 @@ _TABS = (
     ("political", "Результаты", "/ui/political", "result"),
     ("investigations", "Найти", "/ui/investigations", None),
 )
-# The step that is running now, if any: its mode, to say which.
-LIVE_RUN = text(
-    """
-    SELECT parameters ->> 'mode' FROM operator_operation_runs
-    WHERE status IN ('pending', 'running') ORDER BY id DESC LIMIT 1
-    """
-)
 
 
 def _tabbar(active: str, counts: dict[str, object]) -> str:
@@ -272,10 +254,10 @@ def _live_strip(db: Session) -> str:
     on a phone the card of the run is two screens down."""
     from web.ui.run_cards import MODE_TITLES
 
-    row = db.execute(LIVE_RUN).first()
-    if row is None:
+    operation = live_operation(db)
+    if operation is None:
         return ""
-    title = MODE_TITLES.get(row[0], MODE_TITLES[None])
+    title = MODE_TITLES.get(operation.mode, MODE_TITLES[None])
     return (
         f'<a class="live-strip" href="{HOME}#processing-title">'
         f'<span class="live-dot" aria-hidden="true"></span>Идёт: {escape(title)}'

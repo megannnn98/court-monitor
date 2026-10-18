@@ -31,28 +31,14 @@ from dataclasses import dataclass
 from statistics import mean, median
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from processing import read
 from processing.evidence.sentences import COLONY, NOT_POLITICAL, REASONS, UNKNOWN
 
 # What stands for every reason that is a persecution.
 POLITICAL = "political"
 POLITICAL_REASONS = frozenset(REASONS) - {NOT_POLITICAL, UNKNOWN}
-
-_ROWS = text(
-    """
-    SELECT t.id, t.article_id, t.person, t.person_key, t.region, t.kind, t.months, t.fine_rub,
-           t.in_absentia, t.sentenced_on, t.articles, t.reason, t.reason_text, t.quote,
-           a.title, a.published_at, s.name AS source
-    FROM article_sentences t
-    JOIN parsed_articles a ON a.id = t.article_id
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE NOT t.hidden
-    ORDER BY t.id
-    """
-)
 
 
 @dataclass(frozen=True)
@@ -211,7 +197,7 @@ def fold(rows: Iterable[Any]) -> list[Case]:
 
 
 def cases(session: Session) -> list[Case]:
-    return fold(session.execute(_ROWS).all())
+    return fold(read.shown_sentences(session))
 
 
 ANY, ONLY, EXCLUDE = "any", "only", "exclude"

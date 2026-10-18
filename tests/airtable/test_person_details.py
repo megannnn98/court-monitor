@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from airtable.client import AirtableRecord
 from airtable.person_details import dates, details
-from db.orm_models import AirtableKnownPersonRecord
+from analysis.storage.models import AirtableKnownPersonRecord
 
 _ROW = {
     "Преследуемый": "Иванова Мария Ивановна",

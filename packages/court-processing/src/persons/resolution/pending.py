@@ -5,17 +5,13 @@ from __future__ import annotations
 from sqlalchemy import exists, not_, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ParsedArticleRecord,
-    PersonResolutionDecisionRecord,
-    Source,
-    SourceDocument,
-)
+from db.arrays import any_of
+from ingestion import read
 from persons.resolution.service import RESOLVER_VERSION
+from persons.storage.models import PersonResolutionDecisionRecord
 from processing.extraction.models import ExtractionRunStatus
 from processing.extraction.pipeline import ExtractionVersions
+from processing.storage.models import ArticleExtractionRunRecord, EntityMentionRecord
 
 
 class SqlAlchemyPendingResolution:
@@ -33,16 +29,10 @@ class SqlAlchemyPendingResolution:
         query = (
             select(ArticleExtractionRunRecord.id)
             .join(
-                ParsedArticleRecord, ArticleExtractionRunRecord.article_id == ParsedArticleRecord.id
-            )
-            .join(SourceDocument, ParsedArticleRecord.document_id == SourceDocument.id)
-            .join(Source, SourceDocument.source_id == Source.id)
-            .join(
                 EntityMentionRecord,
                 EntityMentionRecord.extraction_run_id == ArticleExtractionRunRecord.id,
             )
             .where(
-                Source.base_url == source_base_url,
                 ArticleExtractionRunRecord.status == ExtractionRunStatus.SUCCEEDED.value,
                 ArticleExtractionRunRecord.extractor_name == versions.extractor_name,
                 ArticleExtractionRunRecord.extractor_version == versions.extractor_version,
@@ -55,4 +45,11 @@ class SqlAlchemyPendingResolution:
             .order_by(ArticleExtractionRunRecord.id)
         )
         with self._session_factory() as session:
-            return list(session.scalars(query).all())
+            articles = read.article_ids(session, source_base_url=source_base_url)
+            if not articles:
+                return []
+            return list(
+                session.scalars(
+                    query.where(any_of(ArticleExtractionRunRecord.article_id, articles))
+                ).all()
+            )

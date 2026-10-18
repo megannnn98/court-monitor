@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import PersonResolutionAiReviewRecord, PersonResolutionDecisionRecord
 from monitor_core.retry import retry
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.ai_context import build_review_context
@@ -41,6 +40,7 @@ from persons.resolution.review import (
     ResolutionReviewError,
 )
 from persons.resolution.service import DecisionStatus
+from persons.storage.models import PersonResolutionAiReviewRecord, PersonResolutionDecisionRecord
 
 logger = logging.getLogger("person_resolution")
 

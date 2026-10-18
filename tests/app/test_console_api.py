@@ -15,15 +15,15 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
+from analysis.service import GroupFollowers
+from analysis.storage.models import (
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityGroupRfMatchRecord,
-    EntityMentionRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityGroupRecord, EntityMentionRecord
 from web.app import app
 from web.dependencies import get_db
 
@@ -85,7 +85,7 @@ def _collected(session_factory: sessionmaker[Session]) -> tuple[int, int]:
         _person(session, seed, run, "Александру Моору", "Александр", "Моору")
         seed.event(run, "вынесли приговор", event_type="sentence", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     return arrest, sentence
 
 

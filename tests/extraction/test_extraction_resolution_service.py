@@ -4,22 +4,19 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityMentionRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-)
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from monitor_core.model import ParsedArticle, RawDocument
 from persons.models import PersonStatus
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.resolution_service import ExtractionResolutionService
+from persons.storage.models import PersonEventLinkRecord, PersonRecord
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.models import ExtractionRunStatus
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
+from processing.storage.models import EntityMentionRecord
 
 
 def _save_article(
@@ -49,7 +46,7 @@ def _save_article(
             text=text,
         ),
     )
-    from db.orm_models import ParsedArticleRecord
+    from ingestion.storage.models import ParsedArticleRecord
 
     with session_factory() as session:
         article_id = session.scalar(select(ParsedArticleRecord.id))

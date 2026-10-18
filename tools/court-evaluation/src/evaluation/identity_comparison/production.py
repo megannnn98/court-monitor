@@ -42,13 +42,14 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, text
+from sqlalchemy.orm import Session
 
 from evaluation.identity_comparison import annotation, labelling, real
 from evaluation.identity_comparison.rules import entity_of_mention
 from processing.answers import input_hash
 from processing.extraction.models import NAMED_TITLE_SOURCES
 from processing.extraction.normalizers import name_parts
-from processing.identity.collector import _ALIASES, MAX_FORMS, QUOTE_CONTEXT
+from processing.identity.collector import MAX_FORMS, QUOTE_CONTEXT, bracketed_aliases
 from processing.identity.disputes import EntityRef, find_pairs, merge_decided, pair_keys
 from processing.identity.grouping import (
     Entity,
@@ -399,8 +400,8 @@ def main() -> None:
             own = load_answers(args.answers)
             report["asked"] = ask_missing(list(missing.values()), quotes, args.answers, own)
             answers = {**answers, **own}
-        with real_engine.connect() as connection:
-            aliases = [(alias, named) for alias, named in connection.execute(_ALIASES)]
+        with Session(real_engine) as session:
+            aliases = bracketed_aliases(session)
         same_pairs, decided_pairs, overrides = operator_decisions(cache_engine)
         removed = removed_keys(cache_engine)
     finally:

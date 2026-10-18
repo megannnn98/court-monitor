@@ -10,8 +10,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityMentionRecord
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityMentionRecord
 from web.app import app
 from web.dependencies import get_db
 
@@ -46,7 +47,7 @@ def _case(session_factory: sessionmaker[Session]) -> None:
         }
         seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def test_a_removed_person_leaves_the_list_and_the_dossier_and_is_listed_as_removed(
@@ -77,7 +78,7 @@ def test_a_removal_is_taken_back_and_the_person_returns_at_the_next_rebuild(
         back = client.post("/api/v1/entities/removal", json={"key": PUTIN, "removed": False})
         listed = client.get("/api/v1/entities/removals").json()
         still_gone = client.get("/api/v1/entities", params={"role": "all"}).json()
-        EntityCollector(session_factory).run()
+        EntityCollector(session_factory, downstream=GroupFollowers()).run()
         returned = client.get("/api/v1/entities", params={"role": "all"}).json()
 
     assert back.json() == {"key": PUTIN, "name": "Путин Дмитрий", "removed": False}

@@ -10,11 +10,10 @@ from contextlib import contextmanager
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
+from analysis.storage.models import EntityGroupPoliticsRecord, EntityPoliticsDecisionRecord
+from processing.storage.models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
-    EntityPoliticsDecisionRecord,
     EntityRoleDecisionRecord,
 )
 from web.app import app

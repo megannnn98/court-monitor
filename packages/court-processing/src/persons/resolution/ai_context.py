@@ -7,22 +7,13 @@ reads as little as the question needs.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    Source,
-    SourceDocument,
-)
+from ingestion import read
 from persons.resolution.ai_review import (
     EVIDENCE_EXCERPTS_PER_SIDE,
     CandidateReviewContext,
@@ -32,6 +23,13 @@ from persons.resolution.ai_review import (
     MentionReviewContext,
 )
 from persons.resolution.models import PersonResolutionReason
+from persons.storage.models import PersonRecord, PersonResolutionDecisionRecord
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 # Characters of article text quoted around a mention: the sentence it appears in.
 QUOTE_RADIUS = 200
@@ -46,85 +44,77 @@ def _quote(text: str, start: int, end: int) -> str:
     return ("…" if left > 0 else "") + quote + ("…" if right < len(text) else "")
 
 
+# Stands in for an unknown date in the sort key; the flag before it already puts those last.
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
 def _article_source(session: Session, article_id: int) -> tuple[str | None, str | None]:
-    row = session.execute(
-        select(Source.name, SourceDocument.canonical_url)
-        .join(SourceDocument, SourceDocument.source_id == Source.id)
-        .join(ParsedArticleRecord, ParsedArticleRecord.document_id == SourceDocument.id)
-        .where(ParsedArticleRecord.id == article_id)
-    ).one_or_none()
-    return (None, None) if row is None else (row.name, row.canonical_url)
+    card = read.article_cards(session, [article_id]).get(article_id)
+    return (None, None) if card is None else (card.source_name, card.url)
+
+
+def _excerpt(article: read.StoredArticle, start: int, end: int) -> EvidenceExcerpt:
+    return EvidenceExcerpt(
+        article_id=article.id,
+        source_name=article.source_name,
+        url=article.url,
+        published_at=article.published_at,
+        text=f"{article.title}. {_quote(article.text, start, end)}",
+    ).trimmed()
+
+
+def _mention_rows(session: Session, condition: Any) -> list[Any]:
+    """(mention id, article id, start, end) of the mentions `condition` picks."""
+    return list(
+        session.execute(
+            select(
+                EntityMentionRecord.id,
+                ArticleExtractionRunRecord.article_id,
+                EntityMentionRecord.start_offset,
+                EntityMentionRecord.end_offset,
+            )
+            .join(
+                ArticleExtractionRunRecord,
+                ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
+            )
+            .where(condition)
+        ).all()
+    )
 
 
 def mention_evidence(session: Session, mention_id: int) -> tuple[EvidenceExcerpt, ...]:
     """The sentence the mention stands in, from its own article."""
-    row = session.execute(
-        select(
-            ParsedArticleRecord.id,
-            ParsedArticleRecord.title,
-            ParsedArticleRecord.text,
-            ParsedArticleRecord.published_at,
-            EntityMentionRecord.start_offset,
-            EntityMentionRecord.end_offset,
-        )
-        .join(
-            ArticleExtractionRunRecord,
-            ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
-        )
-        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
-        .where(EntityMentionRecord.id == mention_id)
-    ).one_or_none()
-    if row is None:
+    rows = _mention_rows(session, EntityMentionRecord.id == mention_id)
+    if not rows:
         return ()
-    source_name, url = _article_source(session, row.id)
-    return (
-        EvidenceExcerpt(
-            article_id=row.id,
-            source_name=source_name,
-            url=url,
-            published_at=row.published_at,
-            text=f"{row.title}. {_quote(row.text, row.start_offset, row.end_offset)}",
-        ).trimmed(),
-    )
+    _, article_id, start, end = rows[0]
+    article = read.stored_articles(session, [article_id]).get(article_id)
+    if article is None:
+        return ()
+    return (_excerpt(article, start, end),)
 
 
 def candidate_evidence(
     session: Session, person_id: int, *, limit: int = EVIDENCE_EXCERPTS_PER_SIDE
 ) -> tuple[EvidenceExcerpt, ...]:
     """Quotes of the person's own latest mentions: what the pipeline knows about them."""
-    rows = session.execute(
-        select(
-            ParsedArticleRecord.id,
-            ParsedArticleRecord.title,
-            ParsedArticleRecord.text,
-            ParsedArticleRecord.published_at,
-            EntityMentionRecord.start_offset,
-            EntityMentionRecord.end_offset,
-        )
-        .join(
-            ArticleExtractionRunRecord,
-            ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
-        )
-        .join(ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id)
-        .where(EntityMentionRecord.person_id == person_id)
-        .order_by(
-            ParsedArticleRecord.published_at.desc().nullslast(), EntityMentionRecord.id.desc()
-        )
-        .limit(limit)
-    ).all()
-    excerpts = []
-    for row in rows:
-        source_name, url = _article_source(session, row.id)
-        excerpts.append(
-            EvidenceExcerpt(
-                article_id=row.id,
-                source_name=source_name,
-                url=url,
-                published_at=row.published_at,
-                text=f"{row.title}. {_quote(row.text, row.start_offset, row.end_offset)}",
-            ).trimmed()
-        )
-    return tuple(excerpts)
+    rows = _mention_rows(session, EntityMentionRecord.person_id == person_id)
+    published = read.published_at(session, {row[1] for row in rows})
+    # Latest publication first (unknown dates last), then the latest mention.
+    latest = sorted(
+        (row for row in rows if row[1] in published),
+        key=lambda row: (
+            published[row[1]] is None,
+            -(published[row[1]] or _EPOCH).timestamp(),
+            -row[0],
+        ),
+    )[:limit]
+    articles = read.stored_articles(session, {row[1] for row in latest})
+    return tuple(
+        _excerpt(articles[article_id], start, end)
+        for _, article_id, start, end in latest
+        if article_id in articles
+    )
 
 
 def candidate_event_types(session: Session, person_id: int, *, limit: int = 10) -> tuple[str, ...]:

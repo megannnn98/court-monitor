@@ -25,16 +25,12 @@ from analysis.politics.classification import (
     verdict_of,
 )
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityMentionRecord,
-)
+from analysis.service import GroupFollowers
+from analysis.storage.models import AirtableKnownPersonRecord, EntityGroupPoliticsRecord
 from processing.identity.collector import EntityCollector
 from processing.junk.hold_reader import add_event
 from processing.roles.roles import quotes_of
+from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, EntityMentionRecord
 
 RF_PAGE = """<!doctype html><html>
 <div class="panel-heading"><h4>Физические лица</h4></div>
@@ -121,7 +117,7 @@ def _seed(
             _person(session, seed, run, surface, name)
             seed.event(run, text_[:10], event_type="sentence", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         session.execute(
             text("UPDATE entity_groups SET name = 'Олег Иванович Орлов' WHERE name = 'Олег Орлов'")
@@ -390,7 +386,7 @@ def test_whoever_an_article_read_by_a_model_alone_names_is_shown_wide_quotes_at_
             .tuples()
             .all()
         )
-        shown = quotes_of(session, list(ids.values()))
+        shown = quotes_of(session, list(ids.values()), GroupFollowers())
     classifier = ReadingClassifier()
 
     PoliticsFinder(session_factory, classifier=classifier).run()
@@ -431,7 +427,7 @@ def test_an_article_a_model_read_is_shown_once_beside_the_entity_s_other(
             select(EntityGroupRecord.id).where(EntityGroupRecord.name == "Пётр Котов")
         )
         assert group is not None
-        shown = quotes_of(session, [group])[group]
+        shown = quotes_of(session, [group], GroupFollowers())[group]
 
     # Wide, and not once more short: the second place is the other article's.
     assert FAR in shown[0] and shown[1] == "Суд продлил арест Петру Котову."

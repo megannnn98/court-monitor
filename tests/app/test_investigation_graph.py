@@ -14,8 +14,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import EntityMentionRecord
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityMentionRecord
 from web import investigation_graph
 from web.app import app
 from web.dependencies import get_db
@@ -137,7 +138,7 @@ def _seed(session_factory: sessionmaker[Session], *, arrests: int = 1) -> dict[s
                 ],
             )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory() as session:
         for key, group in session.execute(text("SELECT key, id FROM entity_groups")).all():
             ids[key] = group
@@ -402,7 +403,7 @@ def _told_again(session_factory: sessionmaker[Session], ids: dict[str, int]) -> 
                 ],
             )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def _mentioned(session_factory: sessionmaker[Session], key: str) -> None:
@@ -660,7 +661,7 @@ def test_a_person_is_named_by_the_key_that_survives_a_rebuild(
     with session_factory() as session:
         before = expand(session, f"person:{PETROV}")
         opened = expand(session, f"event:{ids['detention']}")
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         rebuilt = session.scalar(
@@ -713,6 +714,12 @@ def test_what_is_not_there_and_what_does_not_open(session_factory: sessionmaker[
                 expand(session, closed)
 
 
+# Statements of each read, the same for a person of one event and of six.
+INITIAL_QUERIES = 19
+PERSON_QUERIES = 11
+EVENT_QUERIES = 10
+
+
 def test_the_queries_do_not_grow_with_the_case(session_factory: sessionmaker[Session]) -> None:
     ids = _seed(session_factory, arrests=6)
 
@@ -726,9 +733,17 @@ def test_the_queries_do_not_grow_with_the_case(session_factory: sessionmaker[Ses
             work(session)
             return len(statements)
 
-    assert counted(lambda session: initial_graph(session, PETROV)) == 3
-    assert counted(lambda session: expand(session, f"event:{ids['detention']}")) == 2
-    assert counted(lambda session: expand(session, f"person:{PETROV}")) == 2
+    # A fixed number of round trips, whatever the case: each owner's data is read once
+    # (ADR 0031) — the person, the events and their reports, the publications.
+    sizes = {
+        name: (
+            counted(lambda session, name=name: initial_graph(session, name)),
+            counted(lambda session, name=name: expand(session, f"person:{name}")),
+        )
+        for name in (PETROV, IVANOV)
+    }
+    assert sizes[PETROV] == sizes[IVANOV] == (INITIAL_QUERIES, PERSON_QUERIES)
+    assert counted(lambda session: expand(session, f"event:{ids['detention']}")) == EVENT_QUERIES
 
 
 @contextmanager

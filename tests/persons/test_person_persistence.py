@@ -4,20 +4,20 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.models import AliasOrigin, MergeStatus, PersonStatus
+from persons.persistence import PersonMergeConflictError, SqlAlchemyPersonPersistence
+from persons.storage.models import (
     PersonAliasRecord,
     PersonEventLinkRecord,
     PersonMergeRecord,
     PersonRecord,
-    Source,
-    SourceDocument,
 )
-from persons.models import AliasOrigin, MergeStatus, PersonStatus
-from persons.persistence import PersonMergeConflictError, SqlAlchemyPersonPersistence
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 
 def test_create_person_persists_and_returns_id(

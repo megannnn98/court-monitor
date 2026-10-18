@@ -21,23 +21,24 @@ unless one side could be either of two people.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
+from ingestion import read
+from processing.extraction.name_frequency import lookup_gender
+from processing.identity.downstream import IdentityDownstream
+from processing.identity.grouping import Entity, _bases, split_key
+from processing.storage.models import (
     EntityGroupChargeRecord,
     EntityGroupMentionRecord,
     EntityGroupRecord,
-    EntityGroupRfMatchRecord,
     EntityGroupRoleRecord,
     EntityPairDecisionRecord,
 )
-from processing.extraction.name_frequency import lookup_gender
-from processing.identity.grouping import Entity, _bases, split_key
 
 SAME = "same"
 DIFFERENT = "different"
@@ -286,41 +287,38 @@ def _sum(first: Mapping[str, int], second: Mapping[str, int]) -> dict[str, int]:
     return dict(Counter(first) + Counter(second))
 
 
+# The articles of a group's mentions; their dates are the ingestion's (`ingestion.read`).
 _PUBLICATIONS = text(
     """
-    SELECT count(DISTINCT r.article_id), max(a.published_at)
+    SELECT DISTINCT r.article_id
     FROM entity_group_mentions gm
     JOIN entity_mentions m ON m.id = gm.mention_id
     JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
     WHERE gm.group_id = :group
     """
 )
 
 
-def merge_groups(session: Session, first: EntityGroupRecord, second: EntityGroupRecord) -> int:
+def merge_groups(
+    session: Session,
+    first: EntityGroupRecord,
+    second: EntityGroupRecord,
+    *,
+    downstream: IdentityDownstream,
+) -> int:
     """Merge two entities in the caller's transaction; the id of the one kept.
 
-    Its mentions, Criminal Code articles and list matches join the kept one, which
-    keeps the stronger role of the two; the other is deleted."""
+    Its mentions and Criminal Code articles join the kept one, as does what the later
+    stages keep of it (`downstream`: the list matches); it keeps the stronger role of
+    the two; the other is deleted."""
     keep, drop = (
         (first, second)
         if _keeps_first((first.key, first.mention_count), (second.key, second.mention_count))
         else (second, first)
     )
-    for table in (EntityGroupMentionRecord, EntityGroupChargeRecord, EntityGroupRfMatchRecord):
+    for table in (EntityGroupMentionRecord, EntityGroupChargeRecord):
         session.execute(update(table).where(table.group_id == drop.id).values(group_id=keep.id))
-    # One list entry matched twice: the stronger level stays.
-    session.execute(
-        text(
-            """
-            DELETE FROM entity_group_rf_matches WHERE group_id = :keep AND id NOT IN (
-                SELECT DISTINCT ON (entry_id) id FROM entity_group_rf_matches
-                WHERE group_id = :keep ORDER BY entry_id, (level = 'full') DESC, id)
-            """
-        ),
-        {"keep": keep.id},
-    )
+    downstream.groups_merged(session, keep=keep.id, drop=drop.id)
     kept_role = session.get(EntityGroupRoleRecord, keep.id)
     dropped_role = session.get(EntityGroupRoleRecord, drop.id)
     if dropped_role is not None and (
@@ -343,9 +341,10 @@ def merge_groups(session: Session, first: EntityGroupRecord, second: EntityGroup
         session.scalar(select(func.count()).where(EntityGroupMentionRecord.group_id == keep.id))
         or 0
     )
-    publications, latest = session.execute(_PUBLICATIONS, {"group": keep.id}).one()
-    keep.article_count = int(publications or 0)
-    keep.last_published_at = latest
+    published = read.published_at(session, session.scalars(_PUBLICATIONS, {"group": keep.id}).all())
+    dates = [moment for moment in published.values() if moment is not None]
+    keep.article_count = len(published)
+    keep.last_published_at = max(dates) if dates else None
     session.execute(delete(EntityGroupRecord).where(EntityGroupRecord.id == drop.id))
     return keep.id
 
@@ -375,7 +374,13 @@ def reset_decisions(session: Session) -> int:
 
 
 def decide(
-    session: Session, first_key: str, second_key: str, decision: str, *, source: str = MANUAL
+    session: Session,
+    first_key: str,
+    second_key: str,
+    decision: str,
+    *,
+    downstream: IdentityDownstream,
+    source: str = MANUAL,
 ) -> int | None:
     """Record a decision in the caller's transaction; merge at once when «same». The id
     of the merged entity, or None."""
@@ -397,15 +402,18 @@ def decide(
     ).all()
     if len(groups) != 2:
         return None
-    return merge_groups(session, groups[0], groups[1])
+    return merge_groups(session, groups[0], groups[1], downstream=downstream)
 
 
-def merge_clear_pairs(session: Session, *, listed_level: str) -> Counter[str]:
+def merge_clear_pairs(
+    session: Session, *, listed: Collection[int], downstream: IdentityDownstream
+) -> Counter[str]:
     """Merge, in the caller's transaction, every undecided pair that leaves no choice;
     how many were merged, by source.
 
     A pair leaves no choice when each side is in no other pair and either a side is on
-    the list (a match of `listed_level`: whoever it is, it is on the list) or it is a
+    the list (`listed`: the groups whose match leaves no doubt — whoever it is, it is on
+    the list) or it is a
     name without a patronymic beside the one full name it can be (with the one region of
     that name's cards). Someone who could be either of two people («Денис Попов» beside
     four Денис Попов) stays for a person to decide."""
@@ -420,13 +428,6 @@ def merge_clear_pairs(session: Session, *, listed_level: str) -> Counter[str]:
             )
         ).all()
     ]
-    listed = set(
-        session.scalars(
-            select(EntityGroupRfMatchRecord.group_id).where(
-                EntityGroupRfMatchRecord.level == listed_level
-            )
-        )
-    )
     pairs = find_pairs(refs, decided_pairs(session))
     seen = Counter(ref.id for pair in pairs for ref in (pair.left, pair.right))
     merged: Counter[str] = Counter()
@@ -439,6 +440,6 @@ def merge_clear_pairs(session: Session, *, listed_level: str) -> Counter[str]:
             source = BY_REGION
         else:
             continue
-        decide(session, pair.left.key, pair.right.key, SAME, source=source)
+        decide(session, pair.left.key, pair.right.key, SAME, source=source, downstream=downstream)
         merged[source] += 1
     return merged

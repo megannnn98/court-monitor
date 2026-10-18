@@ -6,20 +6,15 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from support.query_counter import count_queries
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
+from analysis.storage.models import (
     PersecutionClassificationRecord,
-    PersonAliasRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
     RosfinMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
-    Source,
-    SourceDocument,
 )
+from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.storage.models import PersonAliasRecord, PersonEventLinkRecord, PersonRecord
+from processing.storage.models import ArticleExtractionRunRecord, ExtractedEventRecord
 from results.candidates.models import RosfinmonitoringStatus
 from results.candidates.service import CandidateQueryService
 

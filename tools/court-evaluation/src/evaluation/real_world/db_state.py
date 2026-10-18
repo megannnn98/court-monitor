@@ -11,26 +11,15 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from analysis.persecution.queries import latest_persecution_classification_ids
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ExtractedEventRecord,
-    MonitoringFindingRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    RosfinMatchRecord,
-    Source,
-    SourceDocument,
-)
+from analysis import testing as analysis_testing
 from evaluation.real_world.models import article_key
+from ingestion import testing as ingestion_testing
 from ingestion.sources.source_registry import SOURCES
+from persons import testing as persons_testing
+from processing import testing as processing_testing
+from results import testing as results_testing
 
 _SOURCE_NAMES_BY_BASE_URL = {definition.base_url: name for name, definition in SOURCES.items()}
 
@@ -106,49 +95,18 @@ def load_pipeline_state(
 ) -> PipelineState:
     """Articles (optionally only `article_keys`), their latest successful extraction, links."""
     state = PipelineState()
-    for article_id, base_url, external_id, title, text, url in session.execute(
-        select(
-            ParsedArticleRecord.id,
-            Source.base_url,
-            SourceDocument.external_id,
-            ParsedArticleRecord.title,
-            ParsedArticleRecord.text,
-            SourceDocument.canonical_url,
-        )
-        .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
-        .join(Source, Source.id == SourceDocument.source_id)
-    ).all():
+    for article_id, base_url, external_id, title, text, url in ingestion_testing.every_article(
+        session
+    ):
         key = article_key(source_name_for(base_url), external_id)
         if article_keys is None or key in article_keys:
             state.articles[key] = DbArticle(article_id, key, title, text, url)
     key_by_article = {article.article_id: article.key for article in state.articles.values()}
 
-    latest_runs = (
-        select(func.max(ArticleExtractionRunRecord.id))
-        .where(ArticleExtractionRunRecord.status == "succeeded")
-        .group_by(ArticleExtractionRunRecord.article_id)
-    )
-    run_articles = dict(
-        session.execute(
-            select(ArticleExtractionRunRecord.id, ArticleExtractionRunRecord.article_id).where(
-                ArticleExtractionRunRecord.id.in_(latest_runs),
-                ArticleExtractionRunRecord.article_id.in_(list(key_by_article)),
-            )
-        )
-        .tuples()
-        .all()
-    )
+    run_articles = processing_testing.latest_succeeded_runs(session, list(key_by_article))
 
     decisions: dict[int, DbDecision] = {}
-    for mention_id, action, status, selected, candidates in session.execute(
-        select(
-            PersonResolutionDecisionRecord.mention_id,
-            PersonResolutionDecisionRecord.action,
-            PersonResolutionDecisionRecord.status,
-            PersonResolutionDecisionRecord.selected_person_id,
-            PersonResolutionDecisionRecord.candidates,
-        ).order_by(PersonResolutionDecisionRecord.id)
-    ).all():
+    for mention_id, action, status, selected, candidates in persons_testing.decision_rows(session):
         decisions[mention_id] = DbDecision(
             action=action,
             status=status,
@@ -156,74 +114,33 @@ def load_pipeline_state(
             candidate_person_ids=stored_candidate_person_ids(candidates),
         )
 
-    for mention_id, run_id, start, end, surface, person_id in session.execute(
-        select(
-            EntityMentionRecord.id,
-            EntityMentionRecord.extraction_run_id,
-            EntityMentionRecord.start_offset,
-            EntityMentionRecord.end_offset,
-            EntityMentionRecord.surface_text,
-            EntityMentionRecord.person_id,
-        )
-        .where(
-            EntityMentionRecord.entity_type == "person",
-            EntityMentionRecord.extraction_run_id.in_(list(run_articles)),
-        )
-        .order_by(EntityMentionRecord.id)
-    ).all():
+    for (
+        mention_id,
+        run_id,
+        start,
+        end,
+        surface,
+        person_id,
+    ) in processing_testing.person_mentions_of_runs(session, list(run_articles)):
         key = key_by_article[run_articles[run_id]]
         state.mentions[key].append(
             DbMention(mention_id, key, start, end, surface, person_id, decisions.get(mention_id))
         )
 
     links: dict[int, set[int]] = defaultdict(set)
-    for event_id, person_id in session.execute(
-        select(PersonEventLinkRecord.event_id, PersonEventLinkRecord.person_id)
-    ).all():
+    for event_id, person_id in persons_testing.event_links(session):
         links[event_id].add(person_id)
-    for event_id, run_id, event_type, start, end in session.execute(
-        select(
-            ExtractedEventRecord.id,
-            ExtractedEventRecord.extraction_run_id,
-            ExtractedEventRecord.event_type,
-            ExtractedEventRecord.start_offset,
-            ExtractedEventRecord.end_offset,
-        )
-        .where(ExtractedEventRecord.extraction_run_id.in_(list(run_articles)))
-        .order_by(ExtractedEventRecord.id)
-    ).all():
+    for event_id, run_id, event_type, start, end in processing_testing.events_of_runs(
+        session, list(run_articles)
+    ):
         key = key_by_article[run_articles[run_id]]
         state.events[key].append(
             DbEvent(event_id, key, event_type, start, end, frozenset(links.get(event_id, set())))
         )
 
-    state.person_status = dict(
-        session.execute(select(PersonRecord.id, PersonRecord.status)).tuples().all()
-    )
-    state.classifications = dict(
-        session.execute(
-            select(
-                PersecutionClassificationRecord.person_id, PersecutionClassificationRecord.status
-            ).where(PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()))
-        )
-        .tuples()
-        .all()
-    )
+    state.person_status = persons_testing.person_statuses(session)
+    state.classifications = analysis_testing.latest_classification_statuses(session)
     if snapshot_id is not None:
-        state.rf_matches = dict(
-            session.execute(
-                select(RosfinMatchRecord.person_id, RosfinMatchRecord.status).where(
-                    RosfinMatchRecord.snapshot_id == snapshot_id
-                )
-            )
-            .tuples()
-            .all()
-        )
-    state.active_findings = set(
-        session.scalars(
-            select(MonitoringFindingRecord.person_id).where(
-                MonitoringFindingRecord.active.is_(True)
-            )
-        ).all()
-    )
+        state.rf_matches = analysis_testing.match_statuses(session, snapshot_id)
+    state.active_findings = results_testing.active_finding_person_ids(session)
     return state

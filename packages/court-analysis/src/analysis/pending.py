@@ -16,52 +16,21 @@ changed person is recomputed once more (idempotently) by a later run.
 
 from __future__ import annotations
 
-from datetime import timedelta
-from typing import Any
+from datetime import datetime, timedelta
 
-from sqlalchemy import Select, Subquery, and_, func, or_, select, union_all
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    PersecutionClassificationRecord,
-    PersonAliasRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    RosfinMatchRecord,
-)
-from persons.models import PersonStatus
+from analysis.storage.models import PersecutionClassificationRecord, RosfinMatchRecord
+from persons import read as person_read
 
 # Longer than any ER / review transaction plus clock skew between hosts.
 EVIDENCE_SETTLE_INTERVAL = timedelta(minutes=10)
 
 
-def _person_change_stamps(*, settle: timedelta) -> Subquery:
-    """(person_id, changed_at): newest evidence change per person, plus the settle interval."""
-    decision = PersonResolutionDecisionRecord
-    parts: list[Select[Any]] = [
-        select(PersonRecord.id.label("person_id"), PersonRecord.created_at.label("changed_at")),
-        select(PersonRecord.id, PersonRecord.updated_at).where(
-            PersonRecord.updated_at.is_not(None)
-        ),
-        select(PersonEventLinkRecord.person_id, PersonEventLinkRecord.created_at),
-        select(PersonAliasRecord.person_id, PersonAliasRecord.created_at),
-        select(decision.selected_person_id, decision.created_at).where(
-            decision.selected_person_id.is_not(None)
-        ),
-        select(decision.selected_person_id, decision.reviewed_at).where(
-            decision.selected_person_id.is_not(None), decision.reviewed_at.is_not(None)
-        ),
-    ]
-    stamps = union_all(*parts).subquery()
-    return (
-        select(
-            stamps.c.person_id,
-            (func.max(stamps.c.changed_at) + settle).label("changed_at"),
-        )
-        .group_by(stamps.c.person_id)
-        .subquery()
-    )
+def _older(written: datetime | None, changed: datetime | None) -> bool:
+    """`written < changed` as SQL reads it: an unknown time is never older."""
+    return written is not None and changed is not None and written < changed
 
 
 class SqlAlchemyPendingPersonAnalysis:
@@ -77,30 +46,26 @@ class SqlAlchemyPendingPersonAnalysis:
     def persons_pending_classification(
         self, *, classifier_name: str, classifier_version: str
     ) -> list[int]:
-        changed = _person_change_stamps(settle=self._settle)
-        classification = PersecutionClassificationRecord
-        query = (
-            select(PersonRecord.id)
-            .join(changed, changed.c.person_id == PersonRecord.id)
-            .outerjoin(
-                classification,
-                and_(
-                    classification.person_id == PersonRecord.id,
-                    classification.classifier_name == classifier_name,
-                    classification.classifier_version == classifier_version,
-                ),
-            )
-            .where(
-                PersonRecord.status == PersonStatus.ACTIVE.value,
-                or_(
-                    classification.id.is_(None),
-                    classification.classified_at < changed.c.changed_at,
-                ),
-            )
-            .order_by(PersonRecord.id)
-        )
         with self._session_factory() as session:
-            return list(session.scalars(query).all())
+            changed = person_read.active_evidence_changes(session, settle=self._settle)
+            classified = dict(
+                session.execute(
+                    select(
+                        PersecutionClassificationRecord.person_id,
+                        PersecutionClassificationRecord.classified_at,
+                    ).where(
+                        PersecutionClassificationRecord.classifier_name == classifier_name,
+                        PersecutionClassificationRecord.classifier_version == classifier_version,
+                    )
+                )
+                .tuples()
+                .all()
+            )
+        return [
+            person_id
+            for person_id, at in changed.items()
+            if person_id not in classified or _older(classified[person_id], at)
+        ]
 
     def persons_pending_rf_match(
         self, *, snapshot_id: int, matcher_name: str, matcher_version: str
@@ -108,27 +73,24 @@ class SqlAlchemyPendingPersonAnalysis:
         """Active persons without a match for the snapshot, with a match older than their
         evidence, or with a match produced by another matcher (version) — including rows
         written before the version was recorded (NULL)."""
-        changed = _person_change_stamps(settle=self._settle)
-        query = (
-            select(PersonRecord.id)
-            .join(changed, changed.c.person_id == PersonRecord.id)
-            .outerjoin(
-                RosfinMatchRecord,
-                and_(
-                    RosfinMatchRecord.person_id == PersonRecord.id,
-                    RosfinMatchRecord.snapshot_id == snapshot_id,
-                ),
-            )
-            .where(
-                PersonRecord.status == PersonStatus.ACTIVE.value,
-                or_(
-                    RosfinMatchRecord.id.is_(None),
-                    RosfinMatchRecord.matched_at < changed.c.changed_at,
-                    RosfinMatchRecord.matcher_name.is_distinct_from(matcher_name),
-                    RosfinMatchRecord.matcher_version.is_distinct_from(matcher_version),
-                ),
-            )
-            .order_by(PersonRecord.id)
-        )
         with self._session_factory() as session:
-            return list(session.scalars(query).all())
+            changed = person_read.active_evidence_changes(session, settle=self._settle)
+            matches = {
+                person_id: (matched_at, name, version)
+                for person_id, matched_at, name, version in session.execute(
+                    select(
+                        RosfinMatchRecord.person_id,
+                        RosfinMatchRecord.matched_at,
+                        RosfinMatchRecord.matcher_name,
+                        RosfinMatchRecord.matcher_version,
+                    ).where(RosfinMatchRecord.snapshot_id == snapshot_id)
+                ).all()
+            }
+        return [
+            person_id
+            for person_id, at in changed.items()
+            if person_id not in matches
+            or _older(matches[person_id][0], at)
+            or matches[person_id][1] != matcher_name
+            or matches[person_id][2] != matcher_version
+        ]

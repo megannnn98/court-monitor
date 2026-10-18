@@ -3,14 +3,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-)
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from ingestion.storage.models import ParsedArticleRecord
 from monitor_core.model import ParsedArticle, RawDocument
 from processing.extraction.documents import SqlAlchemyExtractionDocumentRepository
 from processing.extraction.events import RuleBasedEventExtractor
@@ -19,6 +13,12 @@ from processing.extraction.models import ExtractionRunStatus
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
 from processing.extraction.pipeline import ExtractionPipeline
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 
 def _save_article(

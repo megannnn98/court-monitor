@@ -3,7 +3,7 @@ over `parsed_articles.search_vector` (`to_tsvector('russian', text)`, GIN-indexe
 
 The Russian stemmer reads a declined name as its stem, so «Марии Бонцлер» finds «Мария
 Бонцлер» and «Сидорова» finds «Сидоров»; the order of the words does not matter. Read
-only; no table of its own.
+only: the ingestion's public search of its articles (ADR 0031).
 """
 
 from __future__ import annotations
@@ -145,3 +145,50 @@ def search_publications(
             )
         )
     return found
+
+
+# The marks around a found word: the page turns them into a highlight.
+MARK_OPEN, MARK_CLOSE = "[[", "]]"
+_HEADLINE = f"StartSel={MARK_OPEN}, StopSel={MARK_CLOSE}, MaxWords=40, MinWords=15, MaxFragments=2"
+
+
+@dataclass(frozen=True)
+class Headline:
+    """A publication found by its words, with the fragments that hold them marked."""
+
+    article_id: int
+    title: str | None
+    source: str
+    published_at: datetime | None
+    snippet: str
+
+
+def headlines(session: Session, words: Sequence[str], *, limit: int) -> tuple[int, list[Headline]]:
+    """How many publications hold any of the words, and the `limit` best ranked: the more
+    of the words, the higher (then the latest, then the lower id)."""
+    query = " || ".join(f"plainto_tsquery('russian', :w{index})" for index in range(len(words)))
+    rows = session.execute(
+        text(
+            f"""
+            SELECT a.id, a.title, a.published_at, s.name AS source,
+                   ts_headline('russian', a.text, q.query, :headline) AS snippet,
+                   count(*) OVER () AS total
+            FROM parsed_articles a
+            JOIN source_documents d ON d.id = a.document_id
+            JOIN sources s ON s.id = d.source_id
+            CROSS JOIN (SELECT {query} AS query) q
+            WHERE a.search_vector @@ q.query
+            ORDER BY ts_rank(a.search_vector, q.query) DESC, a.published_at DESC NULLS LAST, a.id
+            LIMIT :found
+            """
+        ),
+        {
+            **{f"w{index}": word for index, word in enumerate(words)},
+            "headline": _HEADLINE,
+            "found": limit,
+        },
+    ).all()
+    return (
+        rows[0].total if rows else 0,
+        [Headline(row.id, row.title, row.source, row.published_at, row.snippet) for row in rows],
+    )

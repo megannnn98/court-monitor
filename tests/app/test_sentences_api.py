@@ -11,7 +11,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import ArticleSentenceRecord
+from processing.storage.models import ArticleSentenceRecord
 from web.app import app
 from web.dependencies import get_db
 

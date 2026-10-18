@@ -12,10 +12,10 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import MonitoringRunRecord, OperatorOperationRunRecord
 from monitor_core.errors import ParseError
 from orchestrator.models import MonitoringStage, MonitoringTrigger
 from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.storage.models import MonitoringRunRecord, OperatorOperationRunRecord
 from web.app import app
 from web.dependencies import get_db
 

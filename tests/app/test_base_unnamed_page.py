@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,

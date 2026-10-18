@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.operator_base.jurisdiction import CourtHint, CourtHints, Jurisdiction
-from db.orm_models import AirtableKnownPersonRecord
+from analysis.storage.models import AirtableKnownPersonRecord
 from web.ui.court_hints import courts_html
 
 VOVS = "2-й Восточный окружной военный суд"

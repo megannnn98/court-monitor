@@ -15,22 +15,23 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
+from analysis.service import GroupFollowers
+from analysis.storage.models import EntityGroupPoliticsRecord
 from application import build_investigation_service, build_results_service
 from cli.app import main
 from cli.context import CliContext
 from cli.investigation import _lines as investigation_lines
-from db.orm_models import (
+from ingestion.storage.models import ParsedArticleRecord
+from investigation.models import InvestigationResult
+from investigation.scenarios.person_dossier import NOT_FOUND
+from processing.identity.service import IdentityService
+from processing.storage.models import (
     EntityGroupChargeRecord,
-    EntityGroupPoliticsRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityMentionRecord,
     ExtractedEventRecord,
-    ParsedArticleRecord,
 )
-from investigation.models import InvestigationResult
-from investigation.scenarios.person_dossier import NOT_FOUND
-from processing.identity.service import IdentityService
 from results.dossier import QUOTE_CONTEXT
 from web.app import app
 from web.dependencies import get_db
@@ -67,7 +68,7 @@ def _seed(session_factory: sessionmaker[Session], *, verdicts: bool = True) -> N
             seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
         seed.article(source, external_id="exhibition", title="exhibition", text=EXHIBITION)
         session.commit()
-    IdentityService().rebuild_groups(session_factory)
+    IdentityService(downstream=GroupFollowers()).rebuild_groups(session_factory)
     if not verdicts:
         return
     with session_factory.begin() as session:

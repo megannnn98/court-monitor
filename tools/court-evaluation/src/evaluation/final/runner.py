@@ -17,26 +17,18 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
+from analysis import testing as analysis_testing
 from analysis.persecution.models import PersecutionClassificationStatus
-from analysis.persecution.queries import latest_persecution_classification_ids
 from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipeline
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
 from application import build_monitoring_service
 from db.database import create_session_factory
-from db.maintenance import require_disposable_database, truncate_disposable_tables
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    MonitoringFindingRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonResolutionDecisionRecord,
-    RosfinMatchRecord,
-    SourceDocument,
-)
+from db.maintenance import require_disposable_database
+from evaluation.disposable import wipe
 from evaluation.final.corpus import (
     RF_NO_MATCH_RECORD,
     RF_NO_SNAPSHOT,
@@ -47,9 +39,13 @@ from evaluation.final.corpus import (
 )
 from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
+from ingestion import read
 from orchestrator.models import MonitoringSettings
+from persons import testing as persons_testing
 from persons.persistence import SqlAlchemyPersonPersistence
+from processing import testing as processing_testing
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from results import testing as results_testing
 from results.candidates.models import RosfinmonitoringStatus
 from results.candidates.service import CandidateQueryService
 
@@ -94,11 +90,11 @@ class FinalEvaluationRunner:
         for case in corpus.cases:
             logger.info("event=final_evaluation_case_started case=%s", case.id)
             results.append(self.run_case(case))
-        truncate_disposable_tables(self._engine)
+        wipe(self._engine)
         return results
 
     def run_case(self, case: FinalCase) -> CaseResult:
-        truncate_disposable_tables(self._engine)
+        wipe(self._engine)
         session_factory = self._session_factory
         result = CaseResult(
             case_id=case.id, categories=case.categories, known_limitation=case.known_limitation
@@ -154,22 +150,12 @@ class FinalEvaluationRunner:
     def _any_person_requires_review(self, snapshot_id: int | None) -> bool:
         """A classification or a Rosfinmonitoring match of the case left for a person to settle."""
         with self._session_factory() as session:
-            unsettled = session.scalar(
-                select(func.count(PersecutionClassificationRecord.id)).where(
-                    PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
-                    PersecutionClassificationRecord.status.in_(_PERSECUTION_REVIEW),
-                )
+            unsettled = analysis_testing.unsettled_count(
+                session,
+                persecution_statuses=_PERSECUTION_REVIEW,
+                snapshot_id=snapshot_id,
+                match_statuses=_RF_REVIEW,
             )
-            if snapshot_id is not None:
-                unsettled = (unsettled or 0) + (
-                    session.scalar(
-                        select(func.count(RosfinMatchRecord.id)).where(
-                            RosfinMatchRecord.snapshot_id == snapshot_id,
-                            RosfinMatchRecord.status.in_(_RF_REVIEW),
-                        )
-                    )
-                    or 0
-                )
         return bool(unsettled)
 
     # -- fixtures ---------------------------------------------------------------------------
@@ -208,38 +194,16 @@ class FinalEvaluationRunner:
 
     @staticmethod
     def _load_state(session: Session, state: _CaseState) -> None:
-        rows = session.execute(
-            select(
-                SourceDocument.external_id,
-                EntityMentionRecord.surface_text,
-                EntityMentionRecord.id,
-                EntityMentionRecord.person_id,
-            )
-            .join(
-                ArticleExtractionRunRecord,
-                ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
-            )
-            .join(
-                ParsedArticleRecord, ParsedArticleRecord.id == ArticleExtractionRunRecord.article_id
-            )
-            .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
-            .where(EntityMentionRecord.entity_type == "person")
-            .order_by(EntityMentionRecord.id)
-        ).all()
+        mentions = processing_testing.person_mentions(session)
+        external = read.external_ids(session, {article for article, _, _, _ in mentions})
         state.mentions = [
-            _MentionRow(article=article, surface=surface, mention_id=mention_id, person_id=person)
-            for article, surface, mention_id, person in rows
+            _MentionRow(
+                article=external[article], surface=surface, mention_id=mention_id, person_id=person
+            )
+            for article, surface, mention_id, person in mentions
+            if article in external
         ]
-        state.decisions = {
-            mention_id: (action, status)
-            for mention_id, action, status in session.execute(
-                select(
-                    PersonResolutionDecisionRecord.mention_id,
-                    PersonResolutionDecisionRecord.action,
-                    PersonResolutionDecisionRecord.status,
-                )
-            ).all()
-        }
+        state.decisions = persons_testing.resolution_decisions(session)
 
     # -- scoring ----------------------------------------------------------------------------
 
@@ -344,45 +308,23 @@ class FinalEvaluationRunner:
         result: CaseResult,
     ) -> None:
         person_ids = [person for person in person_by_identity.values() if person is not None]
-        classifications = dict(
-            session.execute(
-                select(
-                    PersecutionClassificationRecord.person_id,
-                    PersecutionClassificationRecord.status,
-                ).where(
-                    PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()),
-                    PersecutionClassificationRecord.person_id.in_(person_ids),
-                )
-            )
-            .tuples()
-            .all()
-        )
+        classifications = analysis_read.latest_classification_statuses(session, person_ids)
         matches: dict[int, str] = {}
         candidates: set[int] = set()
         if snapshot_id is not None:
-            matches = dict(
-                session.execute(
-                    select(RosfinMatchRecord.person_id, RosfinMatchRecord.status).where(
-                        RosfinMatchRecord.snapshot_id == snapshot_id,
-                        RosfinMatchRecord.person_id.in_(person_ids),
-                    )
-                )
-                .tuples()
-                .all()
-            )
+            matches = {
+                person_id: match.status
+                for person_id, match in analysis_read.person_matches(
+                    session, snapshot_id, person_ids
+                ).items()
+            }
             candidates = {
                 candidate.person_id
                 for candidate in CandidateQueryService(session)
                 .get_candidates(snapshot_id, limit=None)
                 .candidates
             }
-        findings = set(
-            session.scalars(
-                select(MonitoringFindingRecord.person_id).where(
-                    MonitoringFindingRecord.active.is_(True)
-                )
-            ).all()
-        )
+        findings = results_testing.active_finding_person_ids(session)
 
         for key, identity in case.identities.items():
             person_id = person_by_identity.get(key)

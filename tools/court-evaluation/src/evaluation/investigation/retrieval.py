@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from evaluation.investigation.golden import GoldenSet, PersonCase
 from evaluation.investigation.metrics import mean, ndcg_at, recall_at, reciprocal_rank
-from results import dossier, search
+from ingestion import fulltext
+from results import dossier
 
 DEPTH = 20
 
@@ -74,7 +75,8 @@ def stored_like(session: Session) -> Ranker:
 def lexical(session: Session) -> Ranker:
     def rank(query: str) -> list[int]:
         return [
-            item.article_id for item in search.search_publications(session, name=query, limit=DEPTH)
+            item.article_id
+            for item in fulltext.search_publications(session, name=query, limit=DEPTH)
         ]
 
     return rank

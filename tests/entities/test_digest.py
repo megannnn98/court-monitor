@@ -9,14 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
+from analysis.service import GroupFollowers
+from processing.evidence.digest import DigestAnswer, DigestFinder, figurant_titles
+from processing.identity.collector import EntityCollector
+from processing.storage.models import (
     ArticleDigestAnswerRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityMentionRecord,
 )
-from processing.evidence.digest import DigestAnswer, DigestFinder, figurant_titles
-from processing.identity.collector import EntityCollector
 
 
 def _person(session: Session, seed: DatabaseSeeder, run: int, surface: str, name: str) -> int:
@@ -52,7 +53,7 @@ def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:
         _person(session, seed, run, "Фёдор Сирош", "Фёдор Сирош")
         seed.event(run, sirosh_text[:10], event_type="sentence", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         for group_id, name in session.execute(select(EntityGroupRecord.id, EntityGroupRecord.name)):
             role = "mentioned" if name == "Фёдор Сирош" else "figurant"
@@ -83,7 +84,7 @@ def test_only_figurants_sources_are_offered(session_factory: sessionmaker[Sessio
     article_ids = _seed(session_factory)
 
     with session_factory() as session:
-        titles = figurant_titles(session)
+        titles = figurant_titles(session, GroupFollowers())
 
     # Сирош is «mentioned», not a figurant: his article is not a source to classify.
     assert titles == {article_ids["digest"]: "Главное за день"}

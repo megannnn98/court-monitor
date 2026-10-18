@@ -13,6 +13,8 @@ dependencies = [
     "langgraph>=1.0",
     "pydantic>=2.11.0",
     "pymorphy3>=2.0.6",
+    # Its own table, `investigation_runs` (`investigation.storage`, ADR 0031).
+    "sqlalchemy>=2.0,<3.0",
 ]
 
 [build-system]

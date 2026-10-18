@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from db.orm_models import ReviewRecordModel
+from persons.storage.models import ReviewRecordModel
 
 
 class ReviewStatus:

@@ -26,11 +26,10 @@ from typing import Protocol
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ArticleDigestAnswerRecord
 from llm.chat import (
     OPENROUTER_MODEL,
     OPENROUTER_URL,
@@ -43,7 +42,9 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
-from processing.evidence.publications import person_evidence_cte
+from processing.evidence.publications import person_evidence
+from processing.identity.downstream import IdentityDownstream
+from processing.storage.models import ArticleDigestAnswerRecord, EntityGroupRoleRecord
 
 logger = logging.getLogger("entities")
 
@@ -176,22 +177,15 @@ def digest_classifier_from_env(env: Mapping[str, str] | None = None) -> DigestCl
     )
 
 
-_FIGURANT_TITLES = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT DISTINCT article_id AS id, title
-    FROM person_evidence pe
-    JOIN entity_group_roles r ON r.group_id = pe.group_id AND r.role = 'figurant'
-    """
-)
-
-
-def figurant_titles(session: Session) -> dict[int, str]:
+def figurant_titles(session: Session, downstream: IdentityDownstream) -> dict[int, str]:
     """Every article a current figurant's evidence points to: what «Публикации» on
     `/ui/political` might show as a source."""
+    figurants = session.scalars(
+        select(EntityGroupRoleRecord.group_id).where(EntityGroupRoleRecord.role == "figurant")
+    ).all()
     return {
-        article_id: title
-        for article_id, title in session.execute(_FIGURANT_TITLES, {"context": 0}).all()
+        item.article_id: item.title
+        for item in person_evidence(session, downstream, groups=figurants, quotes=False)
     }
 
 

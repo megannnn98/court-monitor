@@ -11,12 +11,13 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from results import dossier, figurant, search
+from ingestion import fulltext
+from ingestion.fulltext import RankedPublication
+from results import dossier, figurant
 from results.dossier import EntityHit, EntityProfile, PublicationQuote, StatedFact
 from results.figurant import FigurantClue, ListCandidate, ListCandidates, PublicationPerson
 from results.findings import NO_RF_SNAPSHOT, FindingEvaluation, MonitoringFindingService
 from results.models import MonitoringFindingView
-from results.search import RankedPublication
 
 __all__ = [
     "NO_RF_SNAPSHOT",
@@ -99,7 +100,7 @@ class ResultsService:
     ) -> list[RankedPublication]:
         """Publications holding every word of `name` and one of `any_of`, best first."""
         with self._session_factory() as session:
-            return search.search_publications(
+            return fulltext.search_publications(
                 session,
                 name=name,
                 any_of=any_of,

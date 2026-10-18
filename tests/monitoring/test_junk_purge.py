@@ -14,15 +14,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
+from analysis.storage.models import PersecutionClassificationRecord
 from application import build_processing_service
-from db.orm_models import (
-    JunkScreenHoldRecord,
-    ParsedArticleRecord,
-    PersecutionClassificationRecord,
-    PersonRecord,
-    ReviewRecordModel,
-    SourceDocument,
-)
+from ingestion.storage.models import ParsedArticleRecord, SourceDocument
+from persons.storage.models import PersonRecord, ReviewRecordModel
 from processing.junk.article_screen import JunkScreenError
 from processing.junk.drop_verifier import CascadeScreen, DropVerifier
 from processing.junk.holds import hold_again, mark_junk, reextract
@@ -33,6 +28,7 @@ from processing.junk.purge import (
     since_from_env,
 )
 from processing.junk.screen import HELD
+from processing.storage.models import JunkScreenHoldRecord
 
 
 def _seed(session_factory: sessionmaker[Session]) -> dict[str, int]:

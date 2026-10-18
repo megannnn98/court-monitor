@@ -22,7 +22,7 @@ from airtable.replace import (
     download_looks_complete,
     removal_is_safe,
 )
-from db.orm_models import AirtableKnownPersonRecord, CriminalArticleRecord
+from analysis.storage.models import AirtableKnownPersonRecord, CriminalArticleRecord
 
 
 def _names(session_factory: sessionmaker[Session]) -> list[str]:
@@ -271,7 +271,7 @@ def test_the_sync_creates_no_rosfinmonitoring_snapshot_at_all(
     from support.airtable_fakes import FakeAirtable
 
     from airtable.service import AirtableSyncService, SyncSource
-    from db.orm_models import RosfinmonitoringSnapshotRecord
+    from analysis.storage.models import RosfinmonitoringSnapshotRecord
 
     fake = FakeAirtable({"Known": [AirtableRecord("recK1", {"full_name": "Иван Иванов"})]})
     source = SyncSource(

@@ -32,7 +32,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import AirtableKnownPersonRecord
+from analysis.storage.models import AirtableKnownPersonRecord
 
 Level = Literal["in_base", "probably", "namesakes", "similar"]
 LEVEL_LABELS = {

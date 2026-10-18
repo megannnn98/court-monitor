@@ -19,12 +19,10 @@ from airtable.client import AirtableRecord
 from airtable.models import TableSyncResult
 from airtable.person_details import details
 from airtable.replace import UntrustedExport, drop_vanished, removal_is_safe
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    ExcludedPersonRecord,
-    Source,
-)
+from analysis.storage.models import AirtableKnownPersonRecord
+from ingestion.commands import SourceDetails, refresh_source_details
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.roles.commands import OfficialDetails, refresh_officials
 
 logger = logging.getLogger("airtable")
 
@@ -83,29 +81,21 @@ def sync_sources(session: Session, records: Sequence[AirtableRecord]) -> TableSy
     created: a row nothing can load would only be a lie in the list.
     """
     result = TableSyncResult(received=len(records))
-    by_url: dict[str, list[Source]] = {}
-    for row in session.scalars(select(Source)):
-        by_url.setdefault(_base_url_key(row.base_url), []).append(row)
-
-    claimed: set[int] = set()
-    for record in records:
-        raw_url = record.text(*_BASE_URL_FIELDS)
-        candidates = by_url.get(_base_url_key(raw_url)) or []
-        match: Source | None = next(
-            (found for found in candidates if found.id not in claimed), None
-        )
-        if match is None:
-            # Not a source this build can load: nothing to name or to switch off.
-            logger.warning("event=airtable_source_not_in_registry base_url=%s", raw_url)
-            continue
-        claimed.add(match.id)
-        name = record.text("name", "Name", "Название", "Имя") or match.name
-        active = record.flag(*_ACTIVE_FIELDS, default=True)
-        if match.external_id == record.id and match.name == name and match.active == active:
-            result.unchanged += 1
-            continue
-        match.external_id, match.name, match.active = record.id, name, active
-        result.updated += 1
+    refreshed = refresh_source_details(
+        session,
+        [
+            SourceDetails(
+                external_id=record.id,
+                base_url=record.text(*_BASE_URL_FIELDS),
+                name=record.text("name", "Name", "Название", "Имя"),
+                active=record.flag(*_ACTIVE_FIELDS, default=True),
+            )
+            for record in records
+        ],
+    )
+    result.updated, result.unchanged = refreshed.updated, refreshed.unchanged
+    for raw_url in refreshed.unknown_urls:
+        logger.warning("event=airtable_source_not_in_registry base_url=%s", raw_url)
     session.commit()
     return result
 
@@ -197,14 +187,7 @@ def _replace_whole(
 def sync_officials(session: Session, records: Sequence[AirtableRecord]) -> TableSyncResult:
     """Upsert the officials, and anyone else who must never become a target figurant."""
     result = TableSyncResult(received=len(records))
-    existing = {
-        str(row.external_id): row
-        for row in session.scalars(
-            select(ExcludedPersonRecord).where(
-                ExcludedPersonRecord.external_id.in_({record.id for record in records})
-            )
-        )
-    }
+    updates: list[OfficialDetails] = []
     for record in records:
         full_name = record.text(*_NAME_FIELDS)
         if not full_name:
@@ -212,26 +195,19 @@ def sync_officials(session: Session, records: Sequence[AirtableRecord]) -> Table
             logger.warning("event=airtable_official_without_name record=%s", record.id)
             continue
         normalized, _ = person_name(full_name)
-        values: dict[str, Any] = {
-            "full_name": full_name,
-            "normalized_name": normalized,
-            "category": record.text("category", "Category", "Категория", "Должность") or "other",
-            "reason": record.text("reason", "Reason", "Причина", "Комментарий") or None,
-            "active": record.flag(*_ACTIVE_FIELDS, default=True),
-        }
-        row = existing.get(record.id)
-        if row is None:
-            session.add(ExcludedPersonRecord(external_id=record.id, **values))
-            result.created += 1
-        elif _same(row, values):
-            result.unchanged += 1
-        else:
-            _write(row, values)
-            result.updated += 1
+        updates.append(
+            OfficialDetails(
+                external_id=record.id,
+                full_name=full_name,
+                normalized_name=normalized,
+                category=record.text("category", "Category", "Категория", "Должность") or "other",
+                reason=record.text("reason", "Reason", "Причина", "Комментарий") or None,
+                active=record.flag(*_ACTIVE_FIELDS, default=True),
+            )
+        )
+    refreshed = refresh_officials(session, updates)
+    result.created = refreshed.created
+    result.updated = refreshed.updated
+    result.unchanged = refreshed.unchanged
     session.commit()
     return result
-
-
-def _base_url_key(url: str) -> str:
-    """One spelling of an address: case and a trailing slash are not a difference."""
-    return url.strip().rstrip("/").lower()

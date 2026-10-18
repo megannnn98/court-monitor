@@ -25,17 +25,15 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import HTMLResponse
 from openpyxl import Workbook
-from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from analysis.rosfinmonitoring import read as rf_read
 from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import INCLUSION_NOTES, source_mark
 from analysis.service import RosfinmonitoringSnapshotSummary
 from application import build_analysis_service
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-)
+from results.review import rf_entry_links
 from web.dependencies import get_db, session_factory_for
 from web.exports import XLSX, workbook_bytes, write_notes, write_sheet
 from web.ui.layout import _page, copy_button
@@ -123,33 +121,8 @@ def _entries(
     *,
     limit: int | None = PAGE_SIZE,
 ) -> list[ListRow]:
-    """The entries of one snapshot under a period, most recently added first.
-
-    The period and the limit are read inside the query, not in Python: this list is 23 023
-    rows and the page shows a hundred of them. `limit=None` is for the export, which
-    holds every row of the period — that is the file the operator works from.
-    """
+    """Entries under a period and LIMIT applied by their owner's PostgreSQL query."""
     start, end = _period(chosen, today)
-    query = select(RosfinmonitoringEntryRecord).where(
-        RosfinmonitoringEntryRecord.snapshot_id == snapshot_id
-    )
-    if start is not None:
-        query = query.where(RosfinmonitoringEntryRecord.inclusion_date >= _moment(start))
-    if end is not None:
-        # The whole last day: `inclusion_date` is a day, and `<= 00:00` would drop it.
-        query = query.where(
-            RosfinmonitoringEntryRecord.inclusion_date < _moment(end + date.resolution)
-        )
-    if start is None and end is None:
-        # With no period chosen the list is ordered by the day we know, so the entries
-        # that have one are the ones worth seeing.
-        query = query.where(RosfinmonitoringEntryRecord.inclusion_date.isnot(None))
-    query = query.order_by(
-        RosfinmonitoringEntryRecord.inclusion_date.desc().nulls_last(),
-        RosfinmonitoringEntryRecord.full_name,
-    )
-    if limit is not None:
-        query = query.limit(limit)
     return [
         ListRow(
             entry_id=entry.id,
@@ -159,50 +132,16 @@ def _entries(
             inclusion_date=entry.inclusion_date.date() if entry.inclusion_date else None,
             inclusion_source=entry.inclusion_source,
         )
-        for entry in db.scalars(query)
+        for entry in rf_read.included_entries(db, snapshot_id, start=start, end=end, limit=limit)
     ]
 
 
-def _moment(day: date) -> datetime:
-    return datetime(day.year, day.month, day.day, tzinfo=UTC)
-
-
 def _with_our_matches(db: Session, rows: list[ListRow]) -> None:
-    """Fill in, for each entry, the person our comparison matched it to — if any.
-
-    A link, not a verdict: the comparison matched a name, and the day on the row is the
-    entry's whatever that match was. How well it matched is kept, because a namesake is
-    a different person and has to read as one.
-
-    Only the entities the page actually shows are read: an earlier version loaded every
-    group in the database to look up a handful of links, which on a real database is
-    tens of thousands of rows read to fill in two columns of a hundred rows.
-    """
-    from db.orm_models import EntityGroupRecord, EntityGroupRfMatchRecord
-
-    if not rows:
-        return
-    by_entry = {row.entry_id: row for row in rows}
-    for entry_id, group_id, level, key, name in db.execute(
-        select(
-            EntityGroupRfMatchRecord.entry_id,
-            EntityGroupRfMatchRecord.group_id,
-            EntityGroupRfMatchRecord.level,
-            EntityGroupRecord.key,
-            EntityGroupRecord.name,
-        )
-        .select_from(EntityGroupRfMatchRecord)
-        .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupRfMatchRecord.group_id)
-        .where(EntityGroupRfMatchRecord.entry_id.in_(list(by_entry)))
-        # `level = 'full'` first, as on «Результате» — and not `level DESC`, which sorts
-        # the two words alphabetically and puts «name» ahead of «full», so where one
-        # entry matched two people the namesake would be the one shown.
-        .order_by((EntityGroupRfMatchRecord.level == FULL).desc())
-    ).all():
-        row = by_entry[entry_id]
-        if row.group_key is not None:
-            continue
-        row.group_key, row.group_name, row.match_level = key, name, level
+    """Only links for displayed entries, full matches preferred over namesakes."""
+    links = rf_entry_links(db, {row.entry_id for row in rows})
+    for row in rows:
+        if (link := links.get(row.entry_id)) is not None:
+            row.group_key, row.group_name, row.match_level = link.key, link.name, link.level
 
 
 def _match_text(row: ListRow) -> str:
@@ -218,40 +157,9 @@ def _match_text(row: ListRow) -> str:
 
 
 def _count(db: Session, snapshot_id: int, chosen: ListFilters, today: date) -> tuple[int, int, int]:
-    """(in the period, with a date, in all): the three numbers the page opens with."""
+    """(in the period, with a date, in all), counted by the list owner."""
     start, end = _period(chosen, today)
-    dated = db.scalar(
-        select(func.count())
-        .select_from(RosfinmonitoringEntryRecord)
-        .where(
-            RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
-            RosfinmonitoringEntryRecord.inclusion_date.isnot(None),
-        )
-    )
-    query = (
-        select(func.count())
-        .select_from(RosfinmonitoringEntryRecord)
-        .where(
-            RosfinmonitoringEntryRecord.snapshot_id == snapshot_id,
-            RosfinmonitoringEntryRecord.inclusion_date.isnot(None),
-        )
-    )
-    if start is not None:
-        query = query.where(RosfinmonitoringEntryRecord.inclusion_date >= _moment(start))
-    if end is not None:
-        query = query.where(
-            RosfinmonitoringEntryRecord.inclusion_date < _moment(end + date.resolution)
-        )
-    in_period = db.scalar(query) or 0
-    total = (
-        db.scalar(
-            select(func.count())
-            .select_from(RosfinmonitoringEntryRecord)
-            .where(RosfinmonitoringEntryRecord.snapshot_id == snapshot_id)
-        )
-        or 0
-    )
-    return int(in_period), int(dated or 0), int(total)
+    return rf_read.inclusion_counts(db, snapshot_id, start=start, end=end)
 
 
 def _filters_html(chosen: ListFilters, today: date) -> str:
@@ -347,25 +255,11 @@ def ui_rfm(
 
 
 # Who the operator's own table says was on the list and is not in the latest snapshot.
-_REMOVED = """
-    FROM (
-        SELECT DISTINCT ON (o.normalized_name, o.birth_date)
-               o.full_name, o.birth_date, o.birth_place, o.added_on
-        FROM rfm_operator_entries o
-        WHERE o.removed
-          AND NOT EXISTS (
-              SELECT 1 FROM rosfinmonitoring_entries e
-              WHERE e.snapshot_id = (SELECT max(id) FROM rosfinmonitoring_snapshots)
-                AND e.normalized_name = o.normalized_name
-                AND e.birth_date::date = o.birth_date)
-        ORDER BY o.normalized_name, o.birth_date, o.added_on DESC NULLS LAST
-    ) gone
-"""
 
 
 def _removed_link(db: Session) -> str:
     """Under the list: how many the operator's table knows to have left it."""
-    count = db.scalar(text("SELECT count(*)" + _REMOVED)) or 0
+    count = rf_read.removed_count(db)
     if not count:
         return ""
     return (
@@ -377,15 +271,8 @@ def _removed_link(db: Session) -> str:
 def _removed_html(db: Session) -> str:
     """The rows removed from the list. Not entries of it: the table is the operator's own,
     typed by hand, and the page says so before the first name."""
-    count = db.scalar(text("SELECT count(*)" + _REMOVED)) or 0
-    rows = db.execute(
-        text(
-            "SELECT full_name, birth_date, birth_place, added_on"
-            + _REMOVED
-            + "ORDER BY added_on DESC NULLS LAST, full_name LIMIT :limit"
-        ),
-        {"limit": PAGE_SIZE},
-    ).all()
+    count = rf_read.removed_count(db)
+    rows = rf_read.removed_entries(db, limit=PAGE_SIZE)
     cells = (
         "".join(
             f"<tr><td>{escape(row.full_name)} {copy_button(row.full_name)}</td>"

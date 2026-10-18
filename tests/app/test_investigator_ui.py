@@ -14,15 +14,15 @@ from sqlalchemy import event, text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
-    EntityGroupRfMatchRecord,
+from analysis.service import GroupFollowers
+from analysis.storage.models import EntityGroupPoliticsRecord, EntityGroupRfMatchRecord
+from orchestrator.operations import OperationRegistry
+from processing.identity.collector import EntityCollector
+from processing.storage.models import (
     EntityGroupRoleRecord,
     EntityMentionRecord,
     EntityPairDecisionRecord,
 )
-from orchestrator.operations import OperationRegistry
-from processing.identity.collector import EntityCollector
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
@@ -176,7 +176,7 @@ def _more(
                 ],
             )
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         group = session.scalar(text("SELECT id FROM entity_groups WHERE key = :key"), {"key": MOOR})
         session.add(
@@ -389,7 +389,7 @@ def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
 
 
 def _known(session_factory: sessionmaker[Session], *names: str) -> None:
-    from db.orm_models import AirtableKnownPersonRecord
+    from analysis.storage.models import AirtableKnownPersonRecord
 
     with session_factory.begin() as session:
         for number, name in enumerate(names):

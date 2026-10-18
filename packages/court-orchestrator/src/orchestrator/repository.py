@@ -18,12 +18,6 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    MonitoringFindingRecord,
-    MonitoringRunItemRecord,
-    MonitoringRunRecord,
-    SourceMonitoringStateRecord,
-)
 from orchestrator.models import (
     FailureKind,
     MonitoringAlreadyRunningError,
@@ -39,6 +33,12 @@ from orchestrator.models import (
     classify_failure,
 )
 from orchestrator.source_health import LayoutSuspect, layout_suspects
+from orchestrator.storage.models import (
+    MonitoringRunItemRecord,
+    MonitoringRunRecord,
+    SourceMonitoringStateRecord,
+)
+from results import read as results_read
 
 logger = logging.getLogger("monitoring")
 
@@ -475,14 +475,7 @@ class SqlAlchemyMonitoringRepository:
 
     def count_active_findings(self) -> int:
         with self._session_factory() as session:
-            return int(
-                session.scalar(
-                    select(func.count(MonitoringFindingRecord.id)).where(
-                        MonitoringFindingRecord.active.is_(True)
-                    )
-                )
-                or 0
-            )
+            return results_read.active_finding_count(session)
 
     def status(self) -> MonitoringStatusView:
         return MonitoringStatusView(

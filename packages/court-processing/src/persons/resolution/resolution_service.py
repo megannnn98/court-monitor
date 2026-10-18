@@ -5,17 +5,17 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    PersonEventLinkRecord,
-)
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.models import PersonResolutionAction
 from persons.resolution.service import (
     PersonResolutionService,
     identity_from_mention,
+)
+from persons.storage.models import PersonEventLinkRecord
+from processing.storage.models import (
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
 )
 
 

@@ -20,11 +20,9 @@ from airtable.config import AirtableConfigurationError
 from airtable.files import FileTableClient, ImportSettings
 from airtable.models import MODE_API, MODE_FILES, TABLES, TableStatus
 from airtable.service import AirtableSyncService, build_sync_source
-from db.orm_models import (
-    AirtableKnownPersonRecord,
-    ExcludedPersonRecord,
-    Source,
-)
+from analysis.storage.models import AirtableKnownPersonRecord
+from ingestion.storage.models import Source
+from processing.storage.models import ExcludedPersonRecord
 
 NO_API = {name: "" for name in CONFIGURED_ENV}
 

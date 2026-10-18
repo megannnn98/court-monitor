@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.operator_base.base_unnamed import (
@@ -22,12 +22,12 @@ from analysis.operator_base.base_unnamed import (
     record_age,
     say,
 )
-from analysis.unnamed.figurants import DIFFERENT, SAME
-from db.orm_models import (
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from analysis.unnamed.figurants import DIFFERENT, SAME
 
 OPENED = date(2025, 6, 9)
 
@@ -335,6 +335,9 @@ def test_a_word_stays_on_a_record_that_can_no_longer_be_compared(
         ("Житель Рубцовска 3", None, "будников|1975-10-09"),
     ]
     assert counts(cases) == {"open": 2, "found": 2, "all": 4}
+    # Both ways a case is made (compared with the list, confirmed elsewhere) hand the
+    # record out as a value, read after its session is closed, not as a mapped row.
+    assert all(inspect(case.record, raiseerr=False) is None for case in cases)
 
 
 def test_a_word_is_kept_changed_and_taken_back(session_factory: sessionmaker[Session]) -> None:

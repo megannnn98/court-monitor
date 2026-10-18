@@ -6,36 +6,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import TextClause
 
-from db.orm_models import EntityGroupRecord, ParsedArticleRecord
+from ingestion.read import article_count
+from orchestrator.read import last_successful_operation_at
+from processing.read import group_count
 from web.build_info import build_info
 from web.response_models import AboutResponse
 
 __all__ = ["read_about"]
-
-
-def _count(table: str) -> TextClause:
-    """A COUNT over one table by name. The names are literals in this module, never
-    anything a request can reach."""
-    return text(f"SELECT count(*) FROM {table}")
-
-
-def _last_run(db: Session) -> datetime | None:
-    row = db.execute(
-        text(
-            """
-            SELECT started_at FROM operator_operation_runs
-            WHERE status = 'succeeded' ORDER BY id DESC LIMIT 1
-            """
-        )
-    ).first()
-    if row is None or row[0] is None:
-        return None
-    started: datetime = row[0]
-    return started if started.tzinfo is not None else started.replace(tzinfo=UTC)
 
 
 def read_about(db: Session) -> AboutResponse:
@@ -46,8 +25,8 @@ def read_about(db: Session) -> AboutResponse:
         tag=info.tag,
         commit=info.commit,
         built_at=info.built_at,
-        articles=db.scalar(_count(ParsedArticleRecord.__tablename__)) or 0,
-        people=db.scalar(_count(EntityGroupRecord.__tablename__)) or 0,
-        last_successful_run_at=_last_run(db),
+        articles=article_count(db),
+        people=group_count(db),
+        last_successful_run_at=last_successful_operation_at(db),
         checked_at=datetime.now(UTC),
     )

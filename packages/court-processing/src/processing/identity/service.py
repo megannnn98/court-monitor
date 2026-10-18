@@ -13,11 +13,11 @@ it works in. The rebuild owns its transaction and takes none.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import EntityGroupRecord, EntityRemovalRecord
 from processing.identity import disputes, overrides, removals
 from processing.identity.collector import CollectResult, EntityCollector
 from processing.identity.disputes import (
@@ -32,9 +32,11 @@ from processing.identity.disputes import (
     KeyIndex,
     Pair,
 )
+from processing.identity.downstream import IdentityDownstream
 from processing.identity.grouping import split_key
 from processing.identity.normalizer import NameNormalizer, name_normalizer_from_env
 from processing.identity.overrides import MANUAL
+from processing.storage.models import EntityGroupRecord
 
 __all__ = [
     "BY_REGION",
@@ -47,6 +49,7 @@ __all__ = [
     "SIMILAR",
     "CollectResult",
     "EntityRef",
+    "IdentityDownstream",
     "IdentityService",
     "KeyIndex",
     "Pair",
@@ -61,7 +64,11 @@ def key_region(key: str) -> str | None:
 
 
 class IdentityService:
-    def __init__(self, *, normalizer: NameNormalizer | None = None) -> None:
+    def __init__(
+        self, *, downstream: IdentityDownstream, normalizer: NameNormalizer | None = None
+    ) -> None:
+        # What the stages after identity keep of a group follows it (ADR 0031).
+        self._downstream = downstream
         # The model only names a group the rules made; without one the rules' name stays.
         self._normalizer = normalizer
 
@@ -77,7 +84,10 @@ class IdentityService:
     ) -> CollectResult:
         """Rebuild every entity group from the mentions, in one transaction."""
         return EntityCollector(
-            session_factory, on_stage=on_stage, normalizer=self._normalizer
+            session_factory,
+            on_stage=on_stage,
+            normalizer=self._normalizer,
+            downstream=self._downstream,
         ).run()
 
     def disputed_pairs(self, session: Session, entities: Iterable[EntityRef]) -> list[Pair]:
@@ -88,11 +98,14 @@ class IdentityService:
         self, session: Session, first_key: str, second_key: str, decision: str
     ) -> int | None:
         """Record a person's decision; «same» merges at once. The merged group's id."""
-        return disputes.decide(session, first_key, second_key, decision)
+        return disputes.decide(
+            session, first_key, second_key, decision, downstream=self._downstream
+        )
 
-    def merge_confirmed_pairs(self, session: Session, *, listed_level: str) -> Counter[str]:
-        """Merge the pairs the Rosfinmonitoring list or a registry region confirms."""
-        return disputes.merge_clear_pairs(session, listed_level=listed_level)
+    def merge_confirmed_pairs(self, session: Session, *, listed: Collection[int]) -> Counter[str]:
+        """Merge the pairs the Rosfinmonitoring list (`listed`: the groups on it beyond
+        doubt) or a registry region confirms."""
+        return disputes.merge_clear_pairs(session, listed=listed, downstream=self._downstream)
 
     def decision_counts(self, session: Session) -> Counter[str]:
         return disputes.decision_counts(session)
@@ -100,19 +113,32 @@ class IdentityService:
     def reset_decisions(self, session: Session) -> int:
         return disputes.reset_decisions(session)
 
-    def correct_name(self, session: Session, group: EntityGroupRecord, name: str) -> str:
-        """A person's correction of a group's name, kept across rebuilds."""
-        return overrides.correct_name(session, group, name)
+    def correct_name(self, session: Session, key: str, name: str) -> str | None:
+        """A person's correction of the name of the group of `key`, kept across rebuilds;
+        None when there is no such group. ValueError for an empty name."""
+        group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+        if group is None:
+            return None
+        return overrides.correct_name(session, group, name, downstream=self._downstream)
 
-    def remove_group(self, session: Session, group: EntityGroupRecord) -> None:
+    def remove_group(self, session: Session, key: str) -> str | None:
+        """Remove the group of `key` as nobody, in the caller's transaction: its name, or
+        None when there is no such group."""
+        group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+        if group is None:
+            return None
+        name = group.name
         removals.remove(session, group)
+        return name
 
     def restore_group(self, session: Session, key: str) -> bool:
         return removals.restore(session, key)
 
-    def removed_groups(self, session: Session) -> list[EntityRemovalRecord]:
+    def removed_groups(self, session: Session) -> list[removals.Removal]:
         return removals.removals(session)
 
 
-def identity_service_from_env(env: Mapping[str, str] | None = None) -> IdentityService:
-    return IdentityService(normalizer=name_normalizer_from_env(env))
+def identity_service_from_env(
+    downstream: IdentityDownstream, env: Mapping[str, str] | None = None
+) -> IdentityService:
+    return IdentityService(downstream=downstream, normalizer=name_normalizer_from_env(env))

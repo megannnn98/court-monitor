@@ -14,18 +14,20 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import (
+from analysis.read import Politics
+from analysis.storage.models import (
     AirtableKnownPersonRecord,
-    EntityDoneMarkRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityGroupRfMatchRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
     UnnamedFigurantRecord,
     UnnamedIdentityResolutionRecord,
 )
+from processing.read import Group
+from processing.storage.models import EntityGroupRecord
+from results.storage.models import EntityDoneMarkRecord
 from web.app import app
 from web.dependencies import get_db
 from web.ui.political import political_xlsx
@@ -182,17 +184,18 @@ def test_the_excel_has_every_row_of_the_filters(session_factory: sessionmaker[Se
 
 
 def test_the_excel_makes_each_source_a_separate_link() -> None:
-    entity = EntityGroupRecord(
+    entity = Group(
         id=1,
         key="анна смирнова",
         name="Анна Смирнова",
-        variants=[],
         mention_count=1,
         article_count=1,
-        event_types={},
-        regions=[],
+        last_published_at=None,
+        gender=None,
+        name_source="rules",
+        collected_at=datetime(2026, 10, 1, tzinfo=UTC),
     )
-    politics = EntityGroupPoliticsRecord(
+    politics = Politics(
         group_id=1,
         verdict="political",
         method="model",

@@ -31,15 +31,19 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from processing.evidence.publications import person_evidence_cte
+from application import group_followers
+from ingestion import read as articles
+from processing import read as identity
+from processing.evidence.publications import person_evidence
+from web.ui.dossier import related_people
 from web.ui.entities import EVENT_LABELS, display_name
 
 INITIAL_EVENTS = 20
@@ -140,71 +144,83 @@ class Graph:
         return answer
 
 
-# The reports that may be one event with the seed's: the seed's own, and every report of
-# the same type dated the same day, each with the people it names. `binds`: the person
-# is more than mentioned in their case, so two reports naming them are of one event.
-# The day is the report's own date, or its publication's when the text gave none.
-_REPORTS = """
-    WITH seed AS ({seed}),
-    dated AS (
-        SELECT e.id, e.event_type, e.event_date, e.confidence, e.start_offset, e.end_offset,
-               a.id AS article_id, a.title, s.name AS source,
-               a.published_at::date AS published_day,
-               coalesce(e.event_date, a.published_at)::date AS day
-        FROM extracted_events e
-        JOIN article_extraction_runs r ON r.id = e.extraction_run_id
-        JOIN parsed_articles a ON a.id = r.article_id
-        JOIN source_documents d ON d.id = a.document_id
-        JOIN sources s ON s.id = d.source_id
+@dataclass(frozen=True)
+class _ReportRow:
+    """An event as one publication tells it, with one person it names (or none)."""
+
+    id: int
+    event_type: str
+    event_date: datetime | None
+    confidence: float
+    start_offset: int
+    end_offset: int
+    article_id: int
+    title: str
+    source: str
+    published_day: date | None
+    # The report's own date, or its publication's when the text gave none.
+    day: date | None
+    group_id: int | None
+    role: str | None
+    binds: bool | None
+
+
+def _report_rows(db: Session, seeds: Collection[int]) -> list[_ReportRow]:
+    """The reports that may be one event with the seeds': the seeds' own, and every
+    report of the same type dated the same day, each with the people it names, in id
+    order. `binds`: the person is more than mentioned in their case, so two reports
+    naming them are of one event."""
+    facts = identity.event_facts(db, seeds)
+    days = articles.published_days(db, {fact.article_id for fact in facts.values()})
+    keys = {
+        (fact.event_type, day)
+        for fact in facts.values()
+        if fact.article_id in days and (day := fact.event_day or days[fact.article_id]) is not None
+    }
+    published_then = articles.published_on(db, {day for _, day in keys})
+    found = set(facts) | set(identity.events_dated(db, keys))
+    found |= set(
+        identity.events_undated(db, published_then, {event_type for event_type, _ in keys})
     )
-    SELECT e.*, gm.group_id, em.role, coalesce(ro.role <> 'mentioned', true) AS binds
-    FROM dated e
-    LEFT JOIN event_entity_mentions em ON em.event_id = e.id
-    LEFT JOIN entity_group_mentions gm ON gm.mention_id = em.mention_id
-    LEFT JOIN entity_group_roles ro ON ro.group_id = gm.group_id
-    WHERE e.id IN (SELECT event_id FROM seed)
-       OR (e.event_type, e.day) IN (
-           SELECT event_type, day FROM dated WHERE id IN (SELECT event_id FROM seed)
-       )
-    ORDER BY e.id
-"""
-_PERSON_REPORTS = text(
-    _REPORTS.format(
-        seed="""
-        SELECT em.event_id
-        FROM entity_group_mentions gm
-        JOIN event_entity_mentions em ON em.mention_id = gm.mention_id
-        WHERE gm.group_id = :group"""
-    )
-)
-_EVENT_REPORTS = text(_REPORTS.format(seed="SELECT CAST(:event AS integer) AS event_id"))
-_PERSON = text("SELECT id, key, name FROM entity_groups WHERE key = :key")
-# Everything the reports of an event name, with the person a name was resolved to (if it
-# was).
-_EVENT_MENTIONS = text(
-    """
-    SELECT em.role, m.entity_type, m.surface_text, m.normalized_text, m.normalized_data,
-           g.id AS group_id, g.key, g.name
-    FROM event_entity_mentions em
-    JOIN entity_mentions m ON m.id = em.mention_id
-    LEFT JOIN entity_group_mentions gm ON gm.mention_id = m.id
-    LEFT JOIN entity_groups g ON g.id = gm.group_id
-    WHERE em.event_id = ANY(:events)
-    ORDER BY em.role, em.event_id, m.start_offset, m.id
-    """
-)
-# The people most often in the same publications: a count, not a connection.
-_COOCCURRENCE = text(
-    f"""
-    WITH {person_evidence_cte()},
-    mine AS (SELECT DISTINCT article_id FROM person_evidence WHERE group_id = :group)
-    SELECT g.key, g.name, count(DISTINCT r.article_id) AS shared
-    FROM person_evidence r
-    JOIN entity_groups g ON g.id = r.group_id
-    WHERE r.article_id IN (SELECT article_id FROM mine) AND r.group_id <> :group
-    GROUP BY g.key, g.name ORDER BY shared DESC, g.name LIMIT :limit
-    """
-)
+    facts = identity.event_facts(db, found)
+    cards = articles.article_cards(db, {fact.article_id for fact in facts.values()})
+    days = articles.published_days(db, cards)
+    reports = {
+        event_id: fact
+        for event_id, fact in facts.items()
+        if fact.article_id in cards
+        and (
+            event_id in seeds or (fact.event_type, fact.event_day or days[fact.article_id]) in keys
+        )
+    }
+    return [
+        _ReportRow(
+            id=fact.id,
+            event_type=fact.event_type,
+            event_date=fact.event_date,
+            confidence=fact.confidence,
+            start_offset=fact.start_offset,
+            end_offset=fact.end_offset,
+            article_id=fact.article_id,
+            title=cards[fact.article_id].title,
+            source=cards[fact.article_id].source_name,
+            published_day=days[fact.article_id],
+            day=fact.event_day or days[fact.article_id],
+            group_id=person.group_id,
+            role=person.role,
+            binds=person.binds,
+        )
+        for person in sorted(identity.event_people(db, reports), key=lambda row: row.event_id)
+        if (fact := reports[person.event_id])
+    ]
+
+
+@dataclass(frozen=True)
+class _Named:
+    """A person as a node shows them."""
+
+    key: str
+    name: str
 
 
 @dataclass
@@ -314,7 +330,7 @@ def _events_of(db: Session, graph: Graph, person_id: str, group: int, limit: int
     """The events a person is named in, the latest first; what the limit cut is counted."""
     events = [
         event
-        for event in _clusters(_reports(db.execute(_PERSON_REPORTS, {"group": group}).all()))
+        for event in _clusters(_reports(_report_rows(db, identity.events_naming(db, group))))
         if event.role_of(group) is not None
     ]
     events.sort(key=lambda event: (event.day or date.min, event.root.id), reverse=True)
@@ -325,7 +341,7 @@ def _events_of(db: Session, graph: Graph, person_id: str, group: int, limit: int
 
 
 def _person(db: Session, key: str) -> Any:
-    row = db.execute(_PERSON, {"key": key}).first()
+    row = identity.groups_by_key(db, [key]).get(key)
     if row is None:
         raise UnknownNode(f"no person: {key}")
     return row
@@ -343,16 +359,18 @@ def initial_graph(db: Session, key: str) -> dict[str, Any]:
     graph = Graph()
     graph.center = _person_node(graph, person)
     _events_of(db, graph, graph.center, person.id, INITIAL_EVENTS)
-    for row in db.execute(
-        _COOCCURRENCE, {"group": person.id, "limit": COOCCURRENCE_PEOPLE, "context": 0}
-    ).all():
+    followers = group_followers()
+    evidence = person_evidence(db, followers, groups=[person.id], quotes=False)
+    for other_key, other_name, shared in related_people(
+        db, person.id, evidence, followers, limit=COOCCURRENCE_PEOPLE
+    ):
         graph.edge(
             graph.center,
-            _person_node(graph, row),
+            _person_node(graph, _Named(other_key, other_name)),
             COOCCURRENCE,
-            f"общих публикаций: {row.shared}",
+            f"общих публикаций: {shared}",
             source=DERIVED,
-            shared_publications=row.shared,
+            shared_publications=shared,
         )
     return graph.payload()
 
@@ -389,7 +407,7 @@ def _article_node(graph: Graph, data: dict[str, Any], surface: str) -> tuple[str
 def expand_event(db: Session, event_id: int) -> dict[str, Any]:
     """What the event names: the people (those resolved to a person), the publications
     that tell it, the court, the body, the articles. Two queries."""
-    reports = _reports(db.execute(_EVENT_REPORTS, {"event": event_id}).all())
+    reports = _reports(_report_rows(db, [event_id]))
     if event_id not in reports:
         raise UnknownNode(f"no event: {event_id}")
     event = next(
@@ -419,9 +437,7 @@ def expand_event(db: Session, event_id: int) -> dict[str, Any]:
     unresolved: set[str] = set()
     # A court named twice in the event is one court: by its node, in the order of the text.
     orgs: dict[str, tuple[str, str]] = {}
-    mentions = db.execute(
-        _EVENT_MENTIONS, {"events": [report.row.id for report in event.reports]}
-    ).all()
+    mentions = identity.event_mentions(db, [report.row.id for report in event.reports])
     for mention in mentions:
         if mention.entity_type == "person":
             if mention.group_id is None:

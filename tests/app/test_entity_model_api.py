@@ -23,7 +23,6 @@ from support.pipeline_runs import finish_steps
 
 from cli import cycle as cli_cycle
 from db.locks import try_advisory_lock
-from db.models.entities import EntityGroupRecord
 from db.models.settings import EntityModelSpendRecord
 from llm import model_choice
 from llm.chat import LEDGER, ModelTally, Purpose
@@ -33,6 +32,7 @@ from processing.identity import model_probe
 from processing.identity.model_probe import FoundEntity, ProbeResult
 from processing.identity.normalizer import OpenRouterNameNormalizer, name_normalizer_from_env
 from processing.roles.roles import role_classifier_from_env
+from processing.storage.models import EntityGroupRecord
 from web import entity_model
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry

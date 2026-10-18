@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from hashlib import sha256
 
-from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import ParsedArticleRecord, Source, SourceDocument
+from ingestion import read
 from monitor_core.model import ParsedArticle
 from processing.extraction.models import ExtractionDocument
 
@@ -33,27 +33,17 @@ def build_extraction_document_from_parsed_article(
 
 
 class SqlAlchemyExtractionDocumentRepository:
+    """The articles extraction reads, through the ingestion's read API."""
+
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
     def get_by_article_id(self, article_id: int) -> ExtractionDocument:
         with self._session_factory() as session:
-            row = session.execute(
-                select(ParsedArticleRecord, Source, SourceDocument)
-                .join(SourceDocument, ParsedArticleRecord.document_id == SourceDocument.id)
-                .join(Source, SourceDocument.source_id == Source.id)
-                .where(ParsedArticleRecord.id == article_id)
-            ).one()
-            article, source, document = row
-            return ExtractionDocument(
-                article_id=article.id,
-                title=article.title,
-                text=article.text,
-                published_at=article.published_at,
-                source_name=source.name,
-                source_url=document.canonical_url,
-                content_hash=content_hash_for_text(article.text),
-            )
+            found = read.stored_articles(session, [article_id])
+        if article_id not in found:
+            raise NoResultFound(f"no stored article {article_id}")
+        return _document(found[article_id])
 
     def list_documents(
         self,
@@ -62,25 +52,17 @@ class SqlAlchemyExtractionDocumentRepository:
         limit: int,
     ) -> list[ExtractionDocument]:
         with self._session_factory() as session:
-            statement = (
-                select(ParsedArticleRecord, Source, SourceDocument)
-                .join(SourceDocument, ParsedArticleRecord.document_id == SourceDocument.id)
-                .join(Source, SourceDocument.source_id == Source.id)
-                .order_by(ParsedArticleRecord.id)
-                .limit(limit)
-            )
-            if source_name is not None:
-                statement = statement.where(Source.name == source_name)
-            rows = session.execute(statement).all()
-            return [
-                ExtractionDocument(
-                    article_id=article.id,
-                    title=article.title,
-                    text=article.text,
-                    published_at=article.published_at,
-                    source_name=source.name,
-                    source_url=document.canonical_url,
-                    content_hash=content_hash_for_text(article.text),
-                )
-                for article, source, document in rows
-            ]
+            articles = read.list_stored_articles(session, source_name=source_name, limit=limit)
+        return [_document(article) for article in articles]
+
+
+def _document(article: read.StoredArticle) -> ExtractionDocument:
+    return ExtractionDocument(
+        article_id=article.id,
+        title=article.title,
+        text=article.text,
+        published_at=article.published_at,
+        source_name=article.source_name,
+        source_url=article.url,
+        content_hash=content_hash_for_text(article.text),
+    )

@@ -19,14 +19,13 @@ from analysis.rosfinmonitoring.inclusion_dates import (
 from analysis.rosfinmonitoring.operator_table import OperatorRow, OperatorTableUnavailable
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck, match_level
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
-from db.orm_models import (
-    EntityGroupRecord,
+from analysis.storage.models import (
     EntityGroupRfMatchRecord,
-    EntityPairDecisionRecord,
     RfmOperatorEntryRecord,
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from processing.storage.models import EntityGroupRecord, EntityPairDecisionRecord
 
 PERSONS = """
     <li>1. АБАБАКАРОВ АБДУЛЛА ГАСАНОВИЧ*, 08.06.1996 г.р. , П. МАМЕДКАЛА;</li>
@@ -257,7 +256,7 @@ def test_a_snapshot_imported_before_the_parser_was_fixed_recovers_its_birth_date
     it — the whole line in `raw_data`, no birth date, the brackets and the day inside the
     birth place.
     """
-    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+    from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
     # A check of the published page first, so that the snapshot we build below is the one
     # the filling reaches: an unchanged page imports nothing.
@@ -327,7 +326,7 @@ def test_a_recovered_birth_date_does_not_change_who_the_entry_is(
 ) -> None:
     """A date of birth is not who an entry is about. Filling it must leave the name, the
     normalized name and the matching key exactly as the list published them."""
-    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+    from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
     EntityRfCheck(
         session_factory,
@@ -383,7 +382,7 @@ def test_an_entry_with_no_line_to_re_read_is_left_alone(
 ) -> None:
     """A row with nothing in `raw_data` — an Airtable-sourced one, or a row from before
     it was kept — has nothing to re-read, and is left as it is rather than guessed at."""
-    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+    from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
     EntityRfCheck(
         session_factory,
@@ -439,7 +438,7 @@ def test_a_recovered_birth_date_can_still_reach_the_day_it_had_before(
     whenever the file cannot be read. 825 entries on a snapshot imported before the parser
     was fixed are in exactly that position.
     """
-    from db.orm_models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+    from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
 
     EntityRfCheck(
         session_factory,

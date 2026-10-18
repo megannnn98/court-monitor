@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from api import app, get_db
-from db.orm_models import SourceDocument
+from ingestion.storage.models import SourceDocument
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 HEADER = ("№", "Фамилия Имя", "Дата новости", "Категория", "Причины", "Ссылка")

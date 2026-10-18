@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import UTC, datetime
 
 import pytest
@@ -12,21 +12,27 @@ from support.db_fixtures import DatabaseSeeder
 
 from analysis.news.case_news import NewsFinder
 from analysis.politics.classification import POLITICAL, PoliticsFinder
-from db.orm_models import (
-    EntityGroupChargeRecord,
-    EntityGroupMentionRecord,
+from analysis.service import GroupFollowers
+from analysis.storage.models import (
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
+    UnnamedFigurantRecord,
+    UnnamedIdentityResolutionRecord,
+)
+from processing.evidence.publications import person_evidence
+from processing.identity.collector import EntityCollector
+from processing.identity.downstream import FigurantEvidence
+from processing.identity.normalizer import NameItem, NameNormalizerError, NormalizedName
+from processing.roles.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityGroupChargeRecord,
+    EntityGroupMentionRecord,
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityGroupUnnamedMentionRecord,
     EntityMentionRecord,
-    UnnamedFigurantRecord,
-    UnnamedIdentityResolutionRecord,
 )
-from processing.identity.collector import EntityCollector
-from processing.identity.normalizer import NameItem, NameNormalizerError, NormalizedName
-from processing.roles.roles import FIGURANT, FigurantFinder, RoleAnswer, RoleItem
 
 
 def _person(
@@ -91,8 +97,10 @@ def test_entities_are_rebuilt_from_the_articles_with_a_criminal_case(
     ids = _seed(session_factory)
     stages: list[str] = []
 
-    result = EntityCollector(session_factory, on_stage=stages.append).run()
-    again = EntityCollector(session_factory).run()
+    result = EntityCollector(
+        session_factory, on_stage=stages.append, downstream=GroupFollowers()
+    ).run()
+    again = EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     assert (result.mentions, result.entities, result.grouped) == (3, 1, 3)
     assert stages == ["reading", "grouping", "writing", "charges"]
@@ -158,8 +166,12 @@ def test_model_names_merge_entities_and_are_asked_once(
     first_model = FakeNormalizer(table)
     second_model = FakeNormalizer(table)
 
-    first = EntityCollector(session_factory, normalizer=first_model).run()
-    again = EntityCollector(session_factory, normalizer=second_model).run()
+    first = EntityCollector(
+        session_factory, normalizer=first_model, downstream=GroupFollowers()
+    ).run()
+    again = EntityCollector(
+        session_factory, normalizer=second_model, downstream=GroupFollowers()
+    ).run()
 
     # The rules kept «Александра Моора» apart; the model's name merges it.
     assert (first.entities, first.normalized_now, first.normalized_cached) == (1, 2, 0)
@@ -181,7 +193,7 @@ def test_a_failed_batch_keeps_the_rule_names_and_asks_again_next_time(
     _seed_declined_and_nominative(session_factory)
     down = FakeNormalizer({}, fail=True)
 
-    result = EntityCollector(session_factory, normalizer=down).run()
+    result = EntityCollector(session_factory, normalizer=down, downstream=GroupFollowers()).run()
 
     assert (result.entities, result.normalize_failures, result.normalized_now) == (2, 2, 0)
     with session_factory() as session:
@@ -201,7 +213,9 @@ def test_many_batches_are_asked_in_parallel_and_all_kept(
     )
     stages: list[str] = []
 
-    result = EntityCollector(session_factory, normalizer=model, on_stage=stages.append).run()
+    result = EntityCollector(
+        session_factory, normalizer=model, on_stage=stages.append, downstream=GroupFollowers()
+    ).run()
 
     assert (result.normalized_now, result.normalize_failures) == (2, 0)
     assert len(model.asked) == 2  # one entity per batch
@@ -235,7 +249,7 @@ def test_a_registry_card_gives_its_region_and_keeps_its_namesake_apart(
         seed.event(run, "задержали", event_type="arrest", event_date=None, links=[])
         session.commit()
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         entities = {
@@ -252,12 +266,14 @@ def test_a_name_is_kept_by_its_forms_and_an_older_answer_by_key_still_counts(
 ) -> None:
     from sqlalchemy import text
 
-    from db.orm_models import EntityNameNormalizationRecord
     from processing.identity.normalizer import PROMPT_VERSION
+    from processing.storage.models import EntityNameNormalizationRecord
 
     _seed_declined_and_nominative(session_factory)
     table = {"Александра Моора": "Александр Моор", "Моор Александр": "Александр Моор"}
-    EntityCollector(session_factory, normalizer=FakeNormalizer(table)).run()
+    EntityCollector(
+        session_factory, normalizer=FakeNormalizer(table), downstream=GroupFollowers()
+    ).run()
     with session_factory() as session:
         keys = set(session.scalars(select(EntityNameNormalizationRecord.key)))
     # Kept by the forms it named: a rebuild that changes the entity keys asks nothing.
@@ -280,7 +296,7 @@ def test_a_name_is_kept_by_its_forms_and_an_older_answer_by_key_still_counts(
             )
     again = FakeNormalizer(table)
 
-    result = EntityCollector(session_factory, normalizer=again).run()
+    result = EntityCollector(session_factory, normalizer=again, downstream=GroupFollowers()).run()
 
     assert again.asked == [("Александра Моора",)]
     assert result.normalized_cached == 1
@@ -291,7 +307,7 @@ def test_a_name_is_kept_by_its_forms_and_an_older_answer_by_key_still_counts(
             {"model": FakeNormalizer.model},
         )
     other = FakeNormalizer(table)
-    EntityCollector(session_factory, normalizer=other).run()
+    EntityCollector(session_factory, normalizer=other, downstream=GroupFollowers()).run()
     assert len(other.asked) == 2, "another model's answer by key does not count"
 
 
@@ -313,7 +329,7 @@ def test_a_single_nominative_form_is_named_without_the_model(
         session.commit()
     model = FakeNormalizer({})
 
-    result = EntityCollector(session_factory, normalizer=model).run()
+    result = EntityCollector(session_factory, normalizer=model, downstream=GroupFollowers()).run()
 
     assert model.asked == [] and result.normalized_now == 0
     with session_factory() as session:
@@ -348,7 +364,7 @@ def test_a_relative_is_no_entity_and_a_swapped_name_is_one(
         seed.event(run, "приговорили", event_type="sentence", event_date=None, links=[])
         session.commit()
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         names = sorted(session.scalars(select(EntityGroupRecord.name)).all())
@@ -380,7 +396,7 @@ def test_a_pseudonym_in_brackets_after_a_name_is_that_person(
         seed.event(run, "заочно арестовал", event_type="arrest", event_date=None, links=[])
         session.commit()
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         entities = {
@@ -458,7 +474,7 @@ def test_an_rf_entry_resolution_creates_operator_evidence_without_fake_mentions(
 ) -> None:
     _seed_unnamed(session_factory)
 
-    first = EntityCollector(session_factory).run()
+    first = EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         figurant = session.scalars(select(UnnamedFigurantRecord)).one()
         replacement = {
@@ -470,7 +486,7 @@ def test_an_rf_entry_resolution_creates_operator_evidence_without_fake_mentions(
         session.flush()
         session.add(UnnamedFigurantRecord(**replacement))
         assert session.scalar(select(EntityGroupUnnamedMentionRecord.figurant_key)) == "u" * 64
-    second = EntityCollector(session_factory).run()
+    second = EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     class NeverCalled:
         model = "never-called"
@@ -478,7 +494,7 @@ def test_an_rf_entry_resolution_creates_operator_evidence_without_fake_mentions(
         def classify(self, _items: Sequence[RoleItem]) -> dict[int, RoleAnswer]:
             raise AssertionError("operator identification must not call the role model")
 
-    FigurantFinder(session_factory, classifier=NeverCalled()).run()
+    FigurantFinder(session_factory, classifier=NeverCalled(), downstream=GroupFollowers()).run()
     PoliticsFinder(session_factory).run()
     NewsFinder(session_factory).run()
 
@@ -509,12 +525,12 @@ def test_existing_person_resolution_adds_the_unnamed_publication_to_today_s_grou
     session_factory: sessionmaker[Session],
 ) -> None:
     ids = _seed(session_factory)
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory() as session:
         key = session.scalars(select(EntityGroupRecord.key)).one()
     _seed_unnamed(session_factory, resolution="existing_person", existing_key=key)
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         [entity] = session.scalars(select(EntityGroupRecord)).all()
@@ -524,12 +540,51 @@ def test_existing_person_resolution_adds_the_unnamed_publication_to_today_s_grou
         assert session.scalar(select(EntityGroupUnnamedMentionRecord.figurant_key)) == "u" * 64
 
 
+def test_publication_evidence_reads_only_the_chosen_articles_figurants(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
+    with session_factory() as session:
+        key = session.scalars(select(EntityGroupRecord.key)).one()
+    _seed_unnamed(session_factory, resolution="existing_person", existing_key=key)
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
+    read: list[str] = []
+
+    class Spy(GroupFollowers):
+        def figurants(self, session: Session, keys: Collection[str]) -> dict[str, FigurantEvidence]:
+            raise AssertionError("a page of publications must not read every figurant")
+
+        def figurants_in(
+            self, session: Session, articles: Collection[int]
+        ) -> dict[str, FigurantEvidence]:
+            found = super().figurants_in(session, articles)
+            read.extend(found)
+            return found
+
+    with session_factory() as session:
+        named_article = session.scalars(
+            select(ArticleExtractionRunRecord.article_id)
+            .join(
+                EntityMentionRecord,
+                EntityMentionRecord.extraction_run_id == ArticleExtractionRunRecord.id,
+            )
+            .where(EntityMentionRecord.id == ids["arrested"])
+        ).one()
+        unnamed_article = session.scalars(select(UnnamedFigurantRecord.article_id)).one()
+
+        named = person_evidence(session, Spy(), articles=[named_article], quotes=False)
+        assert (read, {item.kind for item in named}) == ([], {"mention"})
+        unnamed = person_evidence(session, Spy(), articles=[unnamed_article], quotes=False)
+        assert (read, [item.kind for item in unnamed]) == (["u" * 64], ["unnamed_resolution"])
+
+
 def test_no_rf_match_and_insufficient_create_no_person(
     session_factory: sessionmaker[Session],
 ) -> None:
     for resolution in ("no_rf_match", "insufficient"):
         _seed_unnamed(session_factory, resolution=resolution)
-        EntityCollector(session_factory).run()
+        EntityCollector(session_factory, downstream=GroupFollowers()).run()
         with session_factory() as session:
             assert session.scalars(select(EntityGroupRecord)).all() == []
             assert session.scalars(select(EntityGroupUnnamedMentionRecord)).all() == []
@@ -562,7 +617,7 @@ def test_the_author_s_signature_under_the_text_is_no_person(
             seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
         session.commit()
 
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
     with session_factory() as session:
         counts = {

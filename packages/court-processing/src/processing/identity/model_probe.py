@@ -26,7 +26,6 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.locks import try_advisory_lock
-from db.models.settings import EntityModelSpendRecord
 from llm.chat import (
     OPENROUTER_URL,
     Endpoint,
@@ -35,7 +34,7 @@ from llm.chat import (
     Purpose,
     Spend,
 )
-from llm.model_choice import CATALOG, Catalog, mark_tested, model_info
+from llm.model_choice import CATALOG, Catalog, mark_tested, model_info, record_probe_spend
 from processing.identity.normalizer import NameItem, NameNormalizerError, OpenRouterNameNormalizer
 from processing.roles.roles import (
     FIGURANT,
@@ -362,21 +361,14 @@ def run_probe(
         result.error,
     )
     with session_factory.begin() as session:
-        if result.prompt_tokens or result.completion_tokens or result.cost_usd:
-            uncosted = result.cost_usd is None
-            session.add(
-                EntityModelSpendRecord(
-                    command=COMMAND,
-                    model=model,
-                    calls=1,
-                    prompt_tokens=result.prompt_tokens,
-                    completion_tokens=result.completion_tokens,
-                    cost_usd=result.cost_usd or 0.0,
-                    uncosted_calls=int(uncosted),
-                    uncosted_prompt_tokens=result.prompt_tokens if uncosted else 0,
-                    uncosted_completion_tokens=result.completion_tokens if uncosted else 0,
-                )
-            )
+        record_probe_spend(
+            session,
+            command=COMMAND,
+            model=model,
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
+            cost_usd=result.cost_usd,
+        )
         if result.ok:
             mark_tested(session, model, kind)
     return result

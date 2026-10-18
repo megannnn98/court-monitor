@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.politics.classification import COMMON_CRIME_ARTICLES
-from db.orm_models import (
+from analysis.storage.models import (
     UnnamedAnswerRecord,
     UnnamedDecisionRecord,
     UnnamedFigurantRecord,
@@ -37,6 +37,8 @@ from db.orm_models import (
     UnnamedKeepRecord,
     UnnamedScreenedRecord,
 )
+from ingestion import read
+from processing import read as identity_read
 from processing.answers import AnswerCache, AskResult, ask_missing, input_hash
 from processing.evidence.unnamed import (
     UnnamedAnswer,
@@ -73,18 +75,6 @@ IDENTIFIED = frozenset({RF_ENTRY, EXISTING_PERSON, SUPPLIED_NAME})
 RESOLUTIONS = frozenset({RF_ENTRY, EXISTING_PERSON, SUPPLIED_NAME, NO_RF_MATCH, INSUFFICIENT})
 
 # The publications with a criminal case: their latest successful extraction found one.
-_PUBLICATIONS = text(
-    """
-    SELECT a.id, a.text, a.published_at FROM parsed_articles a
-    WHERE EXISTS (
-        SELECT 1 FROM article_extraction_runs r
-        JOIN extracted_events e ON e.extraction_run_id = r.id
-        WHERE r.article_id = a.id AND r.status = 'succeeded' AND e.event_type = ANY(:criminal)
-    )
-    ORDER BY a.id
-    """
-)
-
 UNNAMED_CACHE: AnswerCache[UnnamedAnswer] = AnswerCache(
     record=UnnamedAnswerRecord,
     field="answer",
@@ -188,12 +178,16 @@ class UnnamedFinder:
     def run(self) -> UnnamedResult:
         self._on_stage("reading")
         with self._session_factory() as session:
+            # The articles of a criminal case (processing's), their texts (ingestion's).
+            ids = identity_read.articles_with_events(session, CRIMINAL_EVENT_TYPES)
+            articles = read.stored_articles(session, ids)
             sentences = [
                 sentence
-                for article_id, text_, published_at in session.execute(
-                    _PUBLICATIONS, {"criminal": list(CRIMINAL_EVENT_TYPES)}
-                ).all()
-                for sentence in described_sentences(article_id, text_ or "", published_at)
+                for article_id in ids
+                if (article := articles.get(article_id)) is not None
+                for sentence in described_sentences(
+                    article_id, article.text or "", article.published_at
+                )
             ]
         # One sentence once, however many times a text repeats it.
         by_key = {sentence.key: sentence for sentence in sentences}

@@ -10,13 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
-from db.orm_models import (
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-    EntityMentionRecord,
-    EntityOfficialMarkRecord,
-    ExcludedPersonRecord,
-)
+from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import (
     FIGURANT,
@@ -27,6 +21,13 @@ from processing.roles.roles import (
     decide_role,
     matched_answers,
     role_of,
+)
+from processing.storage.models import (
+    EntityGroupRecord,
+    EntityGroupRoleRecord,
+    EntityMentionRecord,
+    EntityOfficialMarkRecord,
+    ExcludedPersonRecord,
 )
 
 RF_PAGE = """<!doctype html><html>
@@ -82,7 +83,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
         _person(session, seed, run, "Олега Орлова", "Олег Орлов")
         seed.event(run, "арестовал", event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         session.execute(
             text("UPDATE entity_groups SET name = 'Олег Иванович Орлов' WHERE name = 'Олег Орлов'")
@@ -141,7 +142,9 @@ def test_the_rules_settle_the_charged_and_a_model_reads_the_rest(
     _seed(session_factory)
     classifier = FakeClassifier(KINDS)
 
-    result = FigurantFinder(session_factory, classifier=classifier).run()
+    result = FigurantFinder(
+        session_factory, classifier=classifier, downstream=GroupFollowers()
+    ).run()
 
     # Орлов is on the list and asked about too: the list confirms who a person is, not
     # which case. Петров's charge is asked about too, its sentence first: the extractor
@@ -170,10 +173,12 @@ def test_the_same_quotes_are_answered_from_the_cache(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
-    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS), downstream=GroupFollowers()
+    ).run()
     again = FakeClassifier(KINDS)
 
-    result = FigurantFinder(session_factory, classifier=again).run()
+    result = FigurantFinder(session_factory, classifier=again, downstream=GroupFollowers()).run()
 
     assert again.asked == []
     assert (result.asked_now, result.cached, result.figurant_model) == (0, 4, 3)
@@ -185,11 +190,13 @@ def test_a_failed_model_leaves_unclear_never_figurant_and_asks_again(
 ) -> None:
     _seed(session_factory)
 
-    failed = FigurantFinder(session_factory, classifier=FakeClassifier(KINDS, fail=True)).run()
+    failed = FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS, fail=True), downstream=GroupFollowers()
+    ).run()
     unclear = _roles(session_factory)["Александр Беда"]
     petrov = _roles(session_factory)["Иван Петров"]
     retry = FakeClassifier(KINDS)
-    FigurantFinder(session_factory, classifier=retry).run()
+    FigurantFinder(session_factory, classifier=retry, downstream=GroupFollowers()).run()
 
     # Unanswered, the rules' charge still makes Петров a figurant; nothing else does.
     assert (failed.failures, failed.unclear, failed.figurant_model) == (4, 3, 0)
@@ -202,7 +209,7 @@ def test_a_failed_model_leaves_unclear_never_figurant_and_asks_again(
 def test_without_a_model_only_the_rules_decide(session_factory: sessionmaker[Session]) -> None:
     _seed(session_factory)
 
-    result = FigurantFinder(session_factory).run()
+    result = FigurantFinder(session_factory, downstream=GroupFollowers()).run()
 
     assert (result.figurant_rules, result.unclear) == (1, 3)
     with session_factory() as session:
@@ -289,7 +296,7 @@ def _seed_officials(session_factory: sessionmaker[Session], *, titles: bool = Tr
             _person(session, seed, run, surface, name)
             seed.event(run, text_[:10], event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
 
 
 def test_officials_are_named_in_cases_never_their_figurants(
@@ -298,7 +305,9 @@ def test_officials_are_named_in_cases_never_their_figurants(
     _seed_officials(session_factory)
     classifier = FakeClassifier({"Иван Иванов": "accused"})
 
-    result = FigurantFinder(session_factory, classifier=classifier).run()
+    result = FigurantFinder(
+        session_factory, classifier=classifier, downstream=GroupFollowers()
+    ).run()
 
     # A title before the name in the texts: no need to ask.
     assert [item.name for item in classifier.asked] == ["Иван Иванов"]
@@ -325,8 +334,12 @@ def test_officials_named_by_title_are_put_on_the_list_once(
     _seed_officials(session_factory)
     classifier = FakeClassifier({"Иван Иванов": "accused"})
 
-    first = FigurantFinder(session_factory, classifier=classifier).run()
-    second = FigurantFinder(session_factory, classifier=classifier).run()
+    first = FigurantFinder(
+        session_factory, classifier=classifier, downstream=GroupFollowers()
+    ).run()
+    second = FigurantFinder(
+        session_factory, classifier=classifier, downstream=GroupFollowers()
+    ).run()
 
     # The reliable sign — a title before the name — puts them on the list, with the
     # category the title tells and the entity's key as the row's id; the accused is not.
@@ -361,7 +374,9 @@ def test_a_person_switched_off_by_hand_is_not_put_back_on_the_list(
         )
 
     result = FigurantFinder(
-        session_factory, classifier=FakeClassifier({"Иван Иванов": "accused"})
+        session_factory,
+        classifier=FakeClassifier({"Иван Иванов": "accused"}),
+        downstream=GroupFollowers(),
     ).run()
 
     assert result.officials_listed == 1
@@ -380,7 +395,9 @@ def test_a_person_with_a_mark_of_their_own_is_not_put_on_the_list(
         session.add(EntityOfficialMarkRecord(key="александр бастрыкин", official=True))
     classifier = FakeClassifier({"Иван Иванов": "accused", "Ольга Минакова": "judge"})
 
-    result = FigurantFinder(session_factory, classifier=classifier).run()
+    result = FigurantFinder(
+        session_factory, classifier=classifier, downstream=GroupFollowers()
+    ).run()
 
     assert result.officials_listed == 0
     assert _list(session_factory) == {}
@@ -393,12 +410,12 @@ def test_a_listed_judge_stays_an_official_when_the_title_is_gone(
     shows a title, and she is still not asked about as a possible figurant."""
     _seed_officials(session_factory)
     classifier = FakeClassifier({"Иван Иванов": "accused"})
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         # Same length: the mentions' offsets still point at the names.
         session.execute(text("UPDATE parsed_articles SET text = replace(text, 'Судья', 'Мадам')"))
 
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
 
     assert _roles(session_factory)["Ольга Минакова"] == ("mentioned", "judge", "official")
     with session_factory() as session:
@@ -429,7 +446,9 @@ def test_a_name_on_the_exclusion_list_is_never_a_target_figurant(
         )
     classifier = FakeClassifier({"Александр Бастрыкин": "official", "Иван Иванов": "accused"})
 
-    result = FigurantFinder(session_factory, classifier=classifier).run()
+    result = FigurantFinder(
+        session_factory, classifier=classifier, downstream=GroupFollowers()
+    ).run()
 
     assert [item.name for item in classifier.asked] == ["Александр Бастрыкин"]
     # `lawyer` is not one of the model's official kinds, so the entity falls back to
@@ -455,7 +474,7 @@ def test_a_deactivated_exclusion_goes_back_to_the_model(
         )
     classifier = FakeClassifier({"Иван Иванов": "accused", "Александр Бастрыкин": "official"})
 
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
 
     assert _roles(session_factory)["Иван Иванов"] == ("figurant", "accused", "model")
 
@@ -469,7 +488,7 @@ def test_the_model_overrules_the_rules_charge_that_names_the_wrong_person(
 
     classifier = FakeClassifier(kinds)
 
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
 
     assert _roles(session_factory)["Александр Бастрыкин"] == ("mentioned", "official", "model")
     # The model reads the charge's sentence first, then his own news.
@@ -484,15 +503,15 @@ def test_a_person_s_mark_wins_either_way_and_survives_a_rebuild(
 
     _seed_officials(session_factory)
     classifier = FakeClassifier({"Иван Иванов": "accused", "Ольга Минакова": "judge"})
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         entities = {entity.name: entity for entity in session.scalars(select(EntityGroupRecord))}
-        mark_official(session, entities["Иван Иванов"], True)
-        mark_official(session, entities["Ольга Минакова"], False)
+        mark_official(session, entities["Иван Иванов"], True, downstream=GroupFollowers())
+        mark_official(session, entities["Ольга Минакова"], False, downstream=GroupFollowers())
     marked = _roles(session_factory)
 
-    EntityCollector(session_factory).run()
-    FigurantFinder(session_factory, classifier=classifier).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
 
     assert marked["Иван Иванов"] == ("mentioned", "official", "official")
     after = _roles(session_factory)
@@ -520,7 +539,7 @@ def test_a_person_s_no_outranks_a_row_of_the_list(
         session.add(EntityOfficialMarkRecord(key="иван иванов", official=False))
     classifier = FakeClassifier({"Александр Бастрыкин": "official", "Иван Иванов": "accused"})
 
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
 
     assert _roles(session_factory)["Иван Иванов"] == ("figurant", "accused", "model")
 
@@ -535,7 +554,7 @@ def test_a_surname_alone_is_read_as_anyone_is(session_factory: sessionmaker[Sess
         )
     classifier = FakeClassifier({**KINDS, "Беда": "accused"})
 
-    FigurantFinder(session_factory, classifier=classifier).run()
+    FigurantFinder(session_factory, classifier=classifier, downstream=GroupFollowers()).run()
 
     assert "Беда" in [item.name for item in classifier.asked]
     assert _roles(session_factory)["Беда"] == ("figurant", "accused", "model")
@@ -545,12 +564,14 @@ def test_a_rebuild_that_changes_the_keys_asks_nothing_again(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
-    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS), downstream=GroupFollowers()
+    ).run()
     with session_factory.begin() as session:
         session.execute(text("UPDATE entity_groups SET key = key || ' · новый ключ'"))
     again = FakeClassifier(KINDS)
 
-    result = FigurantFinder(session_factory, classifier=again).run()
+    result = FigurantFinder(session_factory, classifier=again, downstream=GroupFollowers()).run()
 
     # The question is the same: its hash finds the answer, whatever the key.
     assert again.asked == []
@@ -561,13 +582,15 @@ def test_an_accused_sticks_when_the_quotes_change_the_rest_is_asked_again(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
-    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS), downstream=GroupFollowers()
+    ).run()
     # New publications: every question changed.
     with session_factory.begin() as session:
         session.execute(text("UPDATE entity_role_answers SET input_hash = md5(input_hash)"))
     again = FakeClassifier(KINDS)
 
-    FigurantFinder(session_factory, classifier=again).run()
+    FigurantFinder(session_factory, classifier=again, downstream=GroupFollowers()).run()
 
     assert [item.name for item in again.asked] == ["Фёдор Сирош"]
     assert _roles(session_factory)["Александр Беда"] == ("figurant", "accused", "model")
@@ -577,13 +600,15 @@ def test_an_earlier_prompt_s_answer_holds_unless_it_is_accused(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
-    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS), downstream=GroupFollowers()
+    ).run()
     with session_factory.begin() as session:
         session.execute(text("UPDATE entity_role_answers SET prompt_version = 'roles-v4'"))
     # v5 asks every «accused» again: Беда's case turns out to be abroad.
     again = FakeClassifier({**KINDS, "Александр Беда": "foreign"})
 
-    FigurantFinder(session_factory, classifier=again).run()
+    FigurantFinder(session_factory, classifier=again, downstream=GroupFollowers()).run()
 
     assert sorted(item.name for item in again.asked) == [
         "Александр Беда",
@@ -603,7 +628,7 @@ def test_past_the_budget_the_rest_is_unasked_and_counted(
     spent = FakeClassifier(KINDS)
     spent.spend = Spend(budget_usd=0.0)  # type: ignore[attr-defined]
 
-    result = FigurantFinder(session_factory, classifier=spent).run()
+    result = FigurantFinder(session_factory, classifier=spent, downstream=GroupFollowers()).run()
 
     assert spent.asked == []
     assert (result.unasked, result.asked_now) == (4, 0)
@@ -617,7 +642,9 @@ def test_another_model_is_compared_on_what_the_steps_answered(
     from evaluation.model_comparison.compare import compare_roles
 
     _seed(session_factory)
-    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS), downstream=GroupFollowers()
+    ).run()
     # The other model takes the lawyer for the accused.
     other = FakeClassifier({**KINDS, "Фёдор Сирош": "accused"})
     other.model = "local-model"
@@ -637,16 +664,18 @@ def test_a_person_s_word_on_a_role_survives_the_next_run(
     """«Неясная роль» and a person's decision on it: step 4 rewrites the roles, so the
     decision is kept by the key and written again over the model's next answer."""
     _seed(session_factory)
-    FigurantFinder(session_factory, classifier=FakeClassifier(KINDS)).run()
+    FigurantFinder(
+        session_factory, classifier=FakeClassifier(KINDS), downstream=GroupFollowers()
+    ).run()
     with session_factory.begin() as session:
         sirosh = session.scalar(
             select(EntityGroupRecord).where(EntityGroupRecord.name == "Фёдор Сирош")
         )
         assert sirosh is not None
-        decide_role(session, sirosh, FIGURANT)
+        decide_role(session, sirosh, FIGURANT, downstream=GroupFollowers())
 
     again = FakeClassifier(KINDS)
-    FigurantFinder(session_factory, classifier=again).run()
+    FigurantFinder(session_factory, classifier=again, downstream=GroupFollowers()).run()
 
     # The model is not asked again because the answer is cached under the same input hash,
     # not because the person decided anything. The decision is what wins over the model's

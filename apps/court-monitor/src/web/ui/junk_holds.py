@@ -15,10 +15,12 @@ from urllib.parse import parse_qs, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ingestion import read as ingestion_read
+from processing.junk import hold_view
 from processing.junk.hold_reader import MODEL_JUNK, RELEASED, release
+from processing.junk.hold_view import MODEL_JUNK_VIEW
 from processing.junk.holds import hold_again, mark_junk, reextract, unrelease
 from processing.junk.screen import HELD, JUNK
 from web.dependencies import get_db, session_factory_for
@@ -27,48 +29,12 @@ from web.ui.layout import _page, pager
 router = APIRouter()
 
 PAGE_SIZE = 30
-# The held are two lists: what a model read as junk waits apart, to go by one press.
-MODEL_JUNK_VIEW = "model_junk"
 _STATUSES = {
     HELD: "На проверке",
     MODEL_JUNK_VIEW: "Модель считает мусором",
     RELEASED: "Выпущено в работу",
     JUNK: "Отмечены как мусор",
 }
-# A list's rows: the hold's status, and for the held — whether a model called it junk.
-_VIEW = (
-    "h.status = :status AND (CAST(:model_junk AS boolean) IS NULL "
-    "OR coalesce(h.reader_verdict = :junk_read, false) = CAST(:model_junk AS boolean))"
-)
-
-
-def _view(status: str) -> dict[str, object]:
-    return {
-        "status": HELD if status == MODEL_JUNK_VIEW else status,
-        "model_junk": {HELD: False, MODEL_JUNK_VIEW: True}.get(status),
-        "junk_read": MODEL_JUNK,
-    }
-
-
-_HOLDS = text(
-    f"""
-    SELECT h.article_id, h.status, h.score, h.cutoff, h.screen, h.reason, h.note,
-           h.reader_verdict,
-           h.created_at, a.title, a.published_at, s.name AS source, d.canonical_url,
-           left(a.text, 400) AS start,
-           (SELECT string_agg(DISTINCT e.event_type, ', ') FROM extracted_events e
-            WHERE e.extraction_run_id = (
-                SELECT r.id FROM article_extraction_runs r
-                WHERE r.article_id = a.id AND r.status = 'succeeded'
-                ORDER BY r.id DESC LIMIT 1)) AS events
-    FROM junk_screen_holds h
-    JOIN parsed_articles a ON a.id = h.article_id
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE {_VIEW}
-    ORDER BY h.score DESC, h.article_id
-    """
-)
 # The same news told twice. Sources copy one another, and reading one story five times is
 # the operator's dullest work — so held articles that tell one story are shown together
 # and can be dismissed together. Two signs, each on its own enough:
@@ -77,41 +43,6 @@ _HOLDS = text(
 # Neither proves it is one story, so nothing is merged or deleted on its own: the cards
 # only stand together, and every one keeps its own buttons.
 TITLE_SIMILARITY = 0.5
-_SAME_PERSON = text(
-    f"""
-    WITH latest AS (
-        SELECT DISTINCT ON (r.article_id) r.article_id, r.id
-        FROM article_extraction_runs r
-        JOIN junk_screen_holds h ON h.article_id = r.article_id AND {_VIEW}
-        WHERE r.status = 'succeeded'
-        ORDER BY r.article_id, r.id DESC
-    ), named AS (
-        SELECT DISTINCT l.article_id, lower(m.normalized_text) AS name
-        FROM latest l JOIN entity_mentions m ON m.extraction_run_id = l.id
-        WHERE m.entity_type = 'person' AND m.normalized_text LIKE '% %'
-    )
-    SELECT x.article_id, y.article_id
-    FROM named x JOIN named y ON y.name = x.name AND x.article_id < y.article_id
-    """
-)
-_SAME_TITLE = text(
-    f"""
-    WITH held AS (
-        SELECT a.id, left(a.title, 300) AS title
-        FROM junk_screen_holds h JOIN parsed_articles a ON a.id = h.article_id
-        WHERE {_VIEW} AND a.title IS NOT NULL AND length(a.title) >= 20
-    )
-    SELECT x.id, y.id FROM held x JOIN held y ON x.id < y.id
-    WHERE similarity(x.title, y.title) >= :similarity
-    """
-)
-_COUNTS = text(
-    """
-    SELECT CASE WHEN status = 'held' AND reader_verdict = 'junk' THEN 'model_junk' ELSE status END,
-           count(*)
-    FROM junk_screen_holds GROUP BY 1
-    """
-)
 
 
 def same_news(ids: list[int], pairs: list[tuple[int, int]]) -> list[list[int]]:
@@ -216,7 +147,7 @@ def _story(group: list[int], by_id: dict[int, Any], status: str, page: int) -> s
 
 
 def junk_counts(db: Session) -> dict[str, int]:
-    return {str(key): int(value) for key, value in db.execute(_COUNTS).all()}
+    return hold_view.hold_counts(db)
 
 
 def default_status(counts: dict[str, int]) -> str:
@@ -226,14 +157,11 @@ def default_status(counts: dict[str, int]) -> str:
 
 def held_stories(db: Session, status: str) -> tuple[dict[int, Any], list[list[list[int]]]]:
     """The list's rows by article, and its stories in pages; read by this page and the API."""
-    rows = db.execute(_HOLDS, _view(status)).all()
+    rows = hold_view.held_articles(db, status)
     by_id = {row.article_id: row for row in rows}
     pairs = [
-        (first, second)
-        for first, second in [
-            *db.execute(_SAME_PERSON, _view(status)).all(),
-            *db.execute(_SAME_TITLE, {**_view(status), "similarity": TITLE_SIMILARITY}).all(),
-        ]
+        *hold_view.same_person_pairs(db, status),
+        *ingestion_read.similar_titles(db, list(by_id), similarity=TITLE_SIMILARITY),
     ]
     return by_id, _pages(same_news(list(by_id), pairs))
 
@@ -283,10 +211,7 @@ def apply_hold(db: Session, article_id: int) -> None:
 
 def apply_reextract(db: Session, article_id: int) -> bool:
     """«Извлечь заново»: whether an event was found and the article went back to work."""
-    held = db.scalar(
-        text("SELECT status FROM junk_screen_holds WHERE article_id = :article"),
-        {"article": article_id},
-    )
+    held = hold_view.hold_status(db, article_id)
     if held != HELD:
         raise HTTPException(status_code=404, detail="Статья не на проверке")
     return reextract(session_factory_for(db), article_id).released

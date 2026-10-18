@@ -7,17 +7,13 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ParsedArticleRecord,
-    SourceDocument,
-)
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
+from ingestion.storage.models import ParsedArticleRecord, SourceDocument
 from monitor_core.model import ParsedArticle, RawDocument
 from persons.models import AliasOrigin
 from persons.persistence import SqlAlchemyPersonPersistence
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
+from processing.storage.models import ArticleExtractionRunRecord, EntityMentionRecord
 
 
 def matching_key(name: str) -> str:

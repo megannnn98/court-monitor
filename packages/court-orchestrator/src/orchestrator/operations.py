@@ -31,9 +31,9 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import OperatorOperationRunRecord
 from ingestion.sources.source_registry import SOURCES, SourceKind
 from llm.model_choice import chosen_model
+from orchestrator.storage.models import OperatorOperationRunRecord
 
 logger = logging.getLogger("operator_console")
 

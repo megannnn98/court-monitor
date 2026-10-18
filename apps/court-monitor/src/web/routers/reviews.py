@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from application import build_resolution_review_service
+from persons.read import reviews
 from persons.resolution.review import (
     PersonResolutionReviewService,
     ResolutionReviewAction,
@@ -30,20 +30,6 @@ def list_reviews(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[ReviewResponse]:
     """List reviews."""
-    from db.orm_models import ReviewRecordModel
-
-    query = select(ReviewRecordModel).offset(offset).limit(limit)
-
-    if status:
-        query = query.where(ReviewRecordModel.decision == status)
-
-    if subject_type:
-        query = query.where(ReviewRecordModel.subject_type == subject_type)
-
-    query = query.order_by(ReviewRecordModel.created_at.desc(), ReviewRecordModel.id.desc())
-
-    reviews = db.scalars(query).all()
-
     return [
         ReviewResponse(
             id=r.id,
@@ -56,7 +42,7 @@ def list_reviews(
             created_at=r.created_at.isoformat(),
             reviewed_at=r.reviewed_at.isoformat() if r.reviewed_at else None,
         )
-        for r in reviews
+        for r in reviews(db, status=status, subject_type=subject_type, limit=limit, offset=offset)
     ]
 
 

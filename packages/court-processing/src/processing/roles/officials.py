@@ -26,19 +26,20 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityGroupPoliticsRecord,
+from ingestion import read
+from processing.identity.disputes import KeyIndex
+from processing.identity.downstream import IdentityDownstream
+from processing.identity.grouping import _fold
+from processing.storage.models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityOfficialMarkRecord,
     ExcludedPersonRecord,
 )
-from processing.identity.disputes import KeyIndex
-from processing.identity.grouping import _fold
 
 logger = logging.getLogger("entities")
 
@@ -73,15 +74,14 @@ _KIND_OF_TITLE = (
 )
 _POLICE_BODIES = ("ск", "следственного", "мвд", "фсб", "росгвардии")
 
-_CONTEXTS = text(
+# Every mention of the groups asked for, by the article it stands in; the words before
+# it are the ingestion's (`ingestion.read`).
+_MENTIONS = text(
     """
-    SELECT gm.group_id,
-           substring(a.text from greatest(m.start_offset - :context + 1, 1)
-                     for least(m.start_offset, :context))
+    SELECT gm.group_id, r.article_id, m.start_offset
     FROM entity_group_mentions gm
     JOIN entity_mentions m ON m.id = gm.mention_id
     JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
     WHERE gm.group_id = ANY(:groups)
     """
 )
@@ -126,8 +126,18 @@ def titled(contexts: Iterable[tuple[int, str]]) -> dict[int, tuple[str, str]]:
 
 
 def titled_entities(session: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str]]:
-    rows = session.execute(_CONTEXTS, {"groups": list(group_ids), "context": TITLE_CONTEXT})
-    return titled((int(group_id), str(context or "")) for group_id, context in rows)
+    rows = session.execute(_MENTIONS, {"groups": list(group_ids)}).all()
+    contexts = read.text_windows(
+        session,
+        [
+            read.TextWindow(article_id, max(start - TITLE_CONTEXT, 0), min(start, TITLE_CONTEXT))
+            for _, article_id, start in rows
+        ],
+    )
+    return titled(
+        (int(group_id), str(context or ""))
+        for (group_id, _, _), context in zip(rows, contexts, strict=True)
+    )
 
 
 def _key_candidates(name: str) -> list[str]:
@@ -263,7 +273,13 @@ def official_marks(session: Session, keys: Mapping[int, str]) -> dict[int, bool]
     return marks
 
 
-def mark_official(session: Session, entity: EntityGroupRecord, official: bool) -> None:
+def mark_official(
+    session: Session,
+    entity: EntityGroupRecord,
+    official: bool,
+    *,
+    downstream: IdentityDownstream,
+) -> None:
     """A person's mark, in the caller's transaction, applied at once: an official leaves
     the figurants and «Результат» now, not at the next step 4."""
     record = session.get(EntityOfficialMarkRecord, entity.key)
@@ -279,9 +295,7 @@ def mark_official(session: Session, entity: EntityGroupRecord, official: bool) -
         kind = role.kind if role.kind in OFFICIAL_KINDS else "official"
         role.role, role.kind, role.method = "mentioned", kind, "official"
         role.reason = "должностное лицо — отмечен вручную"
-        session.execute(
-            delete(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == entity.id)
-        )
+        downstream.role_withdrawn(session, entity.id)
     else:
         role.role, role.kind, role.method = "unclear", None, "manual"
         role.reason = "пометка должностного лица снята вручную; роль определит шаг 5"

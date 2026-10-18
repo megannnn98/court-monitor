@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
-from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from processing.evidence.sentences import (
     Publication,
     SentenceAnswer,
@@ -14,6 +13,7 @@ from processing.evidence.sentences import (
     SentenceReaderError,
     rows_of,
 )
+from processing.storage.models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 
 TEXT = (
     "Суд в Екатеринбурге приговорил Ивана Петрова к шести годам колонии за посты о войне. "

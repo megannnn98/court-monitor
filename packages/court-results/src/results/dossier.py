@@ -10,20 +10,15 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
-from sqlalchemy import ColumnElement, Row, func, literal, select, text
-from sqlalchemy.orm import InstrumentedAttribute, Session
+from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityGroupChargeRecord,
-    EntityGroupNewsRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityGroupRfMatchRecord,
-    EntityGroupRoleRecord,
-)
-from processing.evidence.publications import person_evidence_cte
+from analysis import read as verdicts
+from analysis.service import GroupFollowers
+from ingestion import read as articles_api
+from processing import read as identity
+from processing.evidence.publications import latest_first, person_evidence, quoted
+from processing.read import NAME_SEPARATORS
 
 # Characters of an article's text kept on each side of a mention or of a found word.
 QUOTE_CONTEXT = 160
@@ -72,10 +67,10 @@ def _fold(value: str) -> str:
     return value.lower().replace("ё", "е")
 
 
-# What parts a written name into words, besides a space. The same set is used in SQL
-# and here, so both mean the same by «a word of the name».
-_SEPARATORS = "-‐‑–—'’ʼ`\".,()«»\u00a0\t"
-_TO_SPACES = str.maketrans(_SEPARATORS, " " * len(_SEPARATORS))
+# What parts a written name into words, besides a space: the set
+# `processing.read.groups_named_like` parts names by in SQL, so both mean the same by
+# «a word of the name».
+_TO_SPACES = str.maketrans(NAME_SEPARATORS, " " * len(NAME_SEPARATORS))
 
 
 def name_words(name: str) -> list[str]:
@@ -85,13 +80,6 @@ def name_words(name: str) -> list[str]:
 def _own_words(name: str) -> set[str]:
     """The words of a stored name, parted as `_spaced` parts them in SQL."""
     return set(_fold(name).translate(_TO_SPACES).split(" "))
-
-
-def _spaced(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
-    """The name in SQL with a space before every word: « иван петров-водкин» becomes
-    « иван петров водкин», so `LIKE '% stem%'` finds a word by its beginning."""
-    folded = func.replace(func.lower(column), "ё", "е")
-    return literal(" ").concat(func.translate(folded, _SEPARATORS, " " * len(_SEPARATORS)))
 
 
 # A surname declined as an adjective loses three letters: «Поднебесного» is
@@ -112,74 +100,43 @@ def find_entities(session: Session, name: str, *, limit: int) -> list[EntityHit]
     words = name_words(name)
     if not words:
         return []
-    spaced = _spaced(EntityGroupRecord.name)
-    query = (
-        select(
-            EntityGroupRecord.key,
-            EntityGroupRecord.name,
-            EntityGroupRecord.mention_count,
-            EntityGroupRecord.article_count,
-            EntityGroupRecord.last_published_at,
-        )
-        .where(*(spaced.like(f"% {_stem(word)}%") for word in words))
-        .order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
-        .limit(limit)
-    )
     return [
         EntityHit(
-            key=row.key,
-            name=row.name,
-            mention_count=row.mention_count,
-            article_count=row.article_count,
-            last_published_at=row.last_published_at,
-            exact=set(words) <= _own_words(row.name),
+            key=group.key,
+            name=group.name,
+            mention_count=group.mention_count,
+            article_count=group.article_count,
+            last_published_at=group.last_published_at,
+            exact=set(words) <= _own_words(group.name),
         )
-        for row in session.execute(query)
+        for group in identity.groups_named_like(
+            session, [_stem(word) for word in words], limit=limit
+        )
     ]
 
 
 def entity_facts(session: Session, key: str) -> list[StatedFact] | None:
     """What the steps decided of the person; None when no group has this key."""
-    group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    group = identity.groups_by_key(session, [key]).get(key)
     if group is None:
         return None
     facts: list[StatedFact] = []
-    role = session.scalar(
-        select(EntityGroupRoleRecord).where(EntityGroupRoleRecord.group_id == group.id)
-    )
+    role = identity.roles(session, [group.id]).get(group.id)
     if role is not None:
         value = role.role if role.kind is None else f"{role.role} ({role.kind})"
         facts.append(StatedFact("role", value, role.quote or role.reason))
     charges = sorted(
-        set(
-            session.scalars(
-                select(EntityGroupChargeRecord.article).where(
-                    EntityGroupChargeRecord.group_id == group.id
-                )
-            )
-        )
+        {charge.article for charge in identity.charges(session, [group.id]).get(group.id, [])}
     )
     if charges:
         facts.append(StatedFact("charges", ", ".join(charges), ""))
-    politics = session.scalar(
-        select(EntityGroupPoliticsRecord).where(EntityGroupPoliticsRecord.group_id == group.id)
-    )
+    politics = verdicts.politics(session, [group.id]).get(group.id)
     if politics is not None:
         facts.append(StatedFact("politics", politics.verdict, politics.quote or politics.reason))
-    levels = sorted(
-        set(
-            session.scalars(
-                select(EntityGroupRfMatchRecord.level).where(
-                    EntityGroupRfMatchRecord.group_id == group.id
-                )
-            )
-        )
-    )
+    levels = sorted(verdicts.list_levels(session, [group.id]).get(group.id, set()))
     if levels:
         facts.append(StatedFact("rf_list", ", ".join(levels), ""))
-    news = session.scalar(
-        select(EntityGroupNewsRecord).where(EntityGroupNewsRecord.group_id == group.id)
-    )
+    news = verdicts.case_news(session, [group.id]).get(group.id)
     if news is not None:
         facts.append(
             StatedFact("latest_news", news.kind, news.quote or news.reason, news.published_at)
@@ -187,71 +144,35 @@ def entity_facts(session: Session, key: str) -> list[StatedFact] | None:
     return facts
 
 
-_EVIDENCE = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT e.article_id, e.title, e.canonical_url, e.source, e.published_at, e.quote,
-           e.quote_start
-    FROM person_evidence e
-    -- The group as a scalar: its id is pushed into both branches of the evidence, so
-    -- only this person's mentions are read. Joined instead, the whole evidence of
-    -- every person was built and hashed first (150 ms on 1 600 articles, 2026-10-12).
-    WHERE e.group_id = (SELECT g.id FROM entity_groups g WHERE g.key = :key)
-    ORDER BY e.published_at DESC NULLS LAST, e.article_id DESC, e.quote_start
-    LIMIT :limit
-    """
-)
-
-_ARTICLE_TEXTS = text(
-    f"""
-    WITH {person_evidence_cte()}
-    SELECT DISTINCT a.id AS article_id, a.title, d.canonical_url, s.name AS source,
-           a.published_at, a.text
-    FROM person_evidence e
-    JOIN parsed_articles a ON a.id = e.article_id
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE e.group_id = (SELECT g.id FROM entity_groups g WHERE g.key = :key)
-    ORDER BY a.published_at DESC NULLS LAST, a.id DESC
-    LIMIT :articles
-    """
-)
-
-_STORED_TEXTS = text(
-    """
-    SELECT a.id AS article_id, a.title, d.canonical_url, s.name AS source,
-           a.published_at, a.text
-    FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    WHERE replace(lower(a.text), 'ё', 'е') LIKE ALL (:patterns)
-    ORDER BY a.published_at DESC NULLS LAST, a.id DESC
-    LIMIT :articles
-    """
-)
-
-
 def entity_evidence(session: Session, key: str, *, limit: int) -> list[PublicationQuote]:
     """The places the publications name the person, the latest first."""
+    group = identity.groups_by_key(session, [key]).get(key)
+    if group is None:
+        return []
+    evidence = person_evidence(
+        session, GroupFollowers(), groups=[group.id], context=QUOTE_CONTEXT, quotes=False
+    )
+    latest = sorted(
+        evidence,
+        key=lambda item: (*latest_first(item.published_at), -item.article_id, item.quote_start),
+    )[:limit]
     return [
         PublicationQuote(
-            article_id=row.article_id,
-            title=row.title or "",
-            url=row.canonical_url,
-            source=row.source,
-            published_at=row.published_at,
-            quote=row.quote or "",
-            span_start=row.quote_start,
-            span_end=row.quote_start + len(row.quote or ""),
+            article_id=item.article_id,
+            title=item.title or "",
+            url=item.url,
+            source=item.source,
+            published_at=item.published_at,
+            quote=item.quote or "",
+            span_start=item.quote_start,
+            span_end=item.quote_start + len(item.quote or ""),
         )
-        for row in session.execute(
-            _EVIDENCE, {"key": key, "context": QUOTE_CONTEXT, "limit": limit}
-        )
+        for item in quoted(session, latest, QUOTE_CONTEXT)
     ]
 
 
 def _quotes_of(
-    rows: Sequence[Row[Any]], stems: Sequence[str], *, limit: int
+    rows: Sequence[articles_api.StoredArticle], stems: Sequence[str], *, limit: int
 ) -> list[PublicationQuote]:
     """One quote per article: the text around the first of `stems` found in it."""
     found: list[PublicationQuote] = []
@@ -265,10 +186,10 @@ def _quotes_of(
         end = min(min(positions) + QUOTE_CONTEXT, len(body))
         found.append(
             PublicationQuote(
-                article_id=row.article_id,
+                article_id=row.id,
                 title=row.title or "",
-                url=row.canonical_url,
-                source=row.source,
+                url=row.url,
+                source=row.source_name,
                 published_at=row.published_at,
                 quote=body[start:end],
                 span_start=start,
@@ -288,10 +209,21 @@ def entity_publication_quotes(
     stems = [_fold(term) for term in terms if term.strip()]
     if not stems:
         return []
-    rows = session.execute(
-        _ARTICLE_TEXTS, {"key": key, "context": QUOTE_CONTEXT, "articles": articles}
-    ).all()
-    return _quotes_of(rows, stems, limit=limit)
+    group = identity.groups_by_key(session, [key]).get(key)
+    if group is None:
+        return []
+    own = {
+        (item.article_id, item.published_at)
+        for item in person_evidence(session, GroupFollowers(), groups=[group.id], quotes=False)
+    }
+    latest = [
+        article_id
+        for article_id, _ in sorted(own, key=lambda pair: (*latest_first(pair[1]), -pair[0]))
+    ][:articles]
+    texts = articles_api.stored_articles(session, latest)
+    return _quotes_of(
+        [texts[article_id] for article_id in latest if article_id in texts], stems, limit=limit
+    )
 
 
 def stored_publication_quotes(session: Session, name: str, *, limit: int) -> list[PublicationQuote]:
@@ -301,9 +233,7 @@ def stored_publication_quotes(session: Session, name: str, *, limit: int) -> lis
     if not words:
         return []
     stems = [_stem(word) for word in words]
-    rows = session.execute(
-        _STORED_TEXTS, {"patterns": [f"%{stem}%" for stem in stems], "articles": limit}
-    ).all()
+    rows = articles_api.articles_containing(session, stems, limit=limit)
     # The longest word is the likeliest surname: quote the text around it.
     return _quotes_of(rows, [max(stems, key=len)], limit=limit)
 
@@ -325,24 +255,13 @@ class EntityProfile:
     rf_entries: list[tuple[str, str]]
 
 
-_RF_ENTRIES = text(
-    """
-    SELECT DISTINCT e.full_name, e.birth_date::date AS birth_date
-    FROM entity_group_rf_matches m
-    JOIN rosfinmonitoring_entries e ON e.id = m.entry_id
-    WHERE m.group_id = :group_id AND e.birth_date IS NOT NULL
-    ORDER BY e.full_name, birth_date
-    """
-)
-
-
 def entity_profile(session: Session, key: str) -> EntityProfile | None:
-    group = session.scalar(select(EntityGroupRecord).where(EntityGroupRecord.key == key))
+    group = identity.groups_by_key(session, [key]).get(key)
     if group is None:
         return None
     rf_entries = [
-        (row.full_name, row.birth_date.isoformat())
-        for row in session.execute(_RF_ENTRIES, {"group_id": group.id})
+        (entry.full_name, entry.birth_date.isoformat())
+        for entry in verdicts.list_entries(session, group.id)
     ]
     return EntityProfile(
         key=group.key,

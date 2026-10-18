@@ -25,14 +25,14 @@ from typing import Literal, Protocol, cast
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from analysis.group_followers import GroupFollowers
 from analysis.operator_base.known_base import TrackedCase, TrackedCases
 from analysis.persecution.classifier import POLITICAL_ARTICLES
-from db.orm_models import (
+from analysis.storage.models import (
     EntityGroupPoliticsRecord,
-    EntityGroupRecord,
     EntityPoliticsAnswerRecord,
     EntityPoliticsDecisionRecord,
 )
@@ -46,9 +46,11 @@ from llm.chat import (
     chat_json,
     endpoint_from_env,
 )
+from processing import read as identity
 from processing.answers import AnswerCache, AskResult, ask_missing, input_hash
 from processing.identity.service import KeyIndex
-from processing.roles.roles import _QUOTES, QUOTES, WIDE_CONTEXT, quotes_of
+from processing.read import GroupIdentity
+from processing.roles.roles import QUOTES, WIDE_CONTEXT, latest_quotes, quotes_of
 
 logger = logging.getLogger("entities")
 
@@ -194,7 +196,7 @@ def politics_decisions(session: Session, keys: Mapping[int, str]) -> dict[int, s
     return {**by_stem, **exact}
 
 
-def decide_politics(session: Session, entity: EntityGroupRecord, verdict: str) -> None:
+def decide_politics(session: Session, entity: GroupIdentity, verdict: str) -> None:
     """A person's word on the case's politics, applied at once and kept for every rebuild.
     `analysis.politics.classification.PoliticsFinder` writes it again over step 5's own verdict."""
     if verdict not in (POLITICAL, CRIMINAL):
@@ -312,44 +314,7 @@ def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> Politi
 
 
 # The figurants, with their Criminal Code articles.
-_FIGURANTS = text(
-    """
-    SELECT g.id, g.key, g.name, r.method AS role_method,
-           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
-                     FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles,
-           -- Of events with no other accused: the person's own beyond doubt.
-           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
-                     FROM entity_group_charges c
-                     WHERE c.group_id = g.id AND c.other_targets = 0), '{}') AS own_articles
-    FROM entity_groups g
-    JOIN entity_group_roles r ON r.group_id = g.id AND r.role = 'figurant'
-    ORDER BY g.id
-    """
-)
-# The first charge quote naming a political article, per entity.
-_POLITICAL_CHARGES = text(
-    """
-    SELECT DISTINCT ON (group_id) group_id, article, quote
-    FROM entity_group_charges
-    WHERE group_id = ANY(:groups) AND article = ANY(:political)
-    ORDER BY group_id, other_targets, id
-    """
-)
 # The «Мемориал» registry category a card of the entity names.
-MEMORIAL_CATEGORIES = text(
-    """
-    SELECT DISTINCT ON (gm.group_id) gm.group_id,
-           substring(a.text from 'реестр преследуемых: «([^»]+)»')
-    FROM entity_group_mentions gm
-    JOIN entity_mentions m ON m.id = gm.mention_id
-    JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
-    WHERE gm.group_id = ANY(:groups) AND a.text LIKE '%реестр преследуемых: «%'
-    ORDER BY gm.group_id, a.published_at DESC NULLS LAST
-    """
-)
-
-
 @dataclass(frozen=True)
 class PoliticsResult:
     figurants: int
@@ -467,23 +432,13 @@ class PoliticsFinder:
     def run(self) -> PoliticsResult:
         self._on_stage("reading")
         with self._session_factory() as session:
-            figurants = session.execute(_FIGURANTS).all()
+            figurants = identity.figurant_profiles(session)
             ids = [row.id for row in figurants]
-            political = {
-                group_id: (article, quote)
-                for group_id, article, quote in session.execute(
-                    _POLITICAL_CHARGES, {"groups": ids, "political": sorted(POLITICAL_ARTICLES)}
-                ).all()
-            }
+            political = identity.first_charge_quotes(session, ids, sorted(POLITICAL_ARTICLES))
             rest = [row for row in figurants if row.id not in political]
             decisions = politics_decisions(session, {row.id: row.key for row in figurants})
-            memorial: dict[int, str | None] = {
-                group_id: category
-                for group_id, category in session.execute(
-                    MEMORIAL_CATEGORIES, {"groups": [row.id for row in rest]}
-                ).all()
-            }
-            quotes = quotes_of(session, [row.id for row in rest])
+            memorial = identity.memorial_categories(session, [row.id for row in rest])
+            quotes = quotes_of(session, [row.id for row in rest], GroupFollowers())
             tracked_cases = TrackedCases.from_session(session)
         # Where the answer is known without asking: the operator's own base first — a
         # case she tracks is political though its article is common crime — then the
@@ -519,10 +474,10 @@ class PoliticsFinder:
         ]
         wide_quotes: dict[int, list[str]] = {}
         with self._session_factory() as session:
-            for group_id, quote, _publication in session.execute(
-                _QUOTES, {"groups": untold, "context": WIDE_CONTEXT, "quotes": QUOTES}
-            ).all():
-                wide_quotes.setdefault(group_id, []).append(" ".join((quote or "").split()))
+            for (group_id, _publication), quote in latest_quotes(
+                session, untold, GroupFollowers(), context=WIDE_CONTEXT, per_group=QUOTES
+            ).items():
+                wide_quotes.setdefault(group_id, []).append(quote)
         wide_items = {
             group_id: PoliticsItem(
                 id=group_id,

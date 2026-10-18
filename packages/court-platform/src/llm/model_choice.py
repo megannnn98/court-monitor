@@ -361,6 +361,34 @@ def log_selected(
 # -- what the entity model spent ----------------------------------------------------------
 
 
+def record_probe_spend(
+    session: Session,
+    *,
+    command: str,
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cost_usd: float | None,
+) -> None:
+    """Book one model-test call in the transaction that records its test outcome."""
+    if not (prompt_tokens or completion_tokens or cost_usd):
+        return
+    uncosted = cost_usd is None
+    session.add(
+        EntityModelSpendRecord(
+            command=command,
+            model=model,
+            calls=1,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost_usd=cost_usd or 0.0,
+            uncosted_calls=int(uncosted),
+            uncosted_prompt_tokens=prompt_tokens if uncosted else 0,
+            uncosted_completion_tokens=completion_tokens if uncosted else 0,
+        )
+    )
+
+
 def book_ledger(
     session_factory: sessionmaker[Session], command: str, tallies: Mapping[str, ModelTally]
 ) -> None:

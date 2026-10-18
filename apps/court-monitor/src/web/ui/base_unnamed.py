@@ -13,14 +13,13 @@ from urllib.parse import parse_qs, quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
 from analysis.operator_base.base_candidates import article_numbers
 from analysis.operator_base.base_unnamed import NamelessCase, counts, nameless_cases, say
 from analysis.operator_base.jurisdiction import CourtHints, Jurisdiction
 from analysis.unnamed.figurants import CANDIDATE_KEY_LENGTH, DIFFERENT, SAME
-from db.orm_models import AirtableKnownPersonRecord
 from web.dependencies import get_db
 from web.ui.court_hints import courts_html
 from web.ui.layout import _page, pager
@@ -79,12 +78,7 @@ def apply_decide(db: Session, fields: dict[str, str]) -> str:
     record = fields.get("record", "")
     candidate = fields.get("candidate", "")
     decision = fields.get("decision", "")
-    known = db.scalar(
-        select(func.count())
-        .select_from(AirtableKnownPersonRecord)
-        .where(AirtableKnownPersonRecord.external_id == record)
-    )
-    if not known:
+    if not analysis_read.known_base_record(db, record):
         raise HTTPException(status_code=400, detail="Неизвестная запись базы")
     if not 0 < len(candidate) <= CANDIDATE_KEY_LENGTH or decision not in (SAME, DIFFERENT, CLEAR):
         raise HTTPException(status_code=400, detail="Неполное решение")

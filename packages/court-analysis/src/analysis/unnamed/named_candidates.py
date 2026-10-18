@@ -24,6 +24,8 @@ from sqlalchemy.orm import Session
 
 from analysis.unnamed.figurants import DIFFERENT, EXISTING_PERSON, SAME
 from analysis.unnamed.matching import place_stems
+from ingestion import read
+from processing import read as identity
 
 SHOWN = 5
 # The same news comes out over a few days: a court's release, then the agencies. Whole
@@ -33,42 +35,6 @@ WINDOW = timedelta(days=3)
 AGE_CONTEXT = 160
 KEY_PREFIX = "person:"
 
-# The figurants named in the other publications of those days that tell of the place,
-# where they are a target of an event of the same kind; with the text around the name.
-_NAMED = text(
-    """
-    SELECT g.key, g.name, g.gender,
-           a.id AS article_id, a.title, a.published_at, s.name AS source,
-           m.start_offset, m.end_offset,
-           substr(a.text, greatest(m.start_offset - :context, 0) + 1,
-                  m.end_offset - greatest(m.start_offset - :context, 0) + :context) AS around
-    FROM parsed_articles a
-    JOIN source_documents d ON d.id = a.document_id
-    JOIN sources s ON s.id = d.source_id
-    JOIN article_extraction_runs r ON r.article_id = a.id
-    JOIN entity_mentions m ON m.extraction_run_id = r.id
-    JOIN entity_group_mentions gm ON gm.mention_id = m.id
-    JOIN entity_groups g ON g.id = gm.group_id
-    JOIN entity_group_roles ro ON ro.group_id = g.id AND ro.role = 'figurant'
-    WHERE a.id <> :article
-      AND a.published_at BETWEEN :since AND :until
-      AND lower(a.text) ~ :place
-      AND EXISTS (
-          SELECT 1 FROM event_entity_mentions em
-          JOIN extracted_events e ON e.id = em.event_id
-          WHERE em.mention_id = m.id AND (:any_event OR e.event_type = ANY(:events))
-      )
-    ORDER BY a.published_at, a.id, m.start_offset
-    """
-)
-# The articles of the Code those people are charged under in those publications.
-_CHARGES = text(
-    """
-    SELECT g.key, c.publication_id, c.article
-    FROM entity_group_charges c JOIN entity_groups g ON g.id = c.group_id
-    WHERE g.key = ANY(:keys) AND c.publication_id = ANY(:publications)
-    """
-)
 # One case is told at one stage by different words: what one source calls a detention
 # another calls an arrest or a charge. A sentence is a stage of its own. «other» — the
 # model could not say what happened — says nothing of the stage, and nothing is compared.
@@ -77,6 +43,51 @@ _STAGES: dict[str, tuple[str, ...]] = {
     **dict.fromkeys(_BEFORE_TRIAL, _BEFORE_TRIAL),
     "sentence": ("sentence",),
 }
+
+
+@dataclass(frozen=True)
+class _Named:
+    """A figurant's mention in another publication, with that publication's card."""
+
+    mention: identity.FigurantMention
+    card: read.ArticleCard
+    around: str | None
+
+    @property
+    def key(self) -> str:
+        return self.mention.key
+
+    @property
+    def name(self) -> str:
+        return self.mention.name
+
+    @property
+    def gender(self) -> str | None:
+        return self.mention.gender
+
+    @property
+    def article_id(self) -> int:
+        return self.mention.article_id
+
+    @property
+    def start_offset(self) -> int:
+        return self.mention.start_offset
+
+    @property
+    def end_offset(self) -> int:
+        return self.mention.end_offset
+
+    @property
+    def title(self) -> str:
+        return self.card.title
+
+    @property
+    def published_at(self) -> datetime | None:
+        return self.card.published_at
+
+    @property
+    def source(self) -> str:
+        return self.card.source_name
 
 
 @dataclass
@@ -126,30 +137,50 @@ def named_candidates(
         return []
     day = figurant.published_at.replace(hour=0, minute=0, second=0, microsecond=0)
     stage = _STAGES.get(figurant.event_type)
-    rows = session.execute(
-        _NAMED,
-        {
-            "article": figurant.article_id,
-            "since": day - WINDOW,
-            "until": day + WINDOW + timedelta(days=1),
-            # Where a word begins, as `place_pattern` reads it.
-            "place": "(^|[^а-яё])(" + "|".join(re.escape(stem) for stem in stems) + ")",
-            "any_event": stage is None,
-            "events": list(stage or ()),
-            "context": AGE_CONTEXT,
-        },
-    ).all()
+    # The figurants named in the other publications of those days that tell of the
+    # place, where they are a target of an event of the same kind; with the text
+    # around the name.
+    articles = read.published_matching(
+        session,
+        day - WINDOW,
+        day + WINDOW + timedelta(days=1),
+        # Where a word begins, as `place_pattern` reads it.
+        "(^|[^а-яё])(" + "|".join(re.escape(stem) for stem in stems) + ")",
+        other_than=figurant.article_id,
+    )
+    mentions = identity.figurant_mentions(session, articles, stage)
+    cards = read.article_cards(session, {mention.article_id for mention in mentions})
+    mentions = sorted(
+        (mention for mention in mentions if mention.article_id in cards),
+        key=lambda mention: (
+            cards[mention.article_id].published_at or day,
+            mention.article_id,
+            mention.start_offset,
+        ),
+    )
+    around = read.text_windows(
+        session,
+        [
+            read.TextWindow(
+                mention.article_id,
+                max(mention.start_offset - AGE_CONTEXT, 0),
+                mention.end_offset - max(mention.start_offset - AGE_CONTEXT, 0) + AGE_CONTEXT,
+            )
+            for mention in mentions
+        ],
+    )
+    rows = [
+        _Named(mention, cards[mention.article_id], text_around)
+        for mention, text_around in zip(mentions, around, strict=True)
+    ]
     wanted = {str(article) for article in figurant.articles or []}
-    charges: dict[tuple[str, int], set[str]] = {}
-    if rows and wanted:
-        for key, publication, article in session.execute(
-            _CHARGES,
-            {
-                "keys": sorted({row.key for row in rows}),
-                "publications": sorted({row.article_id for row in rows}),
-            },
-        ):
-            charges.setdefault((key, publication), set()).add(article)
+    charges: dict[tuple[str, int], set[str]] = (
+        identity.publication_charges(
+            session, {row.key for row in rows}, {row.article_id for row in rows}
+        )
+        if rows and wanted
+        else {}
+    )
     words: dict[str, str] = {
         candidate: decision
         for candidate, decision in session.execute(

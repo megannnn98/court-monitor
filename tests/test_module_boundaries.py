@@ -87,6 +87,8 @@ ORCHESTRATOR_MAY_IMPORT = frozenset(
         "persons.resolution.stage",
         "analysis.service",
         "results.service",
+        # its owner read API: the count of active findings on the status page
+        "results.read",
     }
 )
 
@@ -129,7 +131,7 @@ INTERNAL = frozenset(
         "analysis.persecution.classification_service",
         "results.findings",
         "results.dossier",
-        "results.search",
+        "ingestion.fulltext",
         "results.figurant",
         "orchestrator.repository",
         "orchestrator.locks",
@@ -156,6 +158,14 @@ CLOSED_TO_INTERNALS = (
 # file's names (ADR 0025).
 CONSOLE_READ_MODELS = frozenset(
     {
+        "ingestion.read",
+        "processing.read",
+        "analysis.read",
+        "analysis.rosfinmonitoring.read",
+        "results.review",
+        "results.read",
+        "processing.evidence.sentences",
+        "persons.read",
         # the services
         "analysis.service",
         "processing.identity.service",
@@ -174,7 +184,6 @@ CONSOLE_READ_MODELS = frozenset(
         "analysis.operator_base.known_base",
         "analysis.operator_base.known_nameless",
         "analysis.persecution.classifier",
-        "analysis.persecution.queries",
         "analysis.politics.classification",
         "analysis.rosfinmonitoring.inclusion_dates",
         "analysis.rosfinmonitoring.rf_articles",
@@ -189,6 +198,9 @@ CONSOLE_READ_MODELS = frozenset(
         "processing.extraction.name_frequency",
         "processing.junk.holds",
         "processing.junk.screen",
+        "processing.roles.commands",
+        "processing.roles.exclusion_list",
+        "processing.junk.hold_view",
         "processing.roles.officials",
         "processing.roles.roles",
         "results.ask",
@@ -318,13 +330,21 @@ def _violations() -> set[str]:
     return found
 
 
+def _is_storage(module: str) -> bool:
+    """A package's ORM models: who may import them is `tests/test_data_ownership.py`'s
+    rule (only their owner), not this file's."""
+    return ".storage" in f".{module}" and module.split(".")[1:2] == ["storage"]
+
+
 def _domain_imports_outside(allowed: frozenset[str], prefix: str) -> list[str]:
     return sorted(
         f"{path} -> {module}"
         for path, tree in _files(prefix)
         if _module_of(path) != ENTRY_POINT
         for module in _imported_modules(tree, path)
-        if module.split(".")[0] in _DOMAIN_PACKAGES and module not in allowed
+        if module.split(".")[0] in _DOMAIN_PACKAGES
+        and module not in allowed
+        and not _is_storage(module)
     )
 
 
@@ -384,10 +404,16 @@ def test_a_source_search_fetches_nothing_but_its_own_source() -> None:
     assert offenders == []
 
 
+# The investigation's own table (ADR 0031): its model and the store of its runs. Nothing
+# else of the investigation runs SQL; it reads the domain through the results API.
+INVESTIGATION_STORAGE = ("investigation/storage/", "investigation/run_store.py")
+
+
 def test_an_investigation_runs_no_sql_of_its_own() -> None:
     offenders = sorted(
         f"{path} -> {imported}"
         for path, tree in _files("investigation/")
+        if not path.startswith(INVESTIGATION_STORAGE)
         for imported in _imports(tree, path)
         if imported.split(".")[0] in ("sqlalchemy", "db", "psycopg")
     )
@@ -427,7 +453,9 @@ def test_the_console_reads_the_domain_only_through_its_public_contracts() -> Non
         f"{path} -> {module}"
         for path, tree in _files("web/", "api.py")
         for module in _imported_modules(tree, path)
-        if module.split(".")[0] in _DOMAIN_PACKAGES and module not in CONSOLE_READ_MODELS
+        if module.split(".")[0] in _DOMAIN_PACKAGES
+        and module not in CONSOLE_READ_MODELS
+        and not _is_storage(module)
     )
 
     assert offenders == []

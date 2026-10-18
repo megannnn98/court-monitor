@@ -17,18 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    EntityMentionRecord,
-    EventEntityMentionRecord,
-    ExtractedEventRecord,
-    ParsedArticleRecord,
-    PersonEventLinkRecord,
-    PersonRecord,
-    PersonResolutionDecisionRecord,
-    ReviewRecordModel,
-    Source,
-    SourceDocument,
-)
+from ingestion import read
 from persons.manual_review_service import ReviewStatus, SqlAlchemyManualReviewService
 from persons.models import AliasOrigin, PersonStatus
 from persons.persistence import PersonMergeConflictError, SqlAlchemyPersonPersistence
@@ -42,6 +31,17 @@ from persons.resolution.service import (
     DecisionStatus,
     known_distinct_pairs,
     lock_identity_block_keys,
+)
+from persons.storage.models import (
+    PersonEventLinkRecord,
+    PersonRecord,
+    PersonResolutionDecisionRecord,
+    ReviewRecordModel,
+)
+from processing.storage.models import (
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
 )
 
 logger = logging.getLogger("person_resolution")
@@ -390,16 +390,11 @@ class PersonResolutionReviewService:
     def _source(session: Session, article_id: int | None) -> ReviewSource:
         if article_id is None:
             return ReviewSource(article_id=None)
-        row = session.execute(
-            select(ParsedArticleRecord.title, SourceDocument.canonical_url, Source.name)
-            .join(SourceDocument, SourceDocument.id == ParsedArticleRecord.document_id)
-            .join(Source, Source.id == SourceDocument.source_id)
-            .where(ParsedArticleRecord.id == article_id)
-        ).one_or_none()
-        if row is None:
+        card = read.article_cards(session, [article_id]).get(article_id)
+        if card is None:
             return ReviewSource(article_id=article_id)
         return ReviewSource(
-            article_id=article_id, title=row.title, url=row.canonical_url, source_name=row.name
+            article_id=article_id, title=card.title, url=card.url, source_name=card.source_name
         )
 
 

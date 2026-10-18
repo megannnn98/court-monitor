@@ -13,7 +13,7 @@ from web.routers.articles import _article_response
 from web.routers.persons import get_person_detail
 from web.ui.entities import EVENT_LABELS, display_name
 from web.ui.layout import _fmt, _page, external_url
-from web.ui.publications import _EVENTS, _PEOPLE
+from web.ui.publications import people_and_events
 
 router = APIRouter()
 
@@ -79,16 +79,15 @@ def ui_get_article(
         )
     else:
         rendered = escape(text)
-    people = db.execute(_PEOPLE, {"articles": [article_id], "context": 0}).all()
-    events = db.execute(_EVENTS, {"articles": [article_id]}).all()
+    people, events = people_and_events(db, [article_id])
     people_html = ", ".join(
         f'<a href="/ui/investigations/{quote(key)}">{escape(display_name(name))}</a>'
-        for _article, key, name, _mentions in sorted(people, key=lambda row: -row[3])
+        for key, name, _mentions in sorted(people[article_id], key=lambda row: -row[2])
     )
     events_html = " ".join(
         f'<span class="badge">{escape(EVENT_LABELS.get(kind, kind))}'
         f"{f': {count}' if count > 1 else ''}</span>"
-        for _article, kind, count in sorted(events, key=lambda row: row[1])
+        for kind, count in sorted(events[article_id], key=lambda row: row[0])
     )
     url = external_url(article.url)
     source = (

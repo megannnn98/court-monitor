@@ -34,14 +34,17 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from typing import Any
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import JunkScreenHoldRecord
+from db.arrays import any_of
+from ingestion import read
+from ingestion.commands import discard_articles
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
 from processing.junk.article_screen import ArticleScreen, ExplainingScreen
 from processing.junk.screen import HELD, reason
+from processing.storage.models import JunkScreenHoldRecord
 
 logger = logging.getLogger("monitoring")
 # A score under the cutoff but at least this is logged as a warning. On the 2026-10-01
@@ -60,13 +63,12 @@ EXPIRED_CONTENT_TYPE = "application/x-court-monitor-expired"
 # never extracted successfully is not judged; one held for a person is not either.
 _JUNK_ARTICLES = text(
     """
-    SELECT a.id
-    FROM parsed_articles a
-    JOIN LATERAL (
-        SELECT r.id FROM article_extraction_runs r
-        WHERE r.article_id = a.id AND r.status = 'succeeded'
-        ORDER BY r.id DESC LIMIT 1
-    ) latest ON true
+    WITH latest AS (
+        SELECT DISTINCT ON (article_id) id, article_id FROM article_extraction_runs
+        WHERE status = 'succeeded' ORDER BY article_id, id DESC
+    )
+    SELECT latest.article_id
+    FROM latest
     WHERE NOT EXISTS (
         SELECT 1 FROM extracted_events e
         WHERE e.extraction_run_id = latest.id AND e.event_type IN :criminal
@@ -75,23 +77,12 @@ _JUNK_ARTICLES = text(
         -- Held for a person, or released by a model's reading: its event may be gone
         -- with a new extraction until the next reading writes it again.
         SELECT 1 FROM junk_screen_holds h
-        WHERE h.article_id = a.id AND h.status IN ('held', 'released')
+        WHERE h.article_id = latest.article_id AND h.status IN ('held', 'released')
     )
-    ORDER BY a.id
+    ORDER BY latest.article_id
     LIMIT :limit
     """
 ).bindparams(bindparam("criminal", expanding=True))
-
-
-# Articles published before the working date, news or registry alike.
-_OUTDATED_ARTICLES = text(
-    """
-    SELECT a.id FROM parsed_articles a
-    WHERE a.published_at < :since
-    ORDER BY a.id
-    LIMIT :limit
-    """
-)
 
 
 def since_from_env(env: Mapping[str, str] | None = None) -> datetime | None:
@@ -174,7 +165,8 @@ class JunkPurge:
     def _outdated_articles(self, session: Session, *, limit: int | None) -> list[int]:
         if self._since is None:
             return []
-        return list(session.scalars(_OUTDATED_ARTICLES, {"since": self._since, "limit": limit}))
+        # Articles published before the working date, news or registry alike.
+        return read.published_before(session, self._since, limit=limit)
 
     def _junk_articles(self, session: Session, *, limit: int | None) -> list[int]:
         return list(
@@ -190,16 +182,17 @@ class JunkPurge:
         article a person already called junk is not judged again."""
         if self._screen is None:
             return set()
-        rows = session.execute(
-            text(
-                """
-                SELECT a.id, a.title, a.text FROM parsed_articles a
-                WHERE a.id IN :ids
-                  AND NOT EXISTS (SELECT 1 FROM junk_screen_holds h WHERE h.article_id = a.id)
-                """
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": list(article_ids)},
-        ).all()
+        judged = set(
+            session.scalars(
+                select(JunkScreenHoldRecord.article_id).where(
+                    any_of(JunkScreenHoldRecord.article_id, article_ids)
+                )
+            )
+        )
+        stored = read.stored_articles(
+            session, [article_id for article_id in article_ids if article_id not in judged]
+        )
+        rows = [stored[article_id] for article_id in article_ids if article_id in stored]
         scores = self._screen.scores([(row.title or "", row.text or "") for row in rows])
         cutoff = self._screen.cutoff
         _log_passed(rows, scores, cutoff, self._screen.name)
@@ -263,22 +256,7 @@ class JunkPurge:
                 ids,
             ).all()
         )
-        documents = list(
-            session.scalars(
-                text(
-                    "DELETE FROM parsed_articles WHERE id IN :ids RETURNING document_id"
-                ).bindparams(bindparam("ids", expanding=True)),
-                ids,
-            ).all()
-        )
-        # The tombstone: the post stays known to discovery, its content goes.
-        session.execute(
-            text(
-                "UPDATE source_documents SET raw_content = '', "
-                "content_type = coalesce(:content_type, content_type) WHERE id IN :documents"
-            ).bindparams(bindparam("documents", expanding=True)),
-            {"documents": documents, "content_type": content_type},
-        )
+        discard_articles(session, article_ids, content_type=content_type)
         return persons
 
     def _purge_orphans(self, session: Session, person_ids: Sequence[int]) -> int:

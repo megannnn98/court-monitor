@@ -15,10 +15,8 @@ from urllib.parse import parse_qs, urlencode
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import ChatQuestionRecord
 from results.ask import (
     FAILED,
     LIST,
@@ -33,6 +31,7 @@ from results.ask import (
     spent_today,
     unverified_numbers,
 )
+from results.read import QuestionAnswer, question_answer, recent_answers
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page
 
@@ -165,12 +164,12 @@ def _result_html(result: dict[str, Any]) -> str:
     return f"<h3>{escape(str(result.get('what', '')))}</h3>{table(result)}"
 
 
-def results_of(record: ChatQuestionRecord) -> list[dict[str, Any]]:
+def results_of(record: QuestionAnswer) -> list[dict[str, Any]]:
     """The counts the answer stands on, as the model's calls returned them."""
     return [call["result"] for call in record.calls]
 
 
-def unverified_of(record: ChatQuestionRecord) -> list[str]:
+def unverified_of(record: QuestionAnswer) -> list[str]:
     """The answer's numbers no count holds; none for a refusal or a failure."""
     if record.outcome in (REFUSED, FAILED):
         return []
@@ -182,16 +181,12 @@ def current_asker() -> Any:
     return asker_from_env()
 
 
-def asked_before(db: Session) -> list[ChatQuestionRecord]:
+def asked_before(db: Session) -> list[QuestionAnswer]:
     """The latest questions, newest first."""
-    return list(
-        db.scalars(
-            select(ChatQuestionRecord).order_by(ChatQuestionRecord.id.desc()).limit(HISTORY)
-        ).all()
-    )
+    return recent_answers(db, limit=HISTORY)
 
 
-def _shown(record: ChatQuestionRecord) -> str:
+def _shown(record: QuestionAnswer) -> str:
     results = results_of(record)
     unverified = unverified_of(record)
     warning = (
@@ -223,7 +218,7 @@ def ui_ask(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     history = asked_before(db)
-    record = db.get(ChatQuestionRecord, q) if q else (history[0] if history else None)
+    record = question_answer(db, q) if q else (history[0] if history else None)
     examples = "".join(
         '<button type="button" class="chip" onclick="document.getElementById('
         f"'ask-question').value = this.textContent\">{escape(example)}</button>"

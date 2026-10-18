@@ -22,11 +22,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.orm_models import MonitoringFindingRecord, MonitoringRunRecord
 from evaluation.real_world.corpus_run import (
     CorpusRunner,
     PeriodRun,
@@ -49,9 +48,11 @@ from evaluation.real_world.state_snapshot import (
     logical_snapshot,
     table_counts,
 )
+from orchestrator import testing as orchestrator_testing
 from orchestrator.service import MonitoringService
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.review import PersonResolutionReviewService, ResolutionReviewAction
+from results import testing as results_testing
 from results.candidates.service import CandidateQueryService
 
 logger = logging.getLogger("evaluation.real_world")
@@ -146,9 +147,7 @@ def finding_periods(
 ) -> dict[int, str]:
     """Canonical person → temporal period of the run that first created its finding."""
     with session_factory() as session:
-        rows = session.execute(
-            select(MonitoringFindingRecord.person_id, MonitoringFindingRecord.first_seen_run_id)
-        ).all()
+        rows = results_testing.finding_first_runs(session)
     periods: dict[int, str] = {}
     for person_id, run_id in rows:
         period = run_period.get(run_id) if run_id is not None else None
@@ -160,7 +159,7 @@ def finding_periods(
 def performance(engine: Engine, outcome: TemporalOutcome, articles: int) -> PerformanceSection:
     stage_ms: dict[str, float] = defaultdict(float)
     with engine.connect() as connection:
-        for (metrics,) in connection.execute(select(MonitoringRunRecord.stage_metrics)).all():
+        for metrics in orchestrator_testing.stage_metrics(connection):
             for stage, values in (metrics or {}).items():
                 if isinstance(values, dict) and "duration_ms" in values:
                     stage_ms[stage] += float(values["duration_ms"])
@@ -232,13 +231,7 @@ def rf_review_findings(
                 ).bindparams(s=snapshot_id)
             ).all()
         )
-        findings = set(
-            session.scalars(
-                select(MonitoringFindingRecord.person_id).where(
-                    MonitoringFindingRecord.active.is_(True)
-                )
-            ).all()
-        )
+        findings = results_testing.active_finding_person_ids(session)
     candidates = {
         c.person_id
         for c in CandidateQueryService(session_factory)

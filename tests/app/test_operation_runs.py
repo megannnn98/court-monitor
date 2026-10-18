@@ -20,7 +20,6 @@ from support.workspace import APP_SRC
 
 from api import app, get_db, get_operation_registry
 from db.database import create_session_factory
-from db.orm_models import MonitoringRunRecord, OperatorOperationRunRecord
 from orchestrator.operations import (
     MONITOR_CYCLE,
     OUTPUT_LIMIT,
@@ -34,6 +33,7 @@ from orchestrator.operations import (
     ProcessRunner,
     next_in_chain,
 )
+from orchestrator.storage.models import MonitoringRunRecord, OperatorOperationRunRecord
 from web.dependencies import OPERATION_COMMAND_LINE
 
 INGEST = OperationParameters(source="ovd-info", limit=3)

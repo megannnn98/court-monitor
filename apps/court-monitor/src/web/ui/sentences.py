@@ -16,11 +16,11 @@ from urllib.parse import parse_qs, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import Row, func, select, text, update
 from sqlalchemy.orm import Session
 
-from db.orm_models import ArticleSentenceReadingRecord, ArticleSentenceRecord
 from processing.evidence.regions import canonical
+from processing.evidence.sentences import set_sentence_hidden
+from processing.read import HiddenSentence, hidden_sentences, sentence_reading_count
 from results.ask import KIND_LABELS, REASON_LABELS
 from results.queries.sentence_cases import POLITICAL, Case, Filters, cases
 from results.queries.sentence_cases import select as select_cases
@@ -31,15 +31,6 @@ router = APIRouter()
 
 PAGE_SIZE = 50
 HIDDEN = "hidden"
-
-_HIDDEN_ROWS = text(
-    """
-    SELECT t.id, t.article_id, t.person, t.region, t.kind, t.months, t.fine_rub,
-           t.in_absentia, t.sentenced_on, t.reason, t.reason_text, t.quote, a.title
-    FROM article_sentences t JOIN parsed_articles a ON a.id = t.article_id
-    WHERE t.hidden ORDER BY t.id DESC
-    """
-)
 
 
 def term_text(months: int, fine_rub: int) -> str:
@@ -111,7 +102,7 @@ class SentencePage:
     cases: list[Case]
     total: int
     # The rows a person took out of every count, newest first.
-    hidden: Sequence[Row[Any]]
+    hidden: Sequence[HiddenSentence]
     # How many publications the model has read for a sentence.
     read: int
 
@@ -130,8 +121,8 @@ def read_sentences(db: Session, *, reason: str, region: str, page: int) -> Sente
         all_cases=all_cases,
         cases=found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE],
         total=len(found),
-        hidden=db.execute(_HIDDEN_ROWS).all(),
-        read=db.scalar(select(func.count()).select_from(ArticleSentenceReadingRecord)) or 0,
+        hidden=hidden_sentences(db),
+        read=sentence_reading_count(db),
     )
 
 
@@ -216,12 +207,7 @@ async def _set_hidden(request: Request, db: Session, hidden: bool) -> RedirectRe
     ids = {int(part) for part in form.get("rows", [""])[0].split(",") if part.isdigit()}
     if not ids:
         raise HTTPException(status_code=400, detail="Не указан приговор")
-    changed = db.execute(
-        update(ArticleSentenceRecord)
-        .where(ArticleSentenceRecord.id.in_(ids))
-        .values(hidden=hidden)
-        .returning(ArticleSentenceRecord.id)
-    ).all()
+    changed = set_sentence_hidden(db, ids, hidden=hidden)
     if not changed:
         raise HTTPException(status_code=404, detail="Такого приговора нет")
     if len(changed) != len(ids):

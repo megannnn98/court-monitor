@@ -24,9 +24,9 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from analysis.storage.models import AirtableKnownPersonRecord, UnnamedDecisionRecord
 from analysis.unnamed.figurants import DIFFERENT, SAME
 from analysis.unnamed.matching import place_pattern, place_stems
-from db.orm_models import AirtableKnownPersonRecord, UnnamedDecisionRecord
 
 SHOWN = 5
 DECISIONS = frozenset({SAME, DIFFERENT})
@@ -134,11 +134,36 @@ class RfCandidate:
     decision: str | None = None
 
 
+@dataclass(frozen=True)
+class BaseRecord:
+    """A record of the operator's base, as a value: what a nameless case shows of it."""
+
+    external_id: str
+    full_name: str
+    gender: str | None
+    region: str | None
+    city: str | None
+    articles: str | None
+    case_opened_on: date | None
+
+
+def _value(record: AirtableKnownPersonRecord) -> BaseRecord:
+    return BaseRecord(
+        record.external_id,
+        record.full_name,
+        record.gender,
+        record.region,
+        record.city,
+        record.articles,
+        record.case_opened_on,
+    )
+
+
 @dataclass
 class NamelessCase:
     """A nameless record of the base with the entries of the list it may be."""
 
-    record: AirtableKnownPersonRecord
+    record: BaseRecord
     # None for a record confirmed earlier whose name no longer tells an age.
     age: int | None
     candidates: list[RfCandidate]
@@ -170,7 +195,7 @@ class NamelessCase:
         )
 
 
-def nameless_records(session: Session) -> list[AirtableKnownPersonRecord]:
+def nameless_records(session: Session) -> list[BaseRecord]:
     """The records to identify: no birth date, but an age in the name («34-летний уроженец
     Крыма») and the day the case was opened — without those there is nothing to compare
     an entry's birth date with."""
@@ -180,7 +205,7 @@ def nameless_records(session: Session) -> list[AirtableKnownPersonRecord]:
             AirtableKnownPersonRecord.case_opened_on.is_not(None),
         )
     )
-    return [row for row in rows if record_age(row.full_name) is not None]
+    return [_value(row) for row in rows if record_age(row.full_name) is not None]
 
 
 class _Place:
@@ -214,8 +239,8 @@ def candidates_for(
         return None
     city = _Place(record.city or "")
     region = _Place(record.region or "")
-    # Read once: the record is an ORM row, and the loop below runs over thousands of
-    # entries for each of hundreds of records.
+    # Read once: the loop below runs over thousands of entries for each of hundreds of
+    # records.
     gender = record.gender
     found: list[RfCandidate] = []
     for entry in rf_list.born_in(range(opened.year - age - 2, opened.year - age + 2)):
@@ -301,7 +326,7 @@ def _confirmed_elsewhere(session: Session, compared: set[str]) -> list[NamelessC
         )
     ).all()
     return [
-        NamelessCase(record, record_age(record.full_name), [], 0, candidate)
+        NamelessCase(_value(record), record_age(record.full_name), [], 0, candidate)
         for record, candidate in rows
         if record.external_id not in compared
     ]

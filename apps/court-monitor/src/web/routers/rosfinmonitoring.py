@@ -1,13 +1,9 @@
 """Rosfinmonitoring snapshots and entries."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.orm_models import (
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from analysis.rosfinmonitoring import read as rf_read
 from web.dependencies import get_db
 from web.response_models import RosfinmonitoringEntryResponse, RosfinmonitoringSnapshotResponse
 
@@ -24,11 +20,7 @@ def list_rosfinmonitoring_snapshots(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[RosfinmonitoringSnapshotResponse]:
     """List Rosfinmonitoring snapshots."""
-    snapshots = db.scalars(
-        select(RosfinmonitoringSnapshotRecord)
-        .order_by(RosfinmonitoringSnapshotRecord.snapshot_date.desc())
-        .limit(limit)
-    ).all()
+    snapshots = rf_read.snapshots(db, limit=limit)
 
     return [
         RosfinmonitoringSnapshotResponse(
@@ -51,7 +43,7 @@ def get_rosfinmonitoring_snapshot(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> RosfinmonitoringSnapshotResponse:
     """Get a Rosfinmonitoring snapshot by ID."""
-    snapshot = db.get(RosfinmonitoringSnapshotRecord, snapshot_id)
+    snapshot = rf_read.snapshot(db, snapshot_id)
 
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
@@ -76,17 +68,11 @@ def list_rosfinmonitoring_entries(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[RosfinmonitoringEntryResponse]:
     """List entries in a Rosfinmonitoring snapshot."""
-    snapshot = db.get(RosfinmonitoringSnapshotRecord, snapshot_id)
+    snapshot = rf_read.snapshot(db, snapshot_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
 
-    entries = db.scalars(
-        select(RosfinmonitoringEntryRecord)
-        .where(RosfinmonitoringEntryRecord.snapshot_id == snapshot_id)
-        .order_by(RosfinmonitoringEntryRecord.id)
-        .offset(offset)
-        .limit(limit)
-    ).all()
+    entries = rf_read.snapshot_entries(db, snapshot_id, limit=limit, offset=offset)
 
     return [
         RosfinmonitoringEntryResponse(

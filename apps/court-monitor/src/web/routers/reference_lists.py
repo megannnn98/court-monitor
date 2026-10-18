@@ -93,15 +93,15 @@ def get_officials(db: Session = Depends(get_db)) -> OfficialsResponse:  # noqa: 
         total=total,
         rows=[
             OfficialRowResponse(
-                external_id=row.external_id,
-                full_name=row.full_name,
-                entity_key=key,
-                entity_name=name,
-                category=category_label(row.category or ""),
-                reason=row.reason,
-                active=row.active,
+                external_id=row.official.external_id,
+                full_name=row.official.full_name,
+                entity_key=row.entity_key,
+                entity_name=row.entity_name,
+                category=category_label(row.official.category or ""),
+                reason=row.official.reason,
+                active=row.official.active,
             )
-            for row, key, name in rows
+            for row in rows
         ],
         suggestions=[
             OfficialSuggestionResponse(

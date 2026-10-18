@@ -16,12 +16,8 @@ from analysis.rosfinmonitoring.matcher_models import (
     RosfinMatchStatus,
     RosfinmonitoringMatcher,
 )
-from db.orm_models import (
-    PersonAliasRecord,
-    PersonRecord,
-    RosfinmonitoringEntryRecord,
-    RosfinmonitoringSnapshotRecord,
-)
+from analysis.storage.models import RosfinmonitoringEntryRecord, RosfinmonitoringSnapshotRecord
+from persons import read as person_read
 
 
 def _escape_like(value: str) -> str:
@@ -156,16 +152,14 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
         person_birth_date: datetime | None,
     ) -> RosfinMatchResult:
         with self._session_factory() as session:
-            person = session.scalar(select(PersonRecord).where(PersonRecord.id == person_id))
+            person = person_read.person(session, person_id)
             if person is None:
                 raise ValueError(f"Person {person_id} not found")
             snapshot = session.get(RosfinmonitoringSnapshotRecord, snapshot_id)
             if snapshot is None:
                 raise ValueError(f"Rosfinmonitoring snapshot {snapshot_id} not found")
 
-            aliases = session.scalars(
-                select(PersonAliasRecord).where(PersonAliasRecord.person_id == person_id)
-            ).all()
+            aliases = person_read.aliases(session, person_id)
             # The canonical person is always at least one identity to score
             # against, whether or not they have any aliases yet — aliases
             # extend this set, they aren't required for it to be non-empty.
@@ -361,14 +355,7 @@ class RuleBasedRosfinmonitoringMatcher(RosfinmonitoringMatcher):
     def person_ids_to_match(self, limit: int | None = None) -> list[int]:
         """The persons a full matching pass covers: every one not merged into another."""
         with self._session_factory() as session:
-            query = (
-                select(PersonRecord.id)
-                .where(PersonRecord.merged_into_id.is_(None))
-                .order_by(PersonRecord.id)
-            )
-            if limit is not None:
-                query = query.limit(limit)
-            return list(session.scalars(query).all())
+            return person_read.unmerged_person_ids(session, limit=limit)
 
     def match_all_persons(
         self,

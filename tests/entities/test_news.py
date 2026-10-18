@@ -18,13 +18,10 @@ from analysis.news.case_news import (
     NewsItem,
     NewsReaderError,
 )
-from db.orm_models import (
-    EntityGroupNewsRecord,
-    EntityGroupPoliticsRecord,
-    EntityGroupRecord,
-    EntityMentionRecord,
-)
+from analysis.service import GroupFollowers
+from analysis.storage.models import EntityGroupNewsRecord, EntityGroupPoliticsRecord
 from processing.identity.collector import EntityCollector
+from processing.storage.models import EntityGroupRecord, EntityMentionRecord
 
 
 def _person(
@@ -84,7 +81,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
             _person(session, seed, run, surface, first, last)
             seed.event(run, text_[:10], event_type="arrest", event_date=None, links=[])
         session.commit()
-    EntityCollector(session_factory).run()
+    EntityCollector(session_factory, downstream=GroupFollowers()).run()
     with session_factory.begin() as session:
         for group_id, name in session.execute(select(EntityGroupRecord.id, EntityGroupRecord.name)):
             session.add(

@@ -21,8 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.workspace import APP_SRC
 
-from db.orm_models import OperatorOperationRunRecord
 from orchestrator.operations import OperationRegistry
+from orchestrator.storage.models import OperatorOperationRunRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
