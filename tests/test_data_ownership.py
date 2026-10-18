@@ -187,9 +187,20 @@ def _sql_strings(tree: ast.AST) -> Iterator[str]:
         if (
             isinstance(node, ast.Constant)
             and isinstance(node.value, str)
-            and re.search(r"\b(SELECT|INSERT|UPDATE|DELETE|TRUNCATE|FROM|JOIN)\b", node.value)
+            and (
+                re.search(r"\b(SELECT|INSERT|UPDATE|DELETE|TRUNCATE|FROM|JOIN)\b", node.value)
+                or _LOWERCASE_STATEMENT.search(node.value)
+            )
         ):
             yield node.value
+
+
+# In lower case a lone keyword is prose («persons absent from …»): only a statement's
+# shape counts.
+_LOWERCASE_STATEMENT = re.compile(
+    r"\b(?:select\s.*?\bfrom|insert\s+into|update\s+\w+\s+set|delete\s+from|truncate\s+(?:table\s+)?\w+)\b",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 _TABLE = re.compile(r"\b(" + "|".join(sorted(ALL_TABLE_OWNERS, key=len, reverse=True)) + r")\b")
@@ -384,3 +395,10 @@ def test_alembic_can_load_the_registry_outside_the_checkout(tmp_path: Path) -> N
 )
 def test_a_write_is_told_from_a_read(sql: str, table: str, written: bool) -> None:
     assert bool(re.search(_WRITE.format(table), sql, re.IGNORECASE)) is written
+
+
+def test_lowercase_sql_is_checked_too() -> None:
+    sql = ["delete from sources", "select 1 from parsed_articles", "truncate sources"]
+    tree = ast.parse("\n".join(f"text({statement!r})" for statement in sql))
+    assert list(_sql_strings(tree)) == sql
+    assert re.search(_WRITE.format("sources"), "truncate sources", re.IGNORECASE)
