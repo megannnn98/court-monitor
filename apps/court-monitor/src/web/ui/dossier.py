@@ -416,7 +416,9 @@ def load(db: Session, key: str) -> Dossier | None:
         )
         names = identity.groups(db, {group_id for _, group_id in pairs})
         for article_id, group_id in pairs:
-            by_id[article_id].others.append((names[group_id].key, names[group_id].name))
+            # A rebuild committed between the two reads may have taken the group away.
+            if (other := names.get(group_id)) is not None:
+                by_id[article_id].others.append((other.key, other.name))
     related = related_people(db, entity.id, evidence, followers)
 
     verdict_source = None
@@ -467,10 +469,17 @@ def related_people(
     for item in person_evidence(db, followers, articles=mine, quotes=False):
         if item.group_id != group_id:
             shared[item.group_id].add(item.article_id)
+    # Each read is a statement of its own: a group a rebuild took away between them is
+    # left out, not looked up.
     order = {other: rank for rank, other in enumerate(identity.by_name(db, shared))}
-    top = sorted(shared, key=lambda other: (-len(shared[other]), order[other]))[:limit]
+    top = sorted(
+        (other for other in shared if other in order),
+        key=lambda other: (-len(shared[other]), order[other]),
+    )[:limit]
     names = identity.groups(db, top)
-    return [(names[other].key, names[other].name, len(shared[other])) for other in top]
+    return [
+        (names[other].key, names[other].name, len(shared[other])) for other in top if other in names
+    ]
 
 
 def _quote_source(db: Session, evidence: list[Evidence], needle: str) -> int | None:

@@ -197,6 +197,8 @@ def _everyone(db: Session, marks: Marks) -> list[ListRow]:
     named = [
         (groups[group_id], political[group_id], news.get(group_id))
         for group_id in identity.latest_first_order(db, political)
+        # Each read is a statement of its own: a group a rebuild took away is left out.
+        if group_id in groups
     ]
     return [
         *(

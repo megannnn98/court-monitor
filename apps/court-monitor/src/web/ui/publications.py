@@ -45,8 +45,9 @@ def people_and_events(
         )
         groups = identity.groups(db, {group_id for _, group_id in pairs})
         for article_id, group_id in pairs:
-            group = groups[group_id]
-            people[article_id].append((group.key, group.name, group.mention_count))
+            # A rebuild committed between the two reads may have taken the group away.
+            if (group := groups.get(group_id)) is not None:
+                people[article_id].append((group.key, group.name, group.mention_count))
         for article_id, event_type, count in identity.event_counts(db, article_ids):
             events[article_id].append((event_type, count))
     return people, events
