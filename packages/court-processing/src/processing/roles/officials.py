@@ -30,6 +30,7 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from ingestion import read
 from processing.identity.disputes import KeyIndex
 from processing.identity.downstream import IdentityDownstream
 from processing.identity.grouping import _fold
@@ -73,15 +74,14 @@ _KIND_OF_TITLE = (
 )
 _POLICE_BODIES = ("ск", "следственного", "мвд", "фсб", "росгвардии")
 
-_CONTEXTS = text(
+# Every mention of the groups asked for, by the article it stands in; the words before
+# it are the ingestion's (`ingestion.read`).
+_MENTIONS = text(
     """
-    SELECT gm.group_id,
-           substring(a.text from greatest(m.start_offset - :context + 1, 1)
-                     for least(m.start_offset, :context))
+    SELECT gm.group_id, r.article_id, m.start_offset
     FROM entity_group_mentions gm
     JOIN entity_mentions m ON m.id = gm.mention_id
     JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
     WHERE gm.group_id = ANY(:groups)
     """
 )
@@ -126,8 +126,18 @@ def titled(contexts: Iterable[tuple[int, str]]) -> dict[int, tuple[str, str]]:
 
 
 def titled_entities(session: Session, group_ids: Sequence[int]) -> dict[int, tuple[str, str]]:
-    rows = session.execute(_CONTEXTS, {"groups": list(group_ids), "context": TITLE_CONTEXT})
-    return titled((int(group_id), str(context or "")) for group_id, context in rows)
+    rows = session.execute(_MENTIONS, {"groups": list(group_ids)}).all()
+    contexts = read.text_windows(
+        session,
+        [
+            read.TextWindow(article_id, max(start - TITLE_CONTEXT, 0), min(start, TITLE_CONTEXT))
+            for _, article_id, start in rows
+        ],
+    )
+    return titled(
+        (int(group_id), str(context or ""))
+        for (group_id, _, _), context in zip(rows, contexts, strict=True)
+    )
 
 
 def _key_candidates(name: str) -> list[str]:

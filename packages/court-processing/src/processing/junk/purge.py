@@ -38,6 +38,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion import read
 from ingestion.commands import discard_articles
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
 from processing.junk.article_screen import ArticleScreen, ExplainingScreen
@@ -61,13 +62,12 @@ EXPIRED_CONTENT_TYPE = "application/x-court-monitor-expired"
 # never extracted successfully is not judged; one held for a person is not either.
 _JUNK_ARTICLES = text(
     """
-    SELECT a.id
-    FROM parsed_articles a
-    JOIN LATERAL (
-        SELECT r.id FROM article_extraction_runs r
-        WHERE r.article_id = a.id AND r.status = 'succeeded'
-        ORDER BY r.id DESC LIMIT 1
-    ) latest ON true
+    WITH latest AS (
+        SELECT DISTINCT ON (article_id) id, article_id FROM article_extraction_runs
+        WHERE status = 'succeeded' ORDER BY article_id, id DESC
+    )
+    SELECT latest.article_id
+    FROM latest
     WHERE NOT EXISTS (
         SELECT 1 FROM extracted_events e
         WHERE e.extraction_run_id = latest.id AND e.event_type IN :criminal
@@ -76,23 +76,12 @@ _JUNK_ARTICLES = text(
         -- Held for a person, or released by a model's reading: its event may be gone
         -- with a new extraction until the next reading writes it again.
         SELECT 1 FROM junk_screen_holds h
-        WHERE h.article_id = a.id AND h.status IN ('held', 'released')
+        WHERE h.article_id = latest.article_id AND h.status IN ('held', 'released')
     )
-    ORDER BY a.id
+    ORDER BY latest.article_id
     LIMIT :limit
     """
 ).bindparams(bindparam("criminal", expanding=True))
-
-
-# Articles published before the working date, news or registry alike.
-_OUTDATED_ARTICLES = text(
-    """
-    SELECT a.id FROM parsed_articles a
-    WHERE a.published_at < :since
-    ORDER BY a.id
-    LIMIT :limit
-    """
-)
 
 
 def since_from_env(env: Mapping[str, str] | None = None) -> datetime | None:
@@ -175,7 +164,8 @@ class JunkPurge:
     def _outdated_articles(self, session: Session, *, limit: int | None) -> list[int]:
         if self._since is None:
             return []
-        return list(session.scalars(_OUTDATED_ARTICLES, {"since": self._since, "limit": limit}))
+        # Articles published before the working date, news or registry alike.
+        return read.published_before(session, self._since, limit=limit)
 
     def _junk_articles(self, session: Session, *, limit: int | None) -> list[int]:
         return list(

@@ -28,6 +28,7 @@ from typing import Any
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session
 
+from ingestion import read
 from processing.extraction.name_frequency import lookup_gender
 from processing.identity.downstream import IdentityDownstream
 from processing.identity.grouping import Entity, _bases, split_key
@@ -286,13 +287,13 @@ def _sum(first: Mapping[str, int], second: Mapping[str, int]) -> dict[str, int]:
     return dict(Counter(first) + Counter(second))
 
 
+# The articles of a group's mentions; their dates are the ingestion's (`ingestion.read`).
 _PUBLICATIONS = text(
     """
-    SELECT count(DISTINCT r.article_id), max(a.published_at)
+    SELECT DISTINCT r.article_id
     FROM entity_group_mentions gm
     JOIN entity_mentions m ON m.id = gm.mention_id
     JOIN article_extraction_runs r ON r.id = m.extraction_run_id
-    JOIN parsed_articles a ON a.id = r.article_id
     WHERE gm.group_id = :group
     """
 )
@@ -340,9 +341,10 @@ def merge_groups(
         session.scalar(select(func.count()).where(EntityGroupMentionRecord.group_id == keep.id))
         or 0
     )
-    publications, latest = session.execute(_PUBLICATIONS, {"group": keep.id}).one()
-    keep.article_count = int(publications or 0)
-    keep.last_published_at = latest
+    published = read.published_at(session, session.scalars(_PUBLICATIONS, {"group": keep.id}).all())
+    dates = [moment for moment in published.values() if moment is not None]
+    keep.article_count = len(published)
+    keep.last_published_at = max(dates) if dates else None
     session.execute(delete(EntityGroupRecord).where(EntityGroupRecord.id == drop.id))
     return keep.id
 

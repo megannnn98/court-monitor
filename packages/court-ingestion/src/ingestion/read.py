@@ -357,6 +357,17 @@ def published_on(session: Session, days: Collection[date]) -> dict[int, date]:
     return dict(session.execute(_PUBLISHED_ON, {"days": sorted(set(days))}).tuples().all())
 
 
+def published_before(session: Session, since: datetime, *, limit: int | None) -> list[int]:
+    """The articles published before `since`, in id order, at most `limit` of them."""
+    query = (
+        select(ParsedArticleRecord.id)
+        .where(ParsedArticleRecord.published_at < since)
+        .order_by(ParsedArticleRecord.id)
+        .limit(limit)
+    )
+    return list(session.scalars(query))
+
+
 __all__: Sequence[str] = (
     "ArticleCard",
     "ListedArticle",
@@ -368,6 +379,7 @@ __all__: Sequence[str] = (
     "browse",
     "list_stored_articles",
     "published_at",
+    "published_before",
     "published_between",
     "published_days",
     "published_on",
