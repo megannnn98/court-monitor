@@ -40,6 +40,7 @@ from evaluation.final.models import CaseResult, Counts, FalsePositive
 from evaluation.final.sources import FixtureUpstream, UnusedFetcher, fixture_source
 from ingestion import read
 from orchestrator.models import MonitoringSettings
+from persons import testing as persons_testing
 from persons.persistence import SqlAlchemyPersonPersistence
 from processing import testing as processing_testing
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
@@ -201,7 +202,7 @@ class FinalEvaluationRunner:
             for article, surface, mention_id, person in mentions
             if article in external
         ]
-        state.decisions = processing_testing.resolution_decisions(session)
+        state.decisions = persons_testing.resolution_decisions(session)
 
     # -- scoring ----------------------------------------------------------------------------
 

@@ -21,3 +21,13 @@ def active_finding_person_ids(session: Session) -> set[int]:
             )
         ).all()
     )
+
+
+def finding_first_runs(session: Session) -> list[tuple[int, int | None]]:
+    """(ER v2 person, the monitoring run that first found it) of every finding."""
+    return [
+        (person_id, run_id)
+        for person_id, run_id in session.execute(
+            select(MonitoringFindingRecord.person_id, MonitoringFindingRecord.first_seen_run_id)
+        )
+    ]

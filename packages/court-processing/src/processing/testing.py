@@ -7,10 +7,20 @@ step needs (ADR 0031, «Evaluation»).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, NamedTuple
 
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
+
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    EventEntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 _GOLDEN_PEOPLE = text(
     """
@@ -128,11 +138,135 @@ def person_mentions(session: Session) -> list[tuple[int, str, int, int | None]]:
     ]
 
 
-def resolution_decisions(session: Session) -> dict[int, tuple[str, str]]:
-    """Per mention, the ER v2 decision's action and status."""
-    return {
-        mention_id: (action, status)
-        for mention_id, action, status in session.execute(
-            text("SELECT mention_id, action, status FROM person_resolution_decisions")
+@dataclass(frozen=True)
+class FixtureMention:
+    """A mention of an entity a fixture event names, and its role in the event."""
+
+    entity_type: str
+    surface: str
+    start: int
+    role: str
+
+
+def add_extracted_event(
+    session: Session,
+    article_id: int,
+    *,
+    content_hash: str,
+    extractor: str,
+    at: datetime,
+    event_type: str,
+    event_date: datetime | None,
+    end_offset: int,
+    mentions: Sequence[FixtureMention] = (),
+) -> int:
+    """A succeeded extraction of the article with one event over its first `end_offset`
+    characters, and the event's mentions; the event's id."""
+    run = ArticleExtractionRunRecord(
+        article_id=article_id,
+        article_content_hash=content_hash,
+        extractor_name=extractor,
+        extractor_version="1",
+        normalizer_version="1",
+        status="succeeded",
+        started_at=at,
+        finished_at=at,
+    )
+    session.add(run)
+    session.flush()
+    extracted = ExtractedEventRecord(
+        extraction_run_id=run.id,
+        event_type=event_type,
+        event_date=event_date,
+        start_offset=0,
+        end_offset=end_offset,
+        confidence=1.0,
+        attributes={},
+        extractor_name=extractor,
+        extractor_version="1",
+    )
+    session.add(extracted)
+    session.flush()
+    for item in mentions:
+        mention = EntityMentionRecord(
+            extraction_run_id=run.id,
+            entity_type=item.entity_type,
+            surface_text=item.surface,
+            normalized_text=item.surface.lower(),
+            start_offset=item.start,
+            end_offset=item.start + len(item.surface),
+            confidence=1.0,
+            normalized_data={},
+            extractor_name=extractor,
+            extractor_version="1",
+            normalizer_version="1",
         )
-    }
+        session.add(mention)
+        session.flush()
+        session.add(
+            EventEntityMentionRecord(event_id=extracted.id, mention_id=mention.id, role=item.role)
+        )
+    return extracted.id
+
+
+def latest_succeeded_runs(session: Session, article_ids: Sequence[int]) -> dict[int, int]:
+    """Run id to article of the latest successful extraction of each article asked for."""
+    latest = (
+        select(func.max(ArticleExtractionRunRecord.id))
+        .where(ArticleExtractionRunRecord.status == "succeeded")
+        .group_by(ArticleExtractionRunRecord.article_id)
+    )
+    return dict(
+        session.execute(
+            select(ArticleExtractionRunRecord.id, ArticleExtractionRunRecord.article_id).where(
+                ArticleExtractionRunRecord.id.in_(latest),
+                ArticleExtractionRunRecord.article_id.in_(list(article_ids)),
+            )
+        )
+        .tuples()
+        .all()
+    )
+
+
+def person_mentions_of_runs(
+    session: Session, run_ids: Sequence[int]
+) -> list[tuple[int, int, int, int, str, int | None]]:
+    """(id, run, start, end, surface, ER v2 person) of the runs' person mentions, by id."""
+    return [
+        (row[0], row[1], row[2], row[3], row[4], row[5])
+        for row in session.execute(
+            select(
+                EntityMentionRecord.id,
+                EntityMentionRecord.extraction_run_id,
+                EntityMentionRecord.start_offset,
+                EntityMentionRecord.end_offset,
+                EntityMentionRecord.surface_text,
+                EntityMentionRecord.person_id,
+            )
+            .where(
+                EntityMentionRecord.entity_type == "person",
+                EntityMentionRecord.extraction_run_id.in_(list(run_ids)),
+            )
+            .order_by(EntityMentionRecord.id)
+        )
+    ]
+
+
+def events_of_runs(
+    session: Session, run_ids: Sequence[int]
+) -> list[tuple[int, int, str, int, int]]:
+    """(id, run, type, start, end) of the runs' events, by id."""
+    return [
+        (row[0], row[1], row[2], row[3], row[4])
+        for row in session.execute(
+            select(
+                ExtractedEventRecord.id,
+                ExtractedEventRecord.extraction_run_id,
+                ExtractedEventRecord.event_type,
+                ExtractedEventRecord.start_offset,
+                ExtractedEventRecord.end_offset,
+            )
+            .where(ExtractedEventRecord.extraction_run_id.in_(list(run_ids)))
+            .order_by(ExtractedEventRecord.id)
+        )
+    ]

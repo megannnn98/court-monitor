@@ -18,10 +18,10 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from evaluation.person_resolution.corpus import CorpusPerson, ErEvaluationCorpus, seed_corpus
+from persons import testing as persons_testing
 from persons.persistence import SqlAlchemyPersonPersistence
 from persons.resolution.candidates import (
     CandidateConfig,
@@ -37,7 +37,6 @@ from persons.resolution.models import (
 )
 from persons.resolution.service import PersonResolutionEngine
 from persons.resolution.surface import pipeline_identity
-from persons.storage.models import PersonAliasRecord, PersonRecord
 
 A = PersonResolutionAction
 RECALL_KS = (1, 5, 10)
@@ -83,23 +82,17 @@ def load_er_corpus(path: Path) -> ErCorpus:
     return ErCorpus.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+def _stored_identity(surface: str) -> tuple[str, str | None]:
+    stored = pipeline_identity(surface)
+    return stored.name, stored.matching_key
+
+
 def seed_er_corpus(session_factory: sessionmaker[Session], corpus: ErCorpus) -> dict[str, int]:
     """Seed persons (with their events) as the pipeline stores them."""
     ids = seed_corpus(session_factory, ErEvaluationCorpus(persons=corpus.persons)).persons
     with session_factory.begin() as session:
         for person in corpus.persons:
-            stored = pipeline_identity(person.canonical_name)
-            session.execute(
-                update(PersonRecord)
-                .where(PersonRecord.id == ids[person.key])
-                .values(normalized_name=stored.name, matching_key=stored.matching_key)
-            )
-            for alias in session.scalars(
-                select(PersonAliasRecord).where(PersonAliasRecord.person_id == ids[person.key])
-            ).all():
-                alias_identity = pipeline_identity(alias.surface_text)
-                alias.normalized_text = alias_identity.name
-                alias.matching_key = alias_identity.matching_key or ""
+            persons_testing.reidentify(session, ids[person.key], _stored_identity)
     return ids
 
 

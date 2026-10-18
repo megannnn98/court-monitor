@@ -8,6 +8,7 @@ to it): what is here samples or measures the analysis's storage itself (ADR 0031
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -86,3 +87,55 @@ def unsettled_count(
             or 0
         )
     return int(unsettled)
+
+
+def add_classification(
+    session: Session,
+    person_id: int,
+    *,
+    status: str,
+    confidence: float,
+    reasons: list[str],
+    evidence_types: list[str],
+    classifier: str,
+    at: datetime,
+) -> None:
+    """An ER v2 person's persecution classification by the named classifier, version 1."""
+    session.add(
+        PersecutionClassificationRecord(
+            person_id=person_id,
+            status=status,
+            confidence=confidence,
+            reasons=reasons,
+            evidence_types=evidence_types,
+            classifier_name=classifier,
+            classifier_version="1",
+            classified_at=at,
+        )
+    )
+
+
+def latest_classification_statuses(session: Session) -> dict[int, str]:
+    """Per ER v2 person, the status of its latest persecution classification."""
+    return dict(
+        session.execute(
+            select(
+                PersecutionClassificationRecord.person_id, PersecutionClassificationRecord.status
+            ).where(PersecutionClassificationRecord.id.in_(latest_persecution_classification_ids()))
+        )
+        .tuples()
+        .all()
+    )
+
+
+def match_statuses(session: Session, snapshot_id: int) -> dict[int, str]:
+    """Per ER v2 person, the status of its match with the snapshot."""
+    return dict(
+        session.execute(
+            select(RosfinMatchRecord.person_id, RosfinMatchRecord.status).where(
+                RosfinMatchRecord.snapshot_id == snapshot_id
+            )
+        )
+        .tuples()
+        .all()
+    )

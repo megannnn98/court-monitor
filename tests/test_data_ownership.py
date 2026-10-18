@@ -120,79 +120,24 @@ APPLICATION = "court-monitor"
 # The one place that imports every owner's models: the composition of the migrations.
 MODEL_REGISTRY = "migrations/model_registry.py"
 
-# -- transitional debts --------------------------------------------------------------------
-# What is left to move behind an owner's API, as `file -> module` or `file -> table`.
-# Each list must equal what the code does: an entry gone from the code is taken off, a
-# new crossing fails. All of them are empty when the refactor is done (ADR 0031).
-STORAGE_IMPORT_DEBT: frozenset[str] = frozenset(
-    {
-        "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> analysis.storage",
-        "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> ingestion.storage",
-        "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> persons.storage",
-        "tools/court-evaluation/src/evaluation/person_resolution/corpus.py -> processing.storage",
-        "tools/court-evaluation/src/evaluation/person_resolution/er_run.py -> persons.storage",
-        "tools/court-evaluation/src/evaluation/real_world/db_state.py -> analysis.storage",
-        "tools/court-evaluation/src/evaluation/real_world/db_state.py -> ingestion.storage",
-        "tools/court-evaluation/src/evaluation/real_world/db_state.py -> persons.storage",
-        "tools/court-evaluation/src/evaluation/real_world/db_state.py -> processing.storage",
-        "tools/court-evaluation/src/evaluation/real_world/db_state.py -> results.storage",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> orchestrator.storage",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> results.storage",
-    }
-)
-FOREIGN_WRITE_DEBT: frozenset[str] = frozenset()
-# Reads in SQL of a table another package owns. What stays at the end is a read facade
-# named in docs/architecture/data-ownership.md («Read facades»), with its reason.
-FOREIGN_SQL_READS: frozenset[str] = frozenset(
-    {
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> article_extraction_runs",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> entity_mentions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> event_entity_mentions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> extracted_events",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> parsed_articles",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> person_resolution_decisions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> source_documents",
-        "tools/court-evaluation/src/evaluation/identity_comparison/annotation.py -> sources",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> article_extraction_runs",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> entity_mentions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> entity_name_normalizations",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> entity_name_overrides",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> entity_pair_decisions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> entity_removals",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> parsed_articles",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> source_documents",
-        "tools/court-evaluation/src/evaluation/identity_comparison/production.py -> sources",
-        "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> article_extraction_runs",
-        "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> entity_mentions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> extracted_events",
-        "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> parsed_articles",
-        "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> person_resolution_decisions",
-        "tools/court-evaluation/src/evaluation/identity_comparison/real.py -> persons",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> article_extraction_runs",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> entity_mentions",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> monitoring_findings",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> monitoring_run_items",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> persecution_classifications",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> person_resolution_decisions",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> persons",
-        "tools/court-evaluation/src/evaluation/real_world/monitoring_simulation.py -> rosfin_matches",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> article_extraction_runs",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> entity_mentions",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> extracted_events",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> monitoring_findings",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> parsed_articles",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> persecution_classifications",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> person_aliases",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> person_event_links",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> person_resolution_decisions",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> persons",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> rosfin_matches",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> rosfinmonitoring_entries",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> rosfinmonitoring_snapshots",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> source_documents",
-        "tools/court-evaluation/src/evaluation/real_world/state_snapshot.py -> sources",
-    }
-)
+# -- database probes -----------------------------------------------------------------------
+# The evaluation's modules that read the database below every owner's API, because the
+# database itself is what they measure (ADR 0031, «Evaluation»). They may read any
+# table in SQL; they write none of another package's, and import no `storage`.
+EVALUATION = "tools/court-evaluation/src/evaluation/"
+DATABASE_PROBES: dict[str, str] = {
+    # A read-only, restored snapshot of the working database, of whatever schema version
+    # it was dumped at (tables are looked for with `to_regclass`): no owner's API, which
+    # is bound to today's models, reads it.
+    f"{EVALUATION}identity_comparison/annotation.py": "a restored snapshot",
+    f"{EVALUATION}identity_comparison/production.py": "a restored snapshot",
+    f"{EVALUATION}identity_comparison/real.py": "a restored snapshot",
+    # The logical digest of the whole database and the invariants across its tables,
+    # compared between two runs of the pipeline.
+    f"{EVALUATION}real_world/state_snapshot.py": "the whole database's digest",
+    # The rows a repeated run must not add, and faults injected into the SQL itself.
+    f"{EVALUATION}real_world/monitoring_simulation.py": "row counts and SQL faults",
+}
 
 
 def _source_files() -> Iterator[tuple[Path, str, str]]:
@@ -324,15 +269,20 @@ def test_no_aggregate_of_every_model_is_left() -> None:
 
 
 def test_only_the_owner_imports_its_storage() -> None:
-    assert sorted(_foreign_storage_imports()) == sorted(STORAGE_IMPORT_DEBT)
+    assert sorted(_foreign_storage_imports()) == []
 
 
 def test_only_the_owner_writes_its_tables() -> None:
-    assert sorted(_foreign_sql(writes=True)) == sorted(FOREIGN_WRITE_DEBT)
+    assert sorted(_foreign_sql(writes=True)) == []
 
 
-def test_reads_of_another_package_s_tables_in_sql_are_the_listed_ones() -> None:
-    assert sorted(_foreign_sql(writes=False)) == sorted(FOREIGN_SQL_READS)
+def test_only_a_database_probe_reads_another_package_s_tables_in_sql() -> None:
+    reads = _foreign_sql(writes=False)
+    probing = {read.split(" -> ")[0] for read in reads}
+
+    assert sorted(read for read in reads if read.split(" -> ")[0] not in DATABASE_PROBES) == []
+    # A probe that no longer reads below the owners' APIs is taken off the list.
+    assert sorted(set(DATABASE_PROBES) - probing) == []
 
 
 def _is_testing_api(module: str) -> bool:
