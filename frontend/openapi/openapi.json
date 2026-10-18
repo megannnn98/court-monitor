@@ -4369,6 +4369,33 @@
                 "type": "null"
               }
             ]
+          },
+          "working_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Working Date"
+          },
+          "last_load": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastLoadResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period_question": {
+            "type": "string",
+            "title": "Period Question",
+            "default": ""
           }
         },
         "type": "object",
@@ -4392,6 +4419,30 @@
           "after": {
             "type": "integer",
             "title": "After"
+          },
+          "published_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published From"
+          },
+          "published_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published To"
           },
           "entity_model": {
             "anyOf": [
@@ -7028,6 +7079,54 @@
         ],
         "title": "KnownResponse",
         "description": "What the operator's base says of a person."
+      },
+      "LastLoadResponse": {
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "published_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published From"
+          },
+          "published_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finished_at",
+          "published_from",
+          "published_to"
+        ],
+        "title": "LastLoadResponse",
+        "description": "The latest load that ended well: when, and for what dates (None: no dates, all new)."
       },
       "LatestRosfinMatchResponse": {
         "properties": {

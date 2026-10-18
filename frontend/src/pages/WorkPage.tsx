@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -16,7 +16,7 @@ import { QueryState } from "@/components/QueryState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { unwrap } from "@/lib/api";
 import { readAgainAfterDecision } from "@/lib/decisions";
-import { formatNumber } from "@/lib/format";
+import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** Polled while a step runs, as the legacy page reloads every 5 s. */
@@ -81,8 +81,88 @@ const MARKS: Record<string, [string, string]> = {
   waiting: ["○", "ожидает"]
 };
 
+/** «с 01.10.2026 по настоящее время», «с 01.10.2026 по 10.10.2026». */
+function periodText(from: string, to: string): string {
+  return `с ${formatDate(from)} по ${to ? formatDate(to) : "настоящее время"}`;
+}
+
+/** What the latest load that ended well took: its dates, or everything new. */
+function lastLoadText(cycle: CycleResponse): string | null {
+  const last = cycle.last_load;
+  if (!last) {
+    return null;
+  }
+  const dates =
+    last.published_from && last.published_to
+      ? `за ${formatDate(last.published_from)}–${formatDate(last.published_to)}`
+      : last.published_from
+        ? `с ${formatDate(last.published_from)}`
+        : "без дат";
+  return `Последняя загрузка: ${formatDateTime(last.finished_at)} (${dates}).`;
+}
+
+/** The dates of «Сделать всё»: without them the round goes on from its step and its load takes
+ * everything new; with a date «с» it is steps 1–5, the load taking that period. */
+function Period({
+  cycle,
+  from,
+  to,
+  onFrom,
+  onTo
+}: {
+  cycle: CycleResponse;
+  from: string;
+  to: string;
+  onFrom: (value: string) => void;
+  onTo: (value: string) => void;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const last = lastLoadText(cycle);
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1">
+          Скачать с
+          <input
+            type="date"
+            className="rounded-md border px-2 py-1"
+            value={from}
+            min={cycle.working_date ?? undefined}
+            max={to || today}
+            onChange={(event) => onFrom(event.target.value)}
+          />
+        </label>
+        <label className="flex items-center gap-1">
+          по
+          <input
+            type="date"
+            className="rounded-md border px-2 py-1"
+            value={to}
+            min={from || cycle.working_date || undefined}
+            max={today}
+            onChange={(event) => onTo(event.target.value)}
+          />
+        </label>
+        <span className="text-muted-foreground">пусто — по настоящее время</span>
+      </div>
+      <p className="text-muted-foreground">
+        {from
+          ? `Шаги 1–5: загрузить опубликованное ${periodText(from, to)} (мимо уже скачанного), затем обработать всю базу.`
+          : "Без дат — догрузить всё новое с прошлой загрузки и обработать всю базу."}{" "}
+        {last}
+      </p>
+      <p className="text-muted-foreground">
+        {cycle.working_date ? `Рабочая дата ${formatDate(cycle.working_date)}: опубликованное раньше неё шаг 2 удаляет, поэтому «с» не раньше неё. ` : null}
+        Telegram — не глубже 30 дней, Коммерсант — только свежая лента.
+      </p>
+    </div>
+  );
+}
+
 function Steps({ cycle }: { cycle: CycleResponse }) {
   const client = useQueryClient();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const refresh = async () => {
     await readAgainAfterDecision(client);
   };
@@ -90,7 +170,14 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
     mutationFn: () =>
       unwrap(
         startCycleV1({
-          body: { after: cycle.latest_run_id, entity_model: cycle.entity_model?.model ?? null, decision_model: cycle.decision_model?.model ?? null }
+          body: {
+            after: cycle.latest_run_id,
+            entity_model: cycle.entity_model?.model ?? null,
+            decision_model: cycle.decision_model?.model ?? null,
+            // Only a period is sent: without dates the press is what it always was.
+            ...(from ? { published_from: from } : {}),
+            ...(from && to ? { published_to: to } : {})
+          }
         })
       ),
     onSettled: refresh
@@ -143,7 +230,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
             <>
               <ConfirmButton
                 title="Сделать всё?"
-                question={cycle.chain_question}
+                question={from ? `Загрузить публикации ${periodText(from, to)}, затем обработать. ${cycle.period_question ?? ""}` : cycle.chain_question}
                 details={
                   cycle.entity_model || cycle.decision_model ? (
                     <div className="space-y-2">
@@ -159,7 +246,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
                 Сделать всё
               </ConfirmButton>
               <span className="text-muted-foreground">
-                {cycle.chain_span}; по одному шагу — в{" "}
+                {from ? "шаги 1–5 подряд" : cycle.chain_span}; по одному шагу — в{" "}
                 <Link className="underline" to="/runs">
                   журнале запусков
                 </Link>
@@ -167,6 +254,7 @@ function Steps({ cycle }: { cycle: CycleResponse }) {
             </>
           )}
         </div>
+        {cycle.live ? null : <Period cycle={cycle} from={from} to={to} onFrom={setFrom} onTo={setTo} />}
         {failure ? <p className="text-destructive">{failure.message}</p> : null}
       </CardContent>
     </Card>

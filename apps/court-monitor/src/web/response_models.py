@@ -778,6 +778,14 @@ class EntityModelNoticeResponse(BaseModel):
     price_text: str
 
 
+class LastLoadResponse(BaseModel):
+    """The latest load that ended well: when, and for what dates (None: no dates, all new)."""
+
+    finished_at: datetime | None
+    published_from: date | None
+    published_to: date | None
+
+
 class CycleResponse(BaseModel):
     """«Работа»: the one review to do first, the other queues, and the automatic steps
     with the one press that runs what is left of the round."""
@@ -800,12 +808,22 @@ class CycleResponse(BaseModel):
     entity_model: EntityModelNoticeResponse | None = None
     # The same of the decision model (figurants, politics, news).
     decision_model: EntityModelNoticeResponse | None = None
+    # `PIPELINE_SINCE`: step 2 deletes what was published before it; a period starts on it
+    # or after it. None when unset.
+    working_date: date | None = None
+    last_load: LastLoadResponse | None = None
+    # What to ask before a press with dates: the round from step 1, with what it costs.
+    period_question: str = ""
 
 
 class CycleStartRequest(BaseModel):
     """«Сделать всё»: the steps from the current one to the end of the round."""
 
     after: int
+    # A period to load: with a date «с», the round is steps 1–5 and its load takes what was
+    # published from it to `published_to` (None: to now), going past what is stored.
+    published_from: date | None = None
+    published_to: date | None = None
     # The entity model the warning showed: the start is refused (409) when the choice
     # changed since, so the round never asks a model nobody saw.
     entity_model: str | None = None

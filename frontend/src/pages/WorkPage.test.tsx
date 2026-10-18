@@ -138,3 +138,59 @@ it("shows the decision model apart and starts with both", async () => {
     })
   );
 });
+
+const DATED = {
+  ...IDLE,
+  working_date: "2026-09-20",
+  period_question: "Выполнить шаги 1–5 подряд?",
+  last_load: { finished_at: "2026-10-17T07:36:00Z", published_from: null, published_to: null }
+};
+
+it("says what a press loads without dates, the working date and the latest load", async () => {
+  cycle.mockReturnValue(ok(DATED) as never);
+
+  renderPage(<WorkPage />);
+
+  expect(await screen.findByText(/Без дат — догрузить всё новое с прошлой загрузки/)).toBeTruthy();
+  expect(screen.getByText(/Рабочая дата 20\.09\.2026/)).toBeTruthy();
+  expect(screen.getByText(/Последняя загрузка: .*17\.10\.2026.*без дат/)).toBeTruthy();
+  expect(screen.getByText(/Telegram — не глубже 30 дней/)).toBeTruthy();
+  const from = screen.getByLabelText("Скачать с");
+  expect(from.getAttribute("min")).toBe("2026-09-20");
+});
+
+it("loads a period from a date to now: steps 1–5, and says so before it starts", async () => {
+  cycle.mockReturnValue(ok(DATED) as never);
+  start.mockReturnValue(ok({ run_id: 42, stage: "load" }) as never);
+
+  renderPage(<WorkPage />);
+  fireEvent.change(await screen.findByLabelText("Скачать с"), { target: { value: "2026-10-01" } });
+  expect(screen.getByText(/Шаги 1–5: загрузить опубликованное с 01\.10\.2026 по настоящее время/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Сделать всё" }));
+
+  expect(await screen.findByText(/Загрузить публикации с 01\.10\.2026 по настоящее время, затем обработать\. Выполнить шаги 1–5 подряд\?/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Запустить" }));
+  await waitFor(() =>
+    expect(start).toHaveBeenCalledWith({
+      body: { after: 41, entity_model: null, decision_model: null, published_from: "2026-10-01" }
+    })
+  );
+});
+
+it("loads a period between two dates", async () => {
+  cycle.mockReturnValue(ok({ ...DATED, last_load: { finished_at: "2026-10-17T07:36:00Z", published_from: "2026-10-01", published_to: "2026-10-10" } }) as never);
+  start.mockReturnValue(ok({ run_id: 42, stage: "load" }) as never);
+
+  renderPage(<WorkPage />);
+  expect(await screen.findByText(/Последняя загрузка: .*за 01\.10\.2026–10\.10\.2026/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Скачать с"), { target: { value: "2026-10-01" } });
+  fireEvent.change(screen.getByLabelText("по"), { target: { value: "2026-10-10" } });
+  fireEvent.click(screen.getByRole("button", { name: "Сделать всё" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Запустить" }));
+
+  await waitFor(() =>
+    expect(start).toHaveBeenCalledWith({
+      body: { after: 41, entity_model: null, decision_model: null, published_from: "2026-10-01", published_to: "2026-10-10" }
+    })
+  );
+});
