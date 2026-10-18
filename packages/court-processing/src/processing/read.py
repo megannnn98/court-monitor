@@ -1014,22 +1014,21 @@ GROUP_ORDERS = tuple(_ORDERS)
 
 
 def ordered_groups(
-    session: Session, ids: Collection[int], *, order: str, offset: int, limit: int
+    session: Session,
+    ids: Collection[int] | None,
+    *,
+    order: str,
+    offset: int = 0,
+    limit: int | None = None,
 ) -> list[Group]:
-    """A page of the groups asked for, in one of `GROUP_ORDERS` (the key, the tie-break,
-    in the database's collation)."""
-    if not ids:
+    """A page of the groups asked for (None: every group), in one of `GROUP_ORDERS` (the
+    key, the tie-break, in the database's collation)."""
+    if ids is not None and not ids:
         return []
-    return [
-        _group(record)
-        for record in session.scalars(
-            select(EntityGroupRecord)
-            .where(any_of(EntityGroupRecord.id, ids))
-            .order_by(*_ORDERS[order])
-            .offset(offset)
-            .limit(limit)
-        )
-    ]
+    query = select(EntityGroupRecord).order_by(*_ORDERS[order]).offset(offset).limit(limit)
+    if ids is not None:
+        query = query.where(any_of(EntityGroupRecord.id, ids))
+    return [_group(record) for record in session.scalars(query)]
 
 
 def all_regions(session: Session) -> list[str]:

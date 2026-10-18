@@ -25,7 +25,6 @@ from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import Text, cast, or_, select
 from sqlalchemy.orm import Session
 
 from analysis import read as verdicts
@@ -37,7 +36,6 @@ from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_A
 from analysis.rosfinmonitoring.rf_articles import listing
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import source_mark
-from analysis.storage.models import EntityGroupPoliticsRecord
 from application import group_followers
 from ingestion import read as articles
 from processing import read as identity
@@ -45,7 +43,6 @@ from processing.evidence.publications import Evidence, latest_first, person_evid
 from processing.identity.service import IdentityDownstream
 from processing.roles.officials import OFFICIAL_KINDS
 from processing.roles.roles import FIGURANT
-from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord
 from web.dependencies import get_db
 from web.ui.entities import (
     EVENT_LABELS,
@@ -950,37 +947,20 @@ def ui_investigation(key: str, db: Session = Depends(get_db)) -> HTMLResponse:  
 SEARCH_LIMIT = 50
 
 
-def search(
-    db: Session, q: str
-) -> tuple[list[EntityGroupRecord], dict[int, tuple[str, str | None]]]:
+def search(db: Session, q: str) -> tuple[list[identity.Group], dict[int, tuple[str, str | None]]]:
     """By any form of the name, the most mentioned first; with no name, the latest
     political cases. With each found person's role. Read by the legacy page and the v1
     route."""
-    query = select(EntityGroupRecord).outerjoin(
-        EntityGroupPoliticsRecord, EntityGroupPoliticsRecord.group_id == EntityGroupRecord.id
-    )
     if q.strip():
-        pattern = f"%{q.strip()}%"
-        query = query.where(
-            or_(
-                EntityGroupRecord.name.ilike(pattern),
-                cast(EntityGroupRecord.variants, Text).ilike(pattern),
-            )
-        ).order_by(EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key)
+        ids = identity.filtered_group_ids(db, q=q, article="", region="")
+        order = "mentions"
     else:
-        query = query.where(EntityGroupPoliticsRecord.verdict == POLITICAL).order_by(
-            EntityGroupRecord.last_published_at.desc().nulls_last(), EntityGroupRecord.key
-        )
-    found = list(db.scalars(query.limit(SEARCH_LIMIT)).all())
+        ids = verdicts.groups_with_verdict(db, POLITICAL)
+        order = "recent"
+    found = identity.ordered_groups(db, ids, order=order, offset=0, limit=SEARCH_LIMIT)
     roles = {
-        group_id: (role, kind)
-        for group_id, role, kind in db.execute(
-            select(
-                EntityGroupRoleRecord.group_id,
-                EntityGroupRoleRecord.role,
-                EntityGroupRoleRecord.kind,
-            ).where(EntityGroupRoleRecord.group_id.in_([entity.id for entity in found]))
-        ).all()
+        group_id: (role.role, role.kind)
+        for group_id, role in identity.roles(db, [entity.id for entity in found]).items()
     }
     return found, roles
 

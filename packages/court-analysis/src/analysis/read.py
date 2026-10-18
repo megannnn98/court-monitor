@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from analysis.persecution.queries import latest_persecution_classification_ids
 from analysis.storage.models import (
     AirtableKnownPersonRecord,
+    CriminalArticleRecord,
     EntityGroupNewsRecord,
     EntityGroupPoliticsRecord,
     EntityGroupRfMatchRecord,
@@ -571,3 +572,17 @@ _VERDICT_COUNTS = text(
 
 def verdict_counts(session: Session) -> VerdictCounts:
     return VerdictCounts(*session.execute(_VERDICT_COUNTS).one())
+
+
+def reference_counts(session: Session) -> tuple[int, int]:
+    """The rows of the operator's base and the active criminal articles."""
+    known = session.scalar(select(func.count()).select_from(AirtableKnownPersonRecord)) or 0
+    articles = (
+        session.scalar(
+            select(func.count())
+            .select_from(CriminalArticleRecord)
+            .where(CriminalArticleRecord.active.is_(True))
+        )
+        or 0
+    )
+    return int(known), int(articles)

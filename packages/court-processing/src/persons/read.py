@@ -417,3 +417,62 @@ def other_person_spans(
         )
     )
     return [(run_id, start, end) for run_id, start, end in rows]
+
+
+@dataclass(frozen=True)
+class LatestEvent:
+    """A person's latest event (by its date, unknown last, then the latest id)."""
+
+    person_id: int
+    article_id: int
+    event_type: str
+    event_date: datetime | None
+
+
+def latest_events(session: Session, ids: Collection[int]) -> dict[int, LatestEvent]:
+    """Per person asked for with a linked event, the latest of them."""
+    if not ids:
+        return {}
+    rows = session.execute(
+        select(
+            PersonEventLinkRecord.person_id,
+            ArticleExtractionRunRecord.article_id,
+            ExtractedEventRecord.event_type,
+            ExtractedEventRecord.event_date,
+        )
+        .join(ExtractedEventRecord, ExtractedEventRecord.id == PersonEventLinkRecord.event_id)
+        .join(
+            ArticleExtractionRunRecord,
+            ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
+        )
+        .where(any_of(PersonEventLinkRecord.person_id, ids))
+        .distinct(PersonEventLinkRecord.person_id)
+        .order_by(
+            PersonEventLinkRecord.person_id,
+            ExtractedEventRecord.event_date.desc().nullslast(),
+            ExtractedEventRecord.id.desc(),
+        )
+    ).all()
+    return {row[0]: LatestEvent(*row) for row in rows}
+
+
+def mention_articles(session: Session, ids: Collection[int]) -> list[tuple[int, int, int]]:
+    """(person, article, mention id) of every resolved mention of the people asked for."""
+    if not ids:
+        return []
+    return [
+        (person_id, article_id, mention_id)
+        for person_id, article_id, mention_id in session.execute(
+            select(
+                EntityMentionRecord.person_id,
+                ArticleExtractionRunRecord.article_id,
+                EntityMentionRecord.id,
+            )
+            .join(
+                ArticleExtractionRunRecord,
+                ArticleExtractionRunRecord.id == EntityMentionRecord.extraction_run_id,
+            )
+            .where(any_of(EntityMentionRecord.person_id, ids))
+        )
+        if person_id is not None
+    ]

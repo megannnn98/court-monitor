@@ -459,3 +459,9 @@ def similar_titles(
             _SIMILAR_TITLES, {"ids": list(ids), "similarity": similarity, "shortest": shortest}
         )
     ]
+
+
+def active_source_count(session: Session) -> int:
+    return (
+        session.scalar(select(func.count()).select_from(Source).where(Source.active.is_(True))) or 0
+    )

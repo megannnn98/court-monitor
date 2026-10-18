@@ -19,7 +19,6 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from airtable.config import AirtableConfigurationError
@@ -30,15 +29,15 @@ from airtable.service import (
     build_sync_service,
     build_sync_source,
 )
-from analysis.storage.models import AirtableKnownPersonRecord, CriminalArticleRecord
+from analysis import read as analysis_read
 from application import build_analysis_service
-from ingestion.storage.models import Source
+from ingestion import read as ingestion_read
 from orchestrator.operations import (
     OperationConflictError,
     OperationParameters,
     OperationRegistry,
 )
-from processing.storage.models import ExcludedPersonRecord
+from processing.roles import exclusion_list
 from web.dependencies import get_db, get_operation_registry, session_factory_for
 from web.ui.layout import _page
 from web.ui.officials_list import REFERENCE_URL as OFFICIALS_URL
@@ -64,32 +63,14 @@ _MODE_NOTES = {
 }
 
 
-def _row_count(db: Session, model: type[Any], *conditions: Any) -> int:
-    query = select(func.count()).select_from(model)
-    for condition in conditions:
-        query = query.where(condition)
-    return int(db.scalar(query) or 0)
-
-
 def _inventory(db: Session) -> list[tuple[str, str, int]]:
     """(list, label, rows in PostgreSQL) for the four lists."""
+    known, articles = analysis_read.reference_counts(db)
     return [
-        ("sources", TABLE_LABELS["sources"], _row_count(db, Source, Source.active.is_(True))),
-        (
-            "known_persons",
-            TABLE_LABELS["known_persons"],
-            _row_count(db, AirtableKnownPersonRecord),
-        ),
-        (
-            "officials",
-            TABLE_LABELS["officials"],
-            _row_count(db, ExcludedPersonRecord, ExcludedPersonRecord.active.is_(True)),
-        ),
-        (
-            "articles",
-            TABLE_LABELS["articles"],
-            _row_count(db, CriminalArticleRecord, CriminalArticleRecord.active.is_(True)),
-        ),
+        ("sources", TABLE_LABELS["sources"], ingestion_read.active_source_count(db)),
+        ("known_persons", TABLE_LABELS["known_persons"], known),
+        ("officials", TABLE_LABELS["officials"], exclusion_list.active_count(db)),
+        ("articles", TABLE_LABELS["articles"], articles),
     ]
 
 

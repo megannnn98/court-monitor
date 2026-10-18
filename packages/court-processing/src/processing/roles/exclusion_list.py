@@ -193,3 +193,15 @@ def deactivate(session: Session, external_id: str) -> bool:
     row.active = False
     logger.info("event=official_deactivated name=%s", row.full_name)
     return True
+
+
+def active_count(session: Session) -> int:
+    """The rows of the list in force."""
+    return int(
+        session.scalar(
+            select(func.count())
+            .select_from(ExcludedPersonRecord)
+            .where(ExcludedPersonRecord.active.is_(True))
+        )
+        or 0
+    )

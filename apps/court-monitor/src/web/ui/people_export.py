@@ -19,21 +19,16 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from analysis import read as analysis_read
 from analysis.news.case_news import KIND_LABELS as NEWS_LABELS
 from analysis.operator_base.known_base import KnownBase
 from analysis.politics.classification import VERDICT_LABELS
 from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from analysis.rosfinmonitoring.rf_entry import rf_word, strongest_entries
-from analysis.storage.models import EntityGroupNewsRecord, EntityGroupPoliticsRecord
+from processing import read as identity
 from processing.evidence.unnamed import EVENT_LABELS
-from processing.storage.models import (
-    EntityGroupChargeRecord,
-    EntityGroupRecord,
-    EntityGroupRoleRecord,
-)
 from results.done_marks import done_marks, is_done
 from results.queries.unnamed_cases import Case, all_cases
 from web.dependencies import get_db
@@ -100,41 +95,15 @@ def notes_text(stamp: str) -> list[str]:
 
 def people_rows(db: Session) -> list[list[Any]]:
     """Every person with a name, the most mentioned first."""
-    groups = list(
-        db.scalars(
-            select(EntityGroupRecord).order_by(
-                EntityGroupRecord.mention_count.desc(), EntityGroupRecord.key
-            )
-        )
-    )
+    groups = identity.ordered_groups(db, None, order="mentions")
     ids = [group.id for group in groups]
-    roles = {
-        group_id: (role, kind)
-        for group_id, role, kind in db.execute(
-            select(
-                EntityGroupRoleRecord.group_id,
-                EntityGroupRoleRecord.role,
-                EntityGroupRoleRecord.kind,
-            )
-        )
+    roles = {group_id: (role.role, role.kind) for group_id, role in identity.roles(db).items()}
+    verdicts = analysis_read.verdicts(db)
+    news = {group_id: item.kind for group_id, item in analysis_read.case_news(db).items()}
+    articles = {
+        group_id: {article for article, _ in found}
+        for group_id, found in identity.charge_articles(db, ids).items()
     }
-    verdicts = {
-        group_id: verdict
-        for group_id, verdict in db.execute(
-            select(EntityGroupPoliticsRecord.group_id, EntityGroupPoliticsRecord.verdict)
-        )
-    }
-    news = {
-        group_id: kind
-        for group_id, kind in db.execute(
-            select(EntityGroupNewsRecord.group_id, EntityGroupNewsRecord.kind)
-        )
-    }
-    articles: dict[int, set[str]] = {}
-    for group_id, article in db.execute(
-        select(EntityGroupChargeRecord.group_id, EntityGroupChargeRecord.article).distinct()
-    ):
-        articles.setdefault(group_id, set()).add(article)
     entries = strongest_entries(db, ids)
     base = KnownBase.from_session(db)
     marks = done_marks(db)

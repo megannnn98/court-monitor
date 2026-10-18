@@ -126,17 +126,6 @@ MODEL_REGISTRY = "migrations/model_registry.py"
 # new crossing fails. All of them are empty when the refactor is done (ADR 0031).
 STORAGE_IMPORT_DEBT: frozenset[str] = frozenset(
     {
-        "apps/court-monitor/src/web/candidate_rows.py -> analysis.storage",
-        "apps/court-monitor/src/web/candidate_rows.py -> ingestion.storage",
-        "apps/court-monitor/src/web/candidate_rows.py -> persons.storage",
-        "apps/court-monitor/src/web/candidate_rows.py -> processing.storage",
-        "apps/court-monitor/src/web/ui/airtable.py -> analysis.storage",
-        "apps/court-monitor/src/web/ui/airtable.py -> ingestion.storage",
-        "apps/court-monitor/src/web/ui/airtable.py -> processing.storage",
-        "apps/court-monitor/src/web/ui/dossier.py -> analysis.storage",
-        "apps/court-monitor/src/web/ui/dossier.py -> processing.storage",
-        "apps/court-monitor/src/web/ui/people_export.py -> analysis.storage",
-        "apps/court-monitor/src/web/ui/people_export.py -> processing.storage",
         "tools/court-evaluation/src/evaluation/final/runner.py -> analysis.storage",
         "tools/court-evaluation/src/evaluation/final/runner.py -> ingestion.storage",
         "tools/court-evaluation/src/evaluation/final/runner.py -> persons.storage",

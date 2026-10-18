@@ -250,3 +250,15 @@ def latest_entries_named(session: Session, part: str, *, limit: int) -> list[Sna
             .limit(limit)
         )
     ]
+
+
+def latest_snapshot_id(session: Session) -> int | None:
+    """The newest snapshot by its date, then id."""
+    return session.scalar(
+        select(RosfinmonitoringSnapshotRecord.id)
+        .order_by(
+            RosfinmonitoringSnapshotRecord.snapshot_date.desc(),
+            RosfinmonitoringSnapshotRecord.id.desc(),
+        )
+        .limit(1)
+    )
