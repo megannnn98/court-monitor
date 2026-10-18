@@ -7,20 +7,27 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from db.arrays import any_of
 from ingestion.read import stored_articles
+from persons.models import PersonStatus
 from persons.storage.models import (
     PersonAliasRecord,
     PersonEventLinkRecord,
     PersonRecord,
+    PersonResolutionDecisionRecord,
     ReviewRecordModel,
 )
-from processing.storage.models import ArticleExtractionRunRecord, ExtractedEventRecord
+from processing.storage.models import (
+    ArticleExtractionRunRecord,
+    EntityMentionRecord,
+    ExtractedEventRecord,
+)
 
 
 @dataclass(frozen=True)
@@ -256,3 +263,157 @@ def person_stats(session: Session, ids: Collection[int]) -> dict[int, PersonStat
         )
         for person_id in ids
     }
+
+
+def active_evidence_changes(session: Session, *, settle: timedelta) -> dict[int, datetime | None]:
+    """Per active person, in id order: the newest change of its evidence (created or
+    updated, an event linked, an alias added, an ER decision recorded or reviewed for
+    it), plus `settle`."""
+    decision = PersonResolutionDecisionRecord
+    parts: list[Select[Any]] = [
+        select(PersonRecord.id.label("person_id"), PersonRecord.created_at.label("changed_at")),
+        select(PersonRecord.id, PersonRecord.updated_at).where(
+            PersonRecord.updated_at.is_not(None)
+        ),
+        select(PersonEventLinkRecord.person_id, PersonEventLinkRecord.created_at),
+        select(PersonAliasRecord.person_id, PersonAliasRecord.created_at),
+        select(decision.selected_person_id, decision.created_at).where(
+            decision.selected_person_id.is_not(None)
+        ),
+        select(decision.selected_person_id, decision.reviewed_at).where(
+            decision.selected_person_id.is_not(None), decision.reviewed_at.is_not(None)
+        ),
+    ]
+    stamps = union_all(*parts).subquery()
+    changed = (
+        select(stamps.c.person_id, (func.max(stamps.c.changed_at) + settle).label("changed_at"))
+        .group_by(stamps.c.person_id)
+        .subquery()
+    )
+    rows = session.execute(
+        select(PersonRecord.id, changed.c.changed_at)
+        .join(changed, changed.c.person_id == PersonRecord.id)
+        .where(PersonRecord.status == PersonStatus.ACTIVE.value)
+        .order_by(PersonRecord.id)
+    ).all()
+    return {person_id: at for person_id, at in rows}
+
+
+# -- a person's evidence, for the ER v2 persecution classifier ---------------------
+
+
+@dataclass(frozen=True)
+class MentionSpan:
+    id: int
+    extraction_run_id: int
+    start_offset: int
+    end_offset: int
+    surface_text: str
+    normalized_text: str
+
+
+@dataclass(frozen=True)
+class EventSpan:
+    id: int
+    extraction_run_id: int
+    event_type: str
+    event_date: datetime | None
+    confidence: float
+    attributes: dict[str, Any]
+    start_offset: int
+    end_offset: int
+
+
+_MENTION = (
+    EntityMentionRecord.id,
+    EntityMentionRecord.extraction_run_id,
+    EntityMentionRecord.start_offset,
+    EntityMentionRecord.end_offset,
+    EntityMentionRecord.surface_text,
+    EntityMentionRecord.normalized_text,
+)
+
+
+def linked_person_ids(session: Session) -> list[int]:
+    """Every person an event is linked to."""
+    return list(session.scalars(select(PersonEventLinkRecord.person_id).distinct()).all())
+
+
+def own_mentions(session: Session, person_id: int) -> list[MentionSpan]:
+    """The person's own resolved mentions (not other people's)."""
+    rows = session.execute(select(*_MENTION).where(EntityMentionRecord.person_id == person_id))
+    return [MentionSpan(*row) for row in rows]
+
+
+def linked_events(session: Session, person_id: int) -> list[EventSpan]:
+    """The events linked to the person."""
+    rows = session.execute(
+        select(
+            ExtractedEventRecord.id,
+            ExtractedEventRecord.extraction_run_id,
+            ExtractedEventRecord.event_type,
+            ExtractedEventRecord.event_date,
+            ExtractedEventRecord.confidence,
+            ExtractedEventRecord.attributes,
+            ExtractedEventRecord.start_offset,
+            ExtractedEventRecord.end_offset,
+        ).where(
+            ExtractedEventRecord.id.in_(
+                select(PersonEventLinkRecord.event_id).where(
+                    PersonEventLinkRecord.person_id == person_id
+                )
+            )
+        )
+    )
+    return [EventSpan(*row) for row in rows]
+
+
+def legal_references(session: Session, run_ids: Collection[int]) -> list[MentionSpan]:
+    """The legal-reference mentions of the extraction runs."""
+    if not run_ids:
+        return []
+    rows = session.execute(
+        select(*_MENTION).where(
+            any_of(EntityMentionRecord.extraction_run_id, run_ids),
+            EntityMentionRecord.entity_type == "legal_reference",
+        )
+    )
+    return [MentionSpan(*row) for row in rows]
+
+
+def run_articles(session: Session, run_ids: Collection[int]) -> dict[int, int]:
+    """The article of each extraction run asked for."""
+    if not run_ids:
+        return {}
+    return dict(
+        session.execute(
+            select(ArticleExtractionRunRecord.id, ArticleExtractionRunRecord.article_id).where(
+                any_of(ArticleExtractionRunRecord.id, run_ids)
+            )
+        )
+        .tuples()
+        .all()
+    )
+
+
+def other_person_spans(
+    session: Session, run_ids: Collection[int], person_id: int | None
+) -> list[tuple[int, int, int]]:
+    """(run, start, end) of the person mentions in the runs that are not the person's:
+    unresolved, or resolved to someone else."""
+    if not run_ids:
+        return []
+    rows = session.execute(
+        select(
+            EntityMentionRecord.extraction_run_id,
+            EntityMentionRecord.start_offset,
+            EntityMentionRecord.end_offset,
+        ).where(
+            any_of(EntityMentionRecord.extraction_run_id, run_ids),
+            EntityMentionRecord.entity_type == "person",
+            or_(EntityMentionRecord.person_id.is_(None), EntityMentionRecord.person_id != person_id)
+            if person_id is not None
+            else EntityMentionRecord.person_id.is_(None),
+        )
+    )
+    return [(run_id, start, end) for run_id, start, end in rows]

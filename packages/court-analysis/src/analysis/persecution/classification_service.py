@@ -5,20 +5,16 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.persecution.classifier import RuleBasedPersecutionClassifier
 from analysis.persecution.models import PersecutionClassification
 from analysis.storage.models import PersecutionClassificationRecord
-from ingestion.storage.models import ParsedArticleRecord
-from persons.storage.models import PersonEventLinkRecord
+from ingestion import read
+from persons import read as person_read
+from persons.read import EventSpan, MentionSpan
 from processing.extraction.events import NON_SUBJECT_ROLES
-from processing.storage.models import (
-    ArticleExtractionRunRecord,
-    EntityMentionRecord,
-    ExtractedEventRecord,
-)
 
 # How far (in characters, on each side) around a person's own mention/event
 # to look for political context. Text outside this window belongs to
@@ -137,7 +133,7 @@ class PersecutionClassificationService:
     def classify_all_persons(self) -> list[PersecutionClassification]:
         """Classify all persons in the database."""
         with self.session_factory() as session:
-            person_ids = session.scalars(select(PersonEventLinkRecord.person_id).distinct()).all()
+            person_ids = person_read.linked_person_ids(session)
 
             classifications = []
             for person_id in person_ids:
@@ -166,55 +162,27 @@ class PersecutionClassificationService:
 
             return session.scalar(query)
 
-    def _get_person_mentions(
-        self,
-        session: Session,
-        person_id: int,
-    ) -> Sequence[EntityMentionRecord]:
+    def _get_person_mentions(self, session: Session, person_id: int) -> list[MentionSpan]:
         """Get this person's own resolved mentions (not other people's)."""
-        return session.scalars(
-            select(EntityMentionRecord).where(EntityMentionRecord.person_id == person_id)
-        ).all()
+        return person_read.own_mentions(session, person_id)
 
-    def _get_person_events(
-        self,
-        session: Session,
-        person_id: int,
-    ) -> Sequence[ExtractedEventRecord]:
+    def _get_person_events(self, session: Session, person_id: int) -> list[EventSpan]:
         """Get all events linked to a person."""
-        event_ids = session.scalars(
-            select(PersonEventLinkRecord.event_id).where(
-                PersonEventLinkRecord.person_id == person_id
-            )
-        ).all()
-
-        if not event_ids:
-            return []
-
-        return session.scalars(
-            select(ExtractedEventRecord).where(ExtractedEventRecord.id.in_(event_ids))
-        ).all()
+        return person_read.linked_events(session, person_id)
 
     def _events_with_charge_evidence(
         self,
         session: Session,
-        events: Sequence[ExtractedEventRecord],
+        events: Sequence[EventSpan],
     ) -> list[dict[str, Any]]:
         """Build classifier-facing event dicts, filling in `attributes["charge"]`
         from a nearby legal_reference mention in the same extraction run when
         the extractor didn't already populate one.
         """
         run_ids = {event.extraction_run_id for event in events}
-        legal_mentions_by_run: dict[int, list[EntityMentionRecord]] = {}
-        if run_ids:
-            legal_mentions = session.scalars(
-                select(EntityMentionRecord).where(
-                    EntityMentionRecord.extraction_run_id.in_(run_ids),
-                    EntityMentionRecord.entity_type == "legal_reference",
-                )
-            ).all()
-            for mention in legal_mentions:
-                legal_mentions_by_run.setdefault(mention.extraction_run_id, []).append(mention)
+        legal_mentions_by_run: dict[int, list[MentionSpan]] = {}
+        for mention in person_read.legal_references(session, run_ids):
+            legal_mentions_by_run.setdefault(mention.extraction_run_id, []).append(mention)
 
         result: list[dict[str, Any]] = []
         for event in events:
@@ -245,12 +213,12 @@ class PersecutionClassificationService:
 
     @staticmethod
     def _nearest_legal_references(
-        candidates: list[EntityMentionRecord],
+        candidates: list[MentionSpan],
         start_offset: int,
         end_offset: int,
-    ) -> list[EntityMentionRecord]:
+    ) -> list[MentionSpan]:
         """The legal references at the smallest distance from the event, within the window."""
-        by_distance: dict[int, list[EntityMentionRecord]] = {}
+        by_distance: dict[int, list[MentionSpan]] = {}
         for mention in candidates:
             if mention.end_offset <= start_offset:
                 distance = start_offset - mention.end_offset
@@ -265,8 +233,8 @@ class PersecutionClassificationService:
     def _windowed_articles_for_person(
         self,
         session: Session,
-        mentions: Sequence[EntityMentionRecord],
-        events: Sequence[ExtractedEventRecord],
+        mentions: Sequence[MentionSpan],
+        events: Sequence[EventSpan],
         *,
         person_id: int | None = None,
     ) -> list[dict[str, Any]]:
@@ -286,12 +254,7 @@ class PersecutionClassificationService:
         if not spans_by_run:
             return []
 
-        runs = session.scalars(
-            select(ArticleExtractionRunRecord).where(
-                ArticleExtractionRunRecord.id.in_(spans_by_run)
-            )
-        ).all()
-        article_id_by_run = {run.id: run.article_id for run in runs}
+        article_id_by_run = person_read.run_articles(session, spans_by_run)
 
         spans_by_article: dict[int, list[tuple[int, int]]] = {}
         for run_id, spans in spans_by_run.items():
@@ -303,29 +266,12 @@ class PersecutionClassificationService:
         if not spans_by_article:
             return []
 
-        articles = session.scalars(
-            select(ParsedArticleRecord).where(ParsedArticleRecord.id.in_(spans_by_article))
-        ).all()
+        stored = read.stored_articles(session, spans_by_article)
+        articles = [stored[article_id] for article_id in sorted(stored)]
 
         # Mentions of other people in the same runs: their sentences belong to them.
         others_by_article: dict[int, list[tuple[int, int]]] = {}
-        other_mentions = session.execute(
-            select(
-                EntityMentionRecord.extraction_run_id,
-                EntityMentionRecord.start_offset,
-                EntityMentionRecord.end_offset,
-            ).where(
-                EntityMentionRecord.extraction_run_id.in_(spans_by_run),
-                EntityMentionRecord.entity_type == "person",
-                or_(
-                    EntityMentionRecord.person_id.is_(None),
-                    EntityMentionRecord.person_id != person_id,
-                )
-                if person_id is not None
-                else EntityMentionRecord.person_id.is_(None),
-            )
-        ).all()
-        for run_id, start, end in other_mentions:
+        for run_id, start, end in person_read.other_person_spans(session, spans_by_run, person_id):
             article_id = article_id_by_run.get(run_id)
             if article_id is not None:
                 others_by_article.setdefault(article_id, []).append((start, end))

@@ -516,6 +516,21 @@ def by_name(session: Session, ids: Collection[int]) -> list[int]:
     )
 
 
+_WITH_EVENTS = text(
+    """
+    SELECT DISTINCT r.article_id FROM article_extraction_runs r
+    JOIN extracted_events e ON e.extraction_run_id = r.id
+    WHERE r.status = 'succeeded' AND e.event_type = ANY(:types)
+    ORDER BY r.article_id
+    """
+)
+
+
+def articles_with_events(session: Session, event_types: Collection[str]) -> list[int]:
+    """The articles a successful extraction found an event of these types in, by id."""
+    return list(session.scalars(_WITH_EVENTS, {"types": list(event_types)}))
+
+
 _EVENT_COUNTS = text(
     """
     SELECT r.article_id, e.event_type, count(*)
@@ -822,3 +837,134 @@ def people_in(session: Session, article_ids: Collection[int], *, limit: int) -> 
         ArticlePerson(row.key, row.name, row.article_id, row.mentions, list(row.charges or []))
         for row in rows
     ]
+
+
+@dataclass(frozen=True)
+class FigurantProfile:
+    """A figurant group with the articles it is charged under."""
+
+    id: int
+    key: str
+    name: str
+    role_method: str
+    # Every article charged, and those of events with no other accused: the person's
+    # own beyond doubt. Both sorted, each once.
+    articles: list[str]
+    own_articles: list[str]
+
+
+_FIGURANT_PROFILES = text(
+    """
+    SELECT g.id, g.key, g.name, r.method AS role_method,
+           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
+                     FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles,
+           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
+                     FROM entity_group_charges c
+                     WHERE c.group_id = g.id AND c.other_targets = 0), '{}') AS own_articles
+    FROM entity_groups g
+    JOIN entity_group_roles r ON r.group_id = g.id AND r.role = 'figurant'
+    ORDER BY g.id
+    """
+)
+
+
+def figurant_profiles(session: Session) -> list[FigurantProfile]:
+    """Every figurant group, in id order (the articles sorted in the database's collation)."""
+    return [
+        FigurantProfile(row.id, row.key, row.name, row.role_method, row.articles, row.own_articles)
+        for row in session.execute(_FIGURANT_PROFILES)
+    ]
+
+
+_FIRST_CHARGE_QUOTES = text(
+    """
+    SELECT DISTINCT ON (group_id) group_id, article, quote
+    FROM entity_group_charges
+    WHERE group_id = ANY(:groups) AND article = ANY(:articles)
+    ORDER BY group_id, other_targets, id
+    """
+)
+
+
+def first_charge_quotes(
+    session: Session, ids: Collection[int], articles: Sequence[str]
+) -> dict[int, tuple[str, str]]:
+    """Per group, the first charge under one of `articles` (the fewest other accused
+    first): its article and its quote."""
+    return {
+        group_id: (article, quote)
+        for group_id, article, quote in session.execute(
+            _FIRST_CHARGE_QUOTES, {"groups": list(ids), "articles": list(articles)}
+        ).all()
+    }
+
+
+@dataclass(frozen=True)
+class FigurantMention:
+    """A figurant group's mention that is a party to an event, in an article."""
+
+    key: str
+    name: str
+    gender: str | None
+    article_id: int
+    start_offset: int
+    end_offset: int
+
+
+_FIGURANT_MENTIONS = text(
+    """
+    SELECT g.key, g.name, g.gender, r.article_id, m.start_offset, m.end_offset
+    FROM article_extraction_runs r
+    JOIN entity_mentions m ON m.extraction_run_id = r.id
+    JOIN entity_group_mentions gm ON gm.mention_id = m.id
+    JOIN entity_groups g ON g.id = gm.group_id
+    JOIN entity_group_roles ro ON ro.group_id = g.id AND ro.role = 'figurant'
+    WHERE r.article_id = ANY(:articles)
+      AND EXISTS (
+          SELECT 1 FROM event_entity_mentions em
+          JOIN extracted_events e ON e.id = em.event_id
+          WHERE em.mention_id = m.id AND (:any_event OR e.event_type = ANY(:events))
+      )
+    """
+)
+
+
+def figurant_mentions(
+    session: Session, article_ids: Collection[int], event_types: Collection[str] | None
+) -> list[FigurantMention]:
+    """The figurants' mentions in these articles that take part in an event of these
+    types (of any type for None). In no particular order."""
+    if not article_ids:
+        return []
+    rows = session.execute(
+        _FIGURANT_MENTIONS,
+        {
+            "articles": list(article_ids),
+            "any_event": event_types is None,
+            "events": list(event_types or ()),
+        },
+    )
+    return [FigurantMention(*row) for row in rows]
+
+
+_KEYED_CHARGES = text(
+    """
+    SELECT g.key, c.publication_id, c.article
+    FROM entity_group_charges c JOIN entity_groups g ON g.id = c.group_id
+    WHERE g.key = ANY(:keys) AND c.publication_id = ANY(:publications)
+    """
+)
+
+
+def publication_charges(
+    session: Session, keys: Collection[str], publications: Collection[int]
+) -> dict[tuple[str, int], set[str]]:
+    """The articles of the Code each group (by key) is charged under in each publication."""
+    found: dict[tuple[str, int], set[str]] = {}
+    if not keys or not publications:
+        return found
+    for key, publication, article in session.execute(
+        _KEYED_CHARGES, {"keys": sorted(keys), "publications": sorted(publications)}
+    ):
+        found.setdefault((key, publication), set()).add(article)
+    return found

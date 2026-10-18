@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from analysis.persecution.classification_service import PersecutionClassificationService
 from analysis.persecution.models import PersecutionClassificationStatus, PersecutionEvidenceType
 from ingestion.storage.models import ParsedArticleRecord, Source, SourceDocument
+from persons.read import MentionSpan
 from persons.storage.models import PersonEventLinkRecord, PersonRecord
 from processing.storage.models import (
     ArticleExtractionRunRecord,
@@ -479,19 +480,22 @@ def test_every_equally_near_article_counts_as_the_charge(reverse: bool) -> None:
     the event sentence. Only the first reference found was taken as the charge, and it
     could be the non-political 222.1."""
     mentions = [
-        EntityMentionRecord(
-            entity_type="legal_reference",
+        MentionSpan(
+            id=index,
+            extraction_run_id=1,
             surface_text=surface,
             normalized_text=normalized,
             start_offset=start,
             end_offset=40,
         )
-        for surface, normalized, start in [
-            ("ч. 4 ст. 222.1 УК РФ", "УК РФ ст. 222.1 ч. 4", 20),
-            ("ст. 275 и ч. 4 ст. 222.1 УК РФ", "УК РФ ст. 275", 10),
-            # Farther away: not part of this event's charge.
-            ("ст. 282 УК РФ", "УК РФ ст. 282", 250),
-        ]
+        for index, (surface, normalized, start) in enumerate(
+            [
+                ("ч. 4 ст. 222.1 УК РФ", "УК РФ ст. 222.1 ч. 4", 20),
+                ("ст. 275 и ч. 4 ст. 222.1 УК РФ", "УК РФ ст. 275", 10),
+                # Farther away: not part of this event's charge.
+                ("ст. 282 УК РФ", "УК РФ ст. 282", 250),
+            ]
+        )
     ]
     if reverse:
         mentions.reverse()

@@ -182,6 +182,24 @@ def published_between(
     )
 
 
+def published_matching(
+    session: Session, start: datetime, end: datetime, pattern: str, *, other_than: int
+) -> list[int]:
+    """The articles published between `start` and `end`, both included, whose lower-cased
+    text matches the POSIX regular expression `pattern`, but `other_than`; by id."""
+    return list(
+        session.scalars(
+            select(ParsedArticleRecord.id)
+            .where(
+                ParsedArticleRecord.id != other_than,
+                ParsedArticleRecord.published_at.between(start, end),
+                func.lower(ParsedArticleRecord.text).op("~")(bindparam("pattern", pattern)),
+            )
+            .order_by(ParsedArticleRecord.id)
+        ).all()
+    )
+
+
 @dataclass(frozen=True)
 class TextWindow:
     """A slice of an article's text: `length` characters from `start` (0-based, as the
@@ -382,6 +400,7 @@ __all__: Sequence[str] = (
     "published_before",
     "published_between",
     "published_days",
+    "published_matching",
     "published_on",
     "source_counts",
     "stored_articles",

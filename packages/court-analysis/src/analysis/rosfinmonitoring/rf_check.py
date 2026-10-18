@@ -53,8 +53,8 @@ from analysis.rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from analysis.storage.models import EntityGroupRfMatchRecord, RosfinmonitoringEntryRecord
+from processing import read as identity_read
 from processing.identity.service import BY_REGION, BY_RF, IdentityService
-from processing.storage.models import EntityGroupRecord
 
 logger = logging.getLogger("entities")
 
@@ -158,7 +158,7 @@ class EntityRfCheck:
         with self._session_factory() as session:
             by_name = self._by_name(session, latest.snapshot_id)
             probable = self._by_name(session, airtable.snapshot_id) if airtable is not None else {}
-            groups = session.execute(select(EntityGroupRecord.id, EntityGroupRecord.name)).all()
+            groups = [(ref.id, ref.name) for ref in identity_read.group_references(session)]
         rows: list[dict[str, object]] = []
         levels: dict[int, str] = {}
         for group_id, name in groups:

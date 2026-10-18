@@ -25,7 +25,7 @@ from typing import Literal, Protocol, cast
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.group_followers import GroupFollowers
@@ -314,31 +314,6 @@ def politics_classifier_from_env(env: Mapping[str, str] | None = None) -> Politi
 
 
 # The figurants, with their Criminal Code articles.
-_FIGURANTS = text(
-    """
-    SELECT g.id, g.key, g.name, r.method AS role_method,
-           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
-                     FROM entity_group_charges c WHERE c.group_id = g.id), '{}') AS articles,
-           -- Of events with no other accused: the person's own beyond doubt.
-           coalesce((SELECT array_agg(DISTINCT c.article ORDER BY c.article)
-                     FROM entity_group_charges c
-                     WHERE c.group_id = g.id AND c.other_targets = 0), '{}') AS own_articles
-    FROM entity_groups g
-    JOIN entity_group_roles r ON r.group_id = g.id AND r.role = 'figurant'
-    ORDER BY g.id
-    """
-)
-# The first charge quote naming a political article, per entity.
-_POLITICAL_CHARGES = text(
-    """
-    SELECT DISTINCT ON (group_id) group_id, article, quote
-    FROM entity_group_charges
-    WHERE group_id = ANY(:groups) AND article = ANY(:political)
-    ORDER BY group_id, other_targets, id
-    """
-)
-
-
 # The «Мемориал» registry category a card of the entity names.
 @dataclass(frozen=True)
 class PoliticsResult:
@@ -457,14 +432,9 @@ class PoliticsFinder:
     def run(self) -> PoliticsResult:
         self._on_stage("reading")
         with self._session_factory() as session:
-            figurants = session.execute(_FIGURANTS).all()
+            figurants = identity.figurant_profiles(session)
             ids = [row.id for row in figurants]
-            political = {
-                group_id: (article, quote)
-                for group_id, article, quote in session.execute(
-                    _POLITICAL_CHARGES, {"groups": ids, "political": sorted(POLITICAL_ARTICLES)}
-                ).all()
-            }
+            political = identity.first_charge_quotes(session, ids, sorted(POLITICAL_ARTICLES))
             rest = [row for row in figurants if row.id not in political]
             decisions = politics_decisions(session, {row.id: row.key for row in figurants})
             memorial = identity.memorial_categories(session, [row.id for row in rest])

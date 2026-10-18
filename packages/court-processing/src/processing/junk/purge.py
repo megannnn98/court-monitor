@@ -34,10 +34,11 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from typing import Any
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from db.arrays import any_of
 from ingestion import read
 from ingestion.commands import discard_articles
 from persons.resolution.service import REVIEW_SUBJECT_TYPE
@@ -181,16 +182,17 @@ class JunkPurge:
         article a person already called junk is not judged again."""
         if self._screen is None:
             return set()
-        rows = session.execute(
-            text(
-                """
-                SELECT a.id, a.title, a.text FROM parsed_articles a
-                WHERE a.id IN :ids
-                  AND NOT EXISTS (SELECT 1 FROM junk_screen_holds h WHERE h.article_id = a.id)
-                """
-            ).bindparams(bindparam("ids", expanding=True)),
-            {"ids": list(article_ids)},
-        ).all()
+        judged = set(
+            session.scalars(
+                select(JunkScreenHoldRecord.article_id).where(
+                    any_of(JunkScreenHoldRecord.article_id, article_ids)
+                )
+            )
+        )
+        stored = read.stored_articles(
+            session, [article_id for article_id in article_ids if article_id not in judged]
+        )
+        rows = [stored[article_id] for article_id in article_ids if article_id in stored]
         scores = self._screen.scores([(row.title or "", row.text or "") for row in rows])
         cutoff = self._screen.cutoff
         _log_passed(rows, scores, cutoff, self._screen.name)
