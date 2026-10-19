@@ -158,8 +158,11 @@ class _ReportRow:
     title: str
     source: str
     published_day: date | None
-    # The report's own date, or its publication's when the text gave none.
+    # The day this report is placed on, and `dated` says whose day it is: the event's own
+    # where the text gave one (`dated`), otherwise the publication's. The two are never
+    # mixed in one key, so a publication date cannot make one event look like two.
     day: date | None
+    dated: bool
     group_id: int | None
     role: str | None
     binds: bool | None
@@ -206,6 +209,7 @@ def _report_rows(db: Session, seeds: Collection[int]) -> list[_ReportRow]:
             source=cards[fact.article_id].source_name,
             published_day=days[fact.article_id],
             day=fact.event_day or days[fact.article_id],
+            dated=fact.event_day is not None,
             group_id=person.group_id,
             role=person.role,
             binds=person.binds,
@@ -266,8 +270,13 @@ def _reports(rows: Any) -> dict[int, _Report]:
 
 
 def _clusters(reports: dict[int, _Report]) -> list[_Event]:
-    """The reports as events: those of one type and one day that name a common person
-    (through any chain of such reports) are one event. A report with no day stands alone."""
+    """The reports as events: those of one type, one day and one person (through any chain
+    of such reports) are one event.
+
+    A report of a known event date is placed by that date, so two sources publishing one
+    event on different days are one event: the date both write is the same. A report whose
+    date the text did not give is placed by its publication day instead — the best available,
+    and it merges with a report that writes that very day. A report with no day stands alone."""
     parent = {report_id: report_id for report_id in reports}
 
     def find(report_id: int) -> int:
@@ -307,8 +316,8 @@ def _span_href(row: Any) -> str:
 
 def _event_node(graph: Graph, event: _Event) -> str:
     """The event, with its provenance: how many reports it is drawn from, their sources,
-    and the span of the first in its publication. Its date is the publication's unless a
-    text gave one (`dated`)."""
+    and the span of the first in its publication. `date` is the event's own where the texts
+    gave one (`dated`), otherwise the publication's."""
     root = event.root
     return graph.node(
         f"{EVENT}:{root.id}",
@@ -316,7 +325,7 @@ def _event_node(graph: Graph, event: _Event) -> str:
         EVENT_LABELS.get(root.event_type, root.event_type),
         event_type=root.event_type,
         date=event.day.isoformat() if event.day else None,
-        dated=any(report.row.event_date is not None for report in event.reports),
+        dated=any(report.row.dated for report in event.reports),
         confidence=max(report.row.confidence for report in event.reports),
         reports=len(event.reports),
         publications=len({report.row.article_id for report in event.reports}),

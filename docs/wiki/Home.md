@@ -33,6 +33,7 @@ Status](Implementation-Status.md).
 - [Ingestion](Ingestion.md) — загрузка, разбор HTML, полный текст статьи
 - [Monitor Core](Monitor-Core.md) — переиспользуемое ядро: модели и протоколы ingestion, конвейер, OpenAI-совместимый транспорт, retry; границы ядра и что осталось в приложении
 - [Data-Model](Data-Model.md) — таблицы PostgreSQL, persistence
+- [Event-Date Runbook](Event-Date-Runbook.md) — порядок применения миграции `event_date`: бэкап, миграция, повторное извлечение, пересборка сущностей, роли и вердикты, проверка
 - [Extraction](Extraction.md) — mention extraction, normalization, events, metrics
 - [Entity-Resolution](Entity-Resolution.md) — ER v2: matching_key как ключ кандидатов (тёзки), pg_trgm кандидаты, признаки, решение AUTO_LINK/REVIEW/CREATE_NEW, human review
 - [Architecture](Architecture.md) — компоненты и границы: домен, orchestration (Dagster), хранилища

@@ -332,7 +332,9 @@ export function DossierPage() {
                 {person.timeline.map((item) => (
                   <li key={`${item.event_type}-${item.day ?? "none"}`} className="border-l-2 pl-4">
                     <p className="text-sm text-muted-foreground">
-                      {item.dated ? `${formatDate(item.day)}, по дате публикации` : `дата не установлена; публикация ${formatDate(item.day)}`}
+                      {item.dated
+                        ? `${formatDate(item.day)}`
+                        : `дата события не установлена; публикация ${formatDate(item.day)}`}
                     </p>
                     <p className="text-sm">
                       <b>{item.label}</b>

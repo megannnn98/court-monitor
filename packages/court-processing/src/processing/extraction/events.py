@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from itertools import pairwise
 
 from processing.extraction.models import (
@@ -145,14 +145,72 @@ _TEMPORAL_REFERENCE_BEFORE = re.compile(
     r"(?<![а-яё])(?:до|после|перед|согласно|об?|с\s+момента|во\s+время)\s+"
     r"(?:его\s+|ее\s+|её\s+|их\s+)?(?:[а-яё]+(?:ого|ему|ому|ой|ым|им)\s+)?$"
 )
-# «в апреле 2025 года»: the event happened in that year, not on the publication date.
-# A birth year («1990 года рождения», «1990 г. р.») dates the person, not the event.
-_YEAR = re.compile(r"(?<!\d)(19\d\d|20\d\d)(?!\d)(?!\s*(?:года\s+рождения|г\.\s*р\.))")
 # The year of a trigger is looked up in its time frame: the part of the sentence between a
 # contrast or a present anchor («…, а сегодня его задержали») and the next one. Inside the
 # frame, clauses (split at punctuation) that only describe someone — a relative clause
 # («…, который в 2012 году победил…») or a participial one («Иванова, осужденного в
 # 2024 году, …») — date that description, not the trigger.
+#
+# A written date is read only where the trigger is: the clause the trigger sits in. A date
+# in a clause of its own belongs to whatever that clause says («Дело возбудили из-за доната,
+# который он перевел ФБК 5 августа 2021 года» — the 5th of August is the donation).
+_MONTHS = {
+    "январь": 1,
+    "февраль": 2,
+    "март": 3,
+    "апрель": 4,
+    "май": 5,
+    "июнь": 6,
+    "июль": 7,
+    "август": 8,
+    "сентябрь": 9,
+    "октябрь": 10,
+    "ноябрь": 11,
+    "декабрь": 12,
+}
+# A day takes the month in the genitive («12 октября»); sources also write the nominative
+# («12 декабрь») and abbreviations («12 окт.»). The genitives are listed rather than
+# derived: «мая», «марта» and «июня» are not what the nominatives spell with a suffix.
+_MONTH_FORMS = {
+    form: number
+    for forms, number in (
+        (("январь", "января", "янв"), 1),
+        (("февраль", "февраля", "февр"), 2),
+        (("март", "марта", "мар"), 3),
+        (("апрель", "апреля", "апр"), 4),
+        (("май", "мая", "ма"), 5),
+        (("июнь", "июня", "июн"), 6),
+        (("июль", "июля", "июл"), 7),
+        (("август", "августа", "авг"), 8),
+        (("сентябрь", "сентября", "сен", "сент"), 9),
+        (("октябрь", "октября", "окт"), 10),
+        (("ноябрь", "ноября", "нояб", "ноя"), 11),
+        (("декабрь", "декабря", "дек"), 12),
+    )
+    for form in forms
+}
+# Longest first, so «сентября» is not read as «сен» with trailing letters.
+_MONTH_ALTERNATION = "|".join(sorted(_MONTH_FORMS, key=len, reverse=True))
+_DAY_MONTH = re.compile(
+    r"(?<!\d)(?P<day>[12]?\d|3[01])\s+(?P<month>" + _MONTH_ALTERNATION + r")\.?(?![а-яё])"
+    r"\s*(?:(?P<year>(?:19|20)\d{2})\s*(?:года|г\.|года)?)?(?!\d)"
+)
+# «12.10.2025», «12.10.25», «12/10/2025». The year is written out here, never guessed.
+_NUMERIC_DATE = re.compile(
+    r"(?<!\d)(?P<day>[12]?\d|3[01])\.(?P<month>[01]?\d)\.(?P<year>(?:19|20)\d{2})(?!\d)"
+    r"|(?<!\d)(?P<day2>[12]?\d)\.(?P<month2>[01]?\d)(?!\.\d)(?!\d)"
+)
+# «под стражу до 15 декабря», «на срок по 27 ноября»: a date behind «до» or «по» ends a
+# measure of restraint, it does not say when the event happened. «с» is left out on purpose
+# — «с 12 по 15 октября» is a range whose start is the day, and «с 3 октября начался
+# процесс» is one. A date written with a year is refused whatever precedes it: an expiry
+# date is as wrong as a publication date, only less often noticed.
+_UNTIL_DATE = re.compile(r"(?:до|по)\s*$")
+# A date written without a year may belong to the year before the publication's. It is
+# read that way only when it lands shortly before the publication: news is about what has
+# just happened, so «12 октября» in an article of 5 May names neither this October (still
+# ahead) nor an October seven months back. Such a date is not read at all.
+_MAX_PAST_DAYS = 45
 _CLAUSE_PUNCTUATION = re.compile(r"[,;:()]|\s[—–-]\s")
 _TIME_FRAME_START = re.compile(r"(?<![а-яё])(?:а|но|зато|однако|сегодня|вчера|накануне)(?![а-яё])")
 # A subordinate clause («…, что он одобрил поступок Жлобицкого», «…, в котором он назвал
@@ -161,9 +219,6 @@ _SUBORDINATE_CLAUSE_START = re.compile(
     r"^\s*(?:[а-яё]+\s+)?(?:котор[а-яё]*|что|чтобы|где)(?![а-яё])", re.IGNORECASE
 )
 _CLAUSE_SUBJECT_PRONOUN = re.compile(r"(?<![а-яё])(?:он|она|они)(?![а-яё])", re.IGNORECASE)
-_DESCRIPTIVE_CLAUSE = re.compile(
-    r"^\s*(?:(?:[а-яё]+\s+)?котор[а-яё]+|[а-яё]+(?:вш|ющ|ящ|ащ|ущ|нн)[а-яё]{2,3})(?![а-яё])"
-)
 
 
 # How many person mentions before the sentence must agree on one person for a pronoun to
@@ -187,7 +242,9 @@ class RuleBasedEventExtractor:
     # not the event's target.
     # 1.9.0: «отправили (оказался) в СИЗО» is an arrest; «предъявило ему обвинение» a charge.
     # 1.10.0: «отказал в возбуждении дела», «в возбуждении … отказали» open no case.
-    extractor_version = "1.10.0"
+    # 1.11.0: `event_date` is only the date the text writes for the event. The publication
+    # date is no longer its fallback, so an event whose text names no date has none.
+    extractor_version = "1.11.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -348,13 +405,13 @@ class RuleBasedEventExtractor:
 def _event_date(
     lowered_sentence: str, trigger_start: int, published_at: datetime | None
 ) -> datetime | None:
-    """The publication date, unless another year is written in the trigger's time frame.
+    """The date the text writes for this event, or None when it writes none.
 
-    Ownership is decided conservatively: any other year in the frame outside a
-    descriptive clause makes the date unknown (None) rather than a wrong publication date.
+    `published_at` is never a fallback: it is the article's own date, and putting it here
+    made every dated event look like it happened on the day its article came out. It is
+    used for one thing only — to fill in the year of a date written without one, and only
+    where that year is unambiguous.
     """
-    if published_at is None:
-        return None
     frame_start, frame_end = 0, len(lowered_sentence)
     for match in _TIME_FRAME_START.finditer(lowered_sentence):
         if match.start() <= trigger_start:
@@ -368,13 +425,74 @@ def _event_date(
         {0, len(frame)}
         | {index for match in _CLAUSE_PUNCTUATION.finditer(frame) for index in match.span()}
     )
-    for start, end in pairwise(cuts):
-        clause = frame[start:end]
-        if not start <= trigger_in_frame < end and _DESCRIPTIVE_CLAUSE.match(clause):
+    # A date written in another clause of the frame dates that clause, not this trigger.
+    clause = next(
+        (frame[start:end] for start, end in pairwise(cuts) if start <= trigger_in_frame < end),
+        frame,
+    )
+    written = _written_dates(clause)
+    if len(written) != 1:
+        # No date, or two of them: an ambiguous date is no date.
+        return None
+    day, month, year = written[0]
+    if year is not None:
+        return _as_datetime(day, month, year)
+    return _year_from_publication(day, month, published_at)
+
+
+def _written_dates(clause: str) -> list[tuple[int, int, int | None]]:
+    """(day, month, year as written) of every date the clause spells out, in order."""
+    found: list[tuple[int, int, int | None]] = []
+    for match in _DAY_MONTH.finditer(clause):
+        month = _month_of(match.group("month"))
+        if month is None or _UNTIL_DATE.search(clause[: match.start()]):
             continue
-        if any(int(year) != published_at.year for year in _YEAR.findall(clause)):
-            return None
-    return published_at
+        found.append((int(match.group("day")), month, _year_of(match.group("year"))))
+    for match in _NUMERIC_DATE.finditer(clause):
+        month = int(match.group("month") or match.group("month2"))
+        day = int(match.group("day") or match.group("day2"))
+        year = int(match.group("year")) if match.group("year") else None
+        if month <= 12 and not _UNTIL_DATE.search(clause[: match.start()]):
+            found.append((day, month, year))
+    return found
+
+
+def _month_of(form: str) -> int | None:
+    return _MONTH_FORMS.get(form)
+
+
+def _year_of(written: str | None) -> int | None:
+    return int(written) if written else None
+
+
+def _as_datetime(day: int, month: int, year: int) -> datetime | None:
+    try:
+        return datetime(year, month, day, tzinfo=UTC)
+    except ValueError:
+        # «31 февраля» is written but does not exist.
+        return None
+
+
+def _year_from_publication(day: int, month: int, published_at: datetime | None) -> datetime | None:
+    """A date written without a year, dated by the article's own year.
+
+    The year is unambiguous only where the date it names has already passed by publication:
+    an article of 19 October saying «12 октября» means this year, one of 3 January saying
+    «28 декабря» means the year before. A date still ahead of the publication, and one that
+    would only fit by landing far in the past, are not read at all — either it belongs to
+    another sentence or no year can be claimed for it.
+    """
+    if published_at is None:
+        return None
+    published_day = published_at.astimezone(UTC).date()
+    this_year = _as_datetime(day, month, published_at.year)
+    if this_year is not None and 0 <= (published_day - this_year.date()).days:
+        return this_year
+    last_year = _as_datetime(day, month, published_at.year - 1)
+    if last_year is None:
+        return None
+    days_back = (published_day - last_year.date()).days
+    return last_year if 0 <= days_back <= _MAX_PAST_DAYS else None
 
 
 def _is_non_subject(text: str, mention: NormalizedMention, start: int, end: int) -> bool:

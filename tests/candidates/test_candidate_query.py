@@ -625,6 +625,127 @@ def test_get_candidates_uses_event_date_for_last_event_date(
     assert result.candidates[0].last_event_date == event_date
 
 
+def _political_candidate(
+    session: Session,
+    canonical_name: str,
+    normalized_name: str,
+    matching_key: str,
+    *,
+    event_date: datetime | None,
+    published_at: datetime,
+) -> int:
+    """A political candidate with exactly one event of `event_date`, in an article
+    published on `published_at` — two dates that are deliberately different.
+    Returns the snapshot the query reads."""
+    person_id = _create_person(session, canonical_name, normalized_name, matching_key)
+    _create_persecution_classification(
+        session,
+        person_id,
+        status="political",
+        confidence=0.9,
+        reasons=["Political activity"],
+    )
+    snapshot_id = _create_snapshot(session)
+    _create_match(session, person_id, snapshot_id, status="not_matched", confidence=0.8)
+
+    source = Source(name="test", base_url="https://example.com")
+    session.add(source)
+    session.flush()
+    document = SourceDocument(
+        source_id=source.id,
+        external_id=f"doc-{matching_key}",
+        canonical_url=f"https://example.com/{matching_key}",
+        fetched_at=published_at,
+        content_type="text/html",
+        raw_content=b"",
+    )
+    session.add(document)
+    session.flush()
+    article = ParsedArticleRecord(
+        document_id=document.id, title="Test", published_at=published_at, text="Text"
+    )
+    session.add(article)
+    session.flush()
+    run = ArticleExtractionRunRecord(
+        article_id=article.id,
+        article_content_hash=f"hash-{matching_key}",
+        extractor_name="test",
+        extractor_version="1",
+        normalizer_version="1",
+        status="succeeded",
+        started_at=published_at,
+        finished_at=published_at,
+    )
+    session.add(run)
+    session.flush()
+    event = ExtractedEventRecord(
+        extraction_run_id=run.id,
+        event_type="arrest",
+        event_date=event_date,
+        start_offset=0,
+        end_offset=4,
+        confidence=0.9,
+        attributes={},
+        extractor_name="test",
+        extractor_version="1",
+    )
+    session.add(event)
+    session.flush()
+    session.add(
+        PersonEventLinkRecord(person_id=person_id, event_id=event.id, role="target", confidence=0.9)
+    )
+    return snapshot_id
+
+
+def test_last_event_date_is_the_date_of_the_event_and_not_of_its_publication(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """`last_event_date` reports when the event happened. It must not fall back to the
+    article's publication date, which used to make every event look as recent as its news."""
+    event_date = datetime(2020, 1, 2, tzinfo=UTC)
+    published_at = datetime(2026, 10, 19, tzinfo=UTC)
+    with session_factory() as session:
+        snapshot_id = _political_candidate(
+            session,
+            "Dated Person",
+            "dated person",
+            "datedperson",
+            event_date=event_date,
+            published_at=published_at,
+        )
+        session.commit()
+
+    (candidate,) = service.get_candidates(snapshot_id).candidates
+
+    assert candidate.last_event_date == event_date
+    assert candidate.last_event_date != published_at
+
+
+def test_last_event_date_is_unknown_when_the_text_named_no_date(
+    session_factory: sessionmaker[Session],
+    service: CandidateQueryService,
+) -> None:
+    """An event whose text names no date has none, so this is None — not the publication
+    date. Nothing may read this field as "how recent is this person's news": the news day
+    shown to the customer comes from the publication and is labelled «Дата новости»."""
+    with session_factory() as session:
+        snapshot_id = _political_candidate(
+            session,
+            "Undated Person",
+            "undated person",
+            "undatedperson",
+            event_date=None,
+            published_at=datetime(2026, 10, 19, tzinfo=UTC),
+        )
+        session.commit()
+
+    (candidate,) = service.get_candidates(snapshot_id).candidates
+
+    assert candidate.event_count == 1
+    assert candidate.last_event_date is None
+
+
 def test_get_candidates_excludes_non_political_persons(
     session_factory: sessionmaker[Session],
     service: CandidateQueryService,

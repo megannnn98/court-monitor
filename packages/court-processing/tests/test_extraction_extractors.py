@@ -380,27 +380,98 @@ def _event_dates(text: str, published_at: datetime | None = _PUBLISHED) -> list[
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        # Real case: «Мампорию задержали … в апреле 2025 года» got the 2026 publication date.
-        ("Мампорию задержали в апреле 2025 года.", None),
+        # A written date is the event's own. The publication date (2026-05-05) is never it.
+        ("12 октября 2025 года Иванова задержали.", datetime(2025, 10, 12, tzinfo=UTC)),
+        ("12.10.2025 Иванова задержали.", datetime(2025, 10, 12, tzinfo=UTC)),
+        # A date without a year takes the publication's year when that is unambiguous:
+        # a date already past by publication is this year; one that only fits by landing
+        # within the last weeks is the year before.
+        ("1 марта Иванова задержали.", datetime(2026, 3, 1, tzinfo=UTC)),
+        ("5 мая Иванова задержали.", datetime(2026, 5, 5, tzinfo=UTC)),
+        # Not unambiguous: still ahead of the publication, and seven months back is not
+        # what a news article of 5 May is about.
+        ("12 октября Иванова задержали.", None),
+        ("28 декабря Иванова задержали.", None),
+        ("22 мая Иванова задержали.", None),
+        # A year on its own is not a date: the day and month are unknown, so they are not
+        # guessed. Real case: «Мампорию задержали … в апреле 2025 года» got the publication date.
+        # A month without a day is no better: the day is unknown and there is no precision
+        # model for a partial date here, so the field stays None rather than being guessed.
+        ("В октябре 2025 года Иванова задержали.", None),
+        ("В октябре Иванова задержали.", None),
+        ("В декабре 2025 года суд приговорил бывшего губернатора к 23 годам колонии.", None),
         ("В 2025 году Мампорию задержали.", None),
         ("В апреле 2025 года, по данным правозащитников, Мампорию задержали.", None),
-        # Real case: the year opens the sentence of the detention itself.
-        ("В 2022 году его вместе с женой, с которой он жил в Твери, задержали.", None),
         ("Мампорию задержали и поместили под домашний арест, это было в апреле 2025 года.", None),
-        # Real case: the year dates a relative clause about another fact.
-        ("Дело возбудили из-за доната, который он перевел ФБК 5 августа 2021 года.", _PUBLISHED),
-        # The year dates another fact of the sentence, not this trigger.
-        ("В 2025 году Иванов переехал в Москву, а сегодня его задержали.", _PUBLISHED),
-        ("Иванова, осужденного в 2024 году, сегодня задержали.", _PUBLISHED),
-        ("После задержания в 2025 году Иванов уехал, а сегодня его арестовали.", _PUBLISHED),
-        ("Задержали активиста 1990 года рождения.", _PUBLISHED),
-        ("В 2026 году его арестовали.", _PUBLISHED),
+        ("В 2022 году его вместе с женой, с которой он жил в Твери, задержали.", None),
+        ("В 2026 году его арестовали.", None),
+        # The text names no date at all: no date.
+        ("Иванова задержали.", None),
+        ("Вчера Иванова задержали.", None),
+        ("Сегодня его задержали.", None),
+        # A date in a clause of its own dates that clause, not this trigger.
+        ("Дело возбудили из-за доната, который он перевел ФБК 5 августа 2021 года.", None),
+        ("В 2025 году Иванов переехал в Москву, а сегодня его задержали.", None),
+        ("Иванова, осужденного в 2024 году, сегодня задержали.", None),
+        ("После задержания в 2025 году Иванов уехал, а сегодня его арестовали.", None),
+        # A birth year dates the person, not the event.
+        ("Задержали активиста 1990 года рождения.", None),
+        # «до 15 декабря» / «по 27 ноября» end a measure of restraint; the event is not on
+        # that day, and no other day is written.
+        ("Суд отправил Елену Кротову в СИЗО до 15 декабря 2026 года.", None),
+        ("Мера пресечения в виде заключения под стражу продлена до 20 ноября 2026 года.", None),
+        (
+            "Суд избрал меру пресечения в виде заключения под стражу на срок по 27 ноября 2026 года.",
+            None,
+        ),
+        # «с» is a day, not an expiry: «с 17 сентября поместили» is when it happened.
+        (
+            "С 16 сентября 2026 года её поместили в штрафной изолятор.",
+            datetime(2026, 9, 16, tzinfo=UTC),
+        ),
+        # A day that does not exist is not a date.
+        ("31 февраля Иванова задержали.", None),
+        # Two dates in the trigger's own clause: which one it is, is undecidable.
+        ("12 и 13 октября Иванова задержали.", None),
     ],
 )
-def test_event_date_uses_the_year_of_its_own_trigger_context(
-    text: str, expected: datetime | None
-) -> None:
+def test_event_date_is_the_date_the_text_writes(text: str, expected: datetime | None) -> None:
     assert _event_dates(text) == [expected]
+
+
+def test_event_date_is_not_the_publication_date() -> None:
+    """The defect: every dated event carried its article's date to the second."""
+    published = datetime(2026, 10, 19, 7, 42, 13, tzinfo=UTC)
+    assert _event_dates("Иванова задержали.", published_at=published) == [None]
+    # Written before publication: the event's own day, not the 19th to the second.
+    dates = _event_dates("12 октября 2025 года Иванова задержали.", published_at=published)
+    assert dates == [datetime(2025, 10, 12, tzinfo=UTC)]
+    assert dates[0] != published
+
+
+def test_a_year_is_read_from_the_publication_only_where_it_is_unambiguous() -> None:
+    """«12 октября» is this October by a 19 October publication, last October by a 3 January one."""
+    assert _event_dates(
+        "12 октября Иванова задержали.", published_at=datetime(2026, 10, 19, tzinfo=UTC)
+    ) == [datetime(2026, 10, 12, tzinfo=UTC)]
+    assert _event_dates(
+        "28 декабря Иванова задержали.", published_at=datetime(2026, 1, 3, tzinfo=UTC)
+    ) == [datetime(2025, 12, 28, tzinfo=UTC)]
+
+
+def test_two_events_in_one_article_keep_their_own_dates() -> None:
+    """Each event is dated by its own sentence, not by the article or by the first event."""
+    text = "12 октября 2025 года Иванова задержали. 3 ноября 2025 года Петрова арестовали."
+    assert _event_dates(text) == [
+        datetime(2025, 10, 12, tzinfo=UTC),
+        datetime(2025, 11, 3, tzinfo=UTC),
+    ]
+
+
+def test_a_date_stays_in_its_own_sentence() -> None:
+    """Several people and events in one article: a date is never carried to its neighbours."""
+    text = "12 октября 2025 года Иванова задержали. Петрова арестовали."
+    assert _event_dates(text) == [datetime(2025, 10, 12, tzinfo=UTC), None]
 
 
 def test_one_event_per_sentence_is_dated_by_the_earliest_trigger() -> None:
@@ -409,8 +480,12 @@ def test_one_event_per_sentence_is_dated_by_the_earliest_trigger() -> None:
     assert _event_dates(text) == [None]
 
 
-def test_event_without_a_publication_date_has_no_date() -> None:
-    assert _event_dates("Сегодня его задержали.", published_at=None) == [None]
+def test_a_written_date_is_read_without_a_publication_date() -> None:
+    """A written-out year needs no anchor; a written-out month alone has none."""
+    assert _event_dates("12 октября 2025 года Иванова задержали.", published_at=None) == [
+        datetime(2025, 10, 12, tzinfo=UTC)
+    ]
+    assert _event_dates("12 октября Иванова задержали.", published_at=None) == [None]
     assert _event_dates("В 2025 году его задержали.", published_at=None) == [None]
 
 
