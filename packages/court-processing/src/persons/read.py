@@ -7,14 +7,14 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Select, func, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from db.arrays import any_of
-from ingestion.read import stored_articles
+from ingestion.read import published_days, stored_articles
 from persons.models import PersonStatus
 from persons.storage.models import (
     PersonAliasRecord,
@@ -133,7 +133,12 @@ class EventEvidence:
 
 
 def event_evidence(session: Session, person_id: int) -> list[EventEvidence]:
-    """The person's events and source spans, using bulk reads for publication evidence."""
+    """The person's events and source spans, using bulk reads for publication evidence.
+
+    Latest first: by the event's own date where the text gave one, otherwise by the date its
+    publication came out. The publication date is an ordering key here only — it is never
+    written into the event's date.
+    """
     rows = session.execute(
         select(
             ExtractedEventRecord.id,
@@ -152,12 +157,10 @@ def event_evidence(session: Session, person_id: int) -> list[EventEvidence]:
             ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
         )
         .where(PersonEventLinkRecord.person_id == person_id)
-        .order_by(
-            ExtractedEventRecord.event_date.desc().nullslast(), ExtractedEventRecord.id.desc()
-        )
     ).all()
     articles = stored_articles(session, {row.article_id for row in rows})
-    return [
+    days = published_days(session, {row.article_id for row in rows})
+    found = [
         EventEvidence(
             id=row.id,
             event_type=row.event_type,
@@ -176,6 +179,25 @@ def event_evidence(session: Session, person_id: int) -> list[EventEvidence]:
         for row in rows
         if row.article_id in articles
     ]
+    return sorted(
+        found,
+        key=lambda event: (
+            _is_null(event.event_date),
+            -(event.event_date.timestamp() if event.event_date else 0.0),
+            _sort_day(days.get(event.article_id)),
+            -event.id,
+        ),
+    )
+
+
+def _is_null(moment: datetime | None) -> bool:
+    """Sorts a date last when it is unknown, the way `NULLS LAST` does in SQL."""
+    return moment is None
+
+
+def _sort_day(day: date | None) -> int:
+    """A day as a number that sorts descending; an unknown one sorts last."""
+    return -(day.toordinal() if day else 0)
 
 
 @dataclass(frozen=True)
@@ -225,6 +247,8 @@ def reviews(
 @dataclass(frozen=True)
 class PersonStats:
     event_count: int
+    # The latest date the texts gave for this person's events; None when none of them gave
+    # one. Never the publication date: this is the date of the event or nothing.
     last_event_date: datetime | None
     alias_count: int
 
@@ -421,7 +445,8 @@ def other_person_spans(
 
 @dataclass(frozen=True)
 class LatestEvent:
-    """A person's latest event (by its date, unknown last, then the latest id)."""
+    """A person's latest event (by its own date, then its publication's, unknown last, then
+    the latest id)."""
 
     person_id: int
     article_id: int
@@ -430,12 +455,18 @@ class LatestEvent:
 
 
 def latest_events(session: Session, ids: Collection[int]) -> dict[int, LatestEvent]:
-    """Per person asked for with a linked event, the latest of them."""
+    """Per person asked for with a linked event, the latest of them.
+
+    "Latest" is the event's own date where the text gave one, else the date its publication
+    came out. Publication date is an ordering key here only; it is never the event's date.
+    """
     if not ids:
         return {}
+    ordered = sorted(set(ids))
     rows = session.execute(
         select(
             PersonEventLinkRecord.person_id,
+            ExtractedEventRecord.id,
             ArticleExtractionRunRecord.article_id,
             ExtractedEventRecord.event_type,
             ExtractedEventRecord.event_date,
@@ -445,15 +476,21 @@ def latest_events(session: Session, ids: Collection[int]) -> dict[int, LatestEve
             ArticleExtractionRunRecord,
             ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
         )
-        .where(any_of(PersonEventLinkRecord.person_id, ids))
-        .distinct(PersonEventLinkRecord.person_id)
-        .order_by(
-            PersonEventLinkRecord.person_id,
-            ExtractedEventRecord.event_date.desc().nullslast(),
-            ExtractedEventRecord.id.desc(),
-        )
+        .where(any_of(PersonEventLinkRecord.person_id, ordered))
     ).all()
-    return {row[0]: LatestEvent(*row) for row in rows}
+    days = published_days(session, {row.article_id for row in rows})
+    latest: dict[int, tuple[tuple[Any, ...], LatestEvent]] = {}
+    for person_id, event_id, article_id, event_type, event_date in rows:
+        event = LatestEvent(person_id, article_id, event_type, event_date)
+        rank = (
+            event_date is None,
+            -(event_date.timestamp() if event_date else 0.0),
+            _sort_day(days.get(article_id)),
+            -event_id,
+        )
+        if person_id not in latest or rank < latest[person_id][0]:
+            latest[person_id] = (rank, event)
+    return {person_id: event for person_id, (_, event) in latest.items()}
 
 
 def mention_articles(session: Session, ids: Collection[int]) -> list[tuple[int, int, int]]:

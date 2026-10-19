@@ -643,7 +643,12 @@ def digest_relevance(session: Session, article_ids: Collection[int]) -> dict[int
 
 @dataclass(frozen=True)
 class EventFact:
-    """An extracted event, with the day its own date names (None: the text gave none)."""
+    """An extracted event, with the day the text wrote for it (None: it wrote none).
+
+    `event_date` is the event's own date only. The article's `published_at` is a separate
+    thing and is never merged into it: an event whose text names no date has none, and
+    `event_day` is None with it.
+    """
 
     id: int
     event_type: str

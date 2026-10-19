@@ -163,11 +163,15 @@ class Source:
 
 @dataclass
 class TimelineItem:
-    """One event of the case: the events of one type on one publication day, merged —
-    several publications telling the same event are one item with several sources."""
+    """One event of the case: the events of one type on one day, merged —
+    several publications telling the same event are one item with several sources.
+
+    An item is keyed by the event's own day where the text gave one, and by the day its
+    publication came out otherwise. Those two are different facts and the page says which
+    one it is showing (`dated`)."""
 
     event_type: str
-    # The day it is dated by: its publication's (None: the text names another year).
+    # The day this item is placed on, and `dated` says whose day it is.
     day: datetime | None
     dated: bool
     confidence: float | None
@@ -344,15 +348,18 @@ def load(db: Session, key: str) -> Dossier | None:
 
     items: dict[tuple[str, Any], TimelineItem] = {}
     for row in event_rows:
-        moment = row.event_date or row.published_at
+        # Two days, kept apart: the event's own, and the publication's. They are merged only
+        # for placement, and `dated` records which one the item is showing.
+        own = row.event_date
+        moment = own or row.published_at
         # The day as the page shows it: the local one.
         day = moment.astimezone().date() if moment else None
         item = items.setdefault(
             (row.event_type, day),
             TimelineItem(
                 event_type=row.event_type,
-                day=row.event_date or row.published_at,
-                dated=row.event_date is not None,
+                day=own or row.published_at,
+                dated=own is not None,
                 confidence=row.confidence,
                 extractor=row.extractor_name,
             ),
@@ -744,10 +751,10 @@ def _timeline(dossier: Dossier) -> str:
     rows = []
     for item in dossier.timeline:
         date = (
-            f'<time>{_day(item.day)}</time><span class="muted">по дате публикации</span>'
+            f"<time>{_day(item.day)}</time>"
             if item.dated
-            else '<time>дата не установлена</time><span class="muted">в тексте другой год; '
-            f"публикация {_day(item.day)}</span>"
+            else '<time>дата события не установлена</time><span class="muted">публикация '
+            f"{_day(item.day)}</span>"
         )
         articles = ", ".join(
             _article_link(article) for article in sorted(item.articles, key=article_order)

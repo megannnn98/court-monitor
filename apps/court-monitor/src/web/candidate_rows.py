@@ -266,7 +266,9 @@ def select_candidate_rows(
         if period_end is not None and (published_at is None or news_day(published_at) > period_end):
             continue
 
-        # Filter by event date: exclude old events mentioned in fresh articles.
+        # Filter by event date: exclude old events mentioned in fresh articles. An event
+        # whose date is unknown is never excluded by it — the publication filter above has
+        # already decided the candidate is current, and an unknown date is not an old one.
         if (
             event_date_filter
             and period_start is not None

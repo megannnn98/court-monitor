@@ -93,7 +93,9 @@ def _case(session_factory: sessionmaker[Session], *, extra: int = 0) -> None:
             run,
             "Александру Моору вынесли приговор.",
             event_type="sentence",
-            event_date=datetime(2026, 9, 10, 12, tzinfo=UTC),
+            # The text names no date of the verdict, so the event has none; the page places
+            # it by the publication's and says so.
+            event_date=None,
             links=[],
             entity_links=[(moor, "target")],
         )
@@ -280,12 +282,16 @@ def test_the_timeline_is_in_order_and_one_event_told_twice_is_one_item(
 
     timeline = page[page.index('<ol class="timeline">') : page.index("</ol>")]
     items = re.findall(r"<time>([^<]+)</time>.*?<p><b>([^<]+)</b>", timeline, re.DOTALL)
-    # The arrest of 01.09 was seeded after the sentence of 10.09: the order is the dates'.
-    assert items == [("01.09.2026", "Арест"), ("10.09.2026", "Приговор")]
+    # The verdict names no date of its own, so the page says that instead of a day; the
+    # arrest of 01.09, which the text dated, is shown by that date and comes first.
+    assert items == [("01.09.2026", "Арест"), ("дата события не установлена", "Приговор")]
     # Two publications of the arrest, one item with two sources.
     assert "источников: 2" in timeline and timeline.count('class="timeline-item"') == 2
-    # No event date is invented: the page says whose date it is.
-    assert "по дате публикации" in timeline
+    # The verdict's own date is unknown, and the page says that rather than passing the
+    # publication's date off as the event's.
+    assert "дата события не установлена" in timeline
+    assert "публикация 10.09.2026" in timeline
+    assert "по дате публикации" not in timeline
     assert "Ленинский суд" in timeline and "(суд)" in timeline
     assert "ст. 205.2" in timeline
 

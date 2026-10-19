@@ -544,8 +544,9 @@ class OrgResponse(BaseModel):
 class TimelineItemResponse(BaseModel):
     event_type: str
     label: str
+    # The event's own date where the text gave one; otherwise its publication's. `dated`
+    # says which: False means `day` is the publication's, the event's date is unknown.
     day: datetime | None
-    # False: the text names another year, `day` is the publication's.
     dated: bool
     confidence: float | None
     extractor_label: str
