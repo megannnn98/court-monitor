@@ -14,7 +14,7 @@ from sqlalchemy import Select, func, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from db.arrays import any_of
-from ingestion.read import published_days, stored_articles
+from ingestion.read import published_at, stored_articles
 from persons.models import PersonStatus
 from persons.storage.models import (
     PersonAliasRecord,
@@ -159,7 +159,7 @@ def event_evidence(session: Session, person_id: int) -> list[EventEvidence]:
         .where(PersonEventLinkRecord.person_id == person_id)
     ).all()
     articles = stored_articles(session, {row.article_id for row in rows})
-    days = published_days(session, {row.article_id for row in rows})
+    days = published_at(session, {row.article_id for row in rows})
     found = [
         EventEvidence(
             id=row.id,
@@ -182,9 +182,8 @@ def event_evidence(session: Session, person_id: int) -> list[EventEvidence]:
     return sorted(
         found,
         key=lambda event: (
-            _is_null(event.event_date),
-            -(event.event_date.timestamp() if event.event_date else 0.0),
-            _sort_day(days.get(event.article_id)),
+            _is_null(_effective_day(event.event_date, days.get(event.article_id))),
+            _sort_day(_effective_day(event.event_date, days.get(event.article_id))),
             -event.id,
         ),
     )
@@ -195,9 +194,15 @@ def _is_null(moment: datetime | None) -> bool:
     return moment is None
 
 
-def _sort_day(day: date | None) -> int:
+def _sort_day(day: datetime | date | None) -> int:
     """A day as a number that sorts descending; an unknown one sorts last."""
     return -(day.toordinal() if day else 0)
+
+
+def _effective_day(event_date: datetime | None, published: datetime | None) -> datetime | None:
+    """The day an event is placed on for ordering: its own where the text gave one, its
+    publication's otherwise. Never written back into the event's date."""
+    return event_date or published
 
 
 @dataclass(frozen=True)
@@ -457,8 +462,11 @@ class LatestEvent:
 def latest_events(session: Session, ids: Collection[int]) -> dict[int, LatestEvent]:
     """Per person asked for with a linked event, the latest of them.
 
-    "Latest" is the event's own date where the text gave one, else the date its publication
-    came out. Publication date is an ordering key here only; it is never the event's date.
+    "Latest" is the day the event happened where the text gave one and the day its
+    publication came out otherwise — one comparable day per event, not "a date beats no
+    date". A dated event of last year must not outrank today's news whose event the text
+    left undated, or the customer's latest news is a year old. The returned `event_date`
+    stays None for that event: the publication day is an ordering key, never its date.
     """
     if not ids:
         return {}
@@ -478,16 +486,12 @@ def latest_events(session: Session, ids: Collection[int]) -> dict[int, LatestEve
         )
         .where(any_of(PersonEventLinkRecord.person_id, ordered))
     ).all()
-    days = published_days(session, {row.article_id for row in rows})
+    days = published_at(session, {row.article_id for row in rows})
     latest: dict[int, tuple[tuple[Any, ...], LatestEvent]] = {}
     for person_id, event_id, article_id, event_type, event_date in rows:
         event = LatestEvent(person_id, article_id, event_type, event_date)
-        rank = (
-            event_date is None,
-            -(event_date.timestamp() if event_date else 0.0),
-            _sort_day(days.get(article_id)),
-            -event_id,
-        )
+        effective = _effective_day(event_date, days.get(article_id))
+        rank = (_is_null(effective), _sort_day(effective), -event_id)
         if person_id not in latest or rank < latest[person_id][0]:
             latest[person_id] = (rank, event)
     return {person_id: event for person_id, (_, event) in latest.items()}

@@ -534,15 +534,25 @@ def articles_with_events(session: Session, event_types: Collection[str]) -> list
 _EVENT_COUNTS = text(
     """
     SELECT r.article_id, e.event_type, count(*)
-    FROM extracted_events e JOIN article_extraction_runs r ON r.id = e.extraction_run_id
-    WHERE r.article_id = ANY(:articles) AND r.status = 'succeeded'
+    FROM extracted_events e
+    JOIN (
+        -- Only the article's latest successful run, as the collector takes it. A
+        -- re-extraction opens a new run and keeps the old one, so counting every run
+        -- counts one event twice — and keeps counting events a later extractor no
+        -- longer finds.
+        SELECT DISTINCT ON (article_id) id, article_id
+        FROM article_extraction_runs
+        WHERE status = 'succeeded'
+        ORDER BY article_id, id DESC
+    ) r ON r.id = e.extraction_run_id
+    WHERE r.article_id = ANY(:articles)
     GROUP BY r.article_id, e.event_type
     """
 )
 
 
 def event_counts(session: Session, article_ids: Collection[int]) -> list[tuple[int, str, int]]:
-    """(article, event type, how many) of the articles' successful extractions."""
+    """(article, event type, how many) of the articles' latest successful extraction."""
     if not article_ids:
         return []
     return [

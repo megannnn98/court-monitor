@@ -431,6 +431,33 @@ def _event_dates(text: str, published_at: datetime | None = _PUBLISHED) -> list[
         ),
         # A day that does not exist is not a date.
         ("31 февраля Иванова задержали.", None),
+        # A criminal-code reference is a number, not a date: «ст. 20.2 КоАП РФ» is not the 20th of
+        # February. A real date written beside it is still read.
+        ("Петра Петрова арестовали по ст. 20.2 КоАП РФ.", None),
+        ("Петра Петрова арестовали по ст. 12.8 КоАП РФ.", None),
+        ("Петра Петрова арестовали по ст. 19.3 КоАП РФ.", None),
+        ("В соответствии с частью 2 статьи 3.9 КоАП РФ его оштрафовали.", None),
+        (
+            "Иванову арестовали 12 октября 2025 года по ст. 20.2 КоАП РФ.",
+            datetime(2025, 10, 12, tzinfo=UTC),
+        ),
+        # A date written in full is a date even next to a reference: «20.2.2025».
+        ("Петра Петрова арестовали 20.10.2025.", datetime(2025, 10, 20, tzinfo=UTC)),
+        # A full birth date dates the person, not the arrest.
+        ("Петра Петрова 12 октября 1990 года рождения арестовали.", None),
+        ("Петра Петрова 12 октября 1990 г. р. арестовали.", None),
+        (
+            "12 октября 2025 года арестовали Петрова 1990 года рождения.",
+            datetime(2025, 10, 12, tzinfo=UTC),
+        ),
+        # «до конца дня» is still a restraint deadline.
+        ("Петра Петрова арестовали до конца дня 15 декабря 2026 года.", None),
+        ("Петра Петрова арестовали до 15 декабря включительно.", None),
+        # «До суда» is not a deadline: the date after it is the event's.
+        ("До суда Петрова арестовали 12 октября 2025 года.", datetime(2025, 10, 12, tzinfo=UTC)),
+        # Two days of one month: which of them the event is, is undecidable.
+        ("12 и 13 октября 2025 года Иванова задержали.", None),
+        ("13 октября 2025 года Иванова задержали.", datetime(2025, 10, 13, tzinfo=UTC)),
         # Two dates in the trigger's own clause: which one it is, is undecidable.
         ("12 и 13 октября Иванова задержали.", None),
     ],

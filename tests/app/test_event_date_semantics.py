@@ -14,10 +14,13 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
-from support.db_fixtures import DatabaseSeeder
+from support.db_fixtures import FIXED_TIME, DatabaseSeeder
 
+from persons import read as person_read
+from processing import read as identity
 from processing.extraction.events import RuleBasedEventExtractor
 from processing.extraction.models import ExtractionDocument
+from processing.storage.models import ArticleExtractionRunRecord, ExtractedEventRecord
 from web.app import app
 from web.dependencies import get_db
 
@@ -259,8 +262,121 @@ def test_two_publications_of_one_event_are_one_fact(
     assert events == 2 and event_dates == 1
 
 
-# The event's date is what the graph and the dossier label as such, and the publication
-# date is labelled as the publication's.
+# The two defects the review of PR #71 found after it was merged.
+
+
+def test_the_latest_news_is_the_newest_publication_not_the_oldest_dated_event(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A dated event of last year must not outrank today's news whose event the text left
+    undated. Ranking on «has a date beats no date» made the customer's latest news a year
+    old, and the period filter could then drop a person who had fresh news."""
+    old_published = datetime(2025, 1, 2, tzinfo=UTC)
+    fresh_published = datetime(2026, 10, 19, tzinfo=UTC)
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("ОВД-Инфо", "https://ovd.info")
+        person_id = seed.person("Иванова Иванна")
+
+        _, old_run = seed.article(
+            source,
+            external_id="old",
+            title="Арест 2025 года",
+            text="Иванова Иванна: Иванову арестовали.",
+            published_at=old_published,
+        )
+        seed.event(
+            old_run,
+            "Иванову арестовали.",
+            event_type="arrest",
+            event_date=datetime(2025, 1, 1, tzinfo=UTC),
+            links=[(person_id, "target")],
+            entity_links=[(seed.mention(old_run, "Иванова Иванна", person_id=person_id), "target")],
+        )
+
+        _, fresh_run = seed.article(
+            source,
+            external_id="fresh",
+            title="Свежая новость",
+            text="Иванова Иванна: Иванову задержали.",
+            published_at=fresh_published,
+        )
+        seed.event(
+            fresh_run,
+            "Иванову задержали.",
+            event_type="detention",
+            event_date=None,
+            links=[(person_id, "target")],
+            entity_links=[
+                (
+                    seed.mention(fresh_run, "Иванова Иванна", person_id=person_id),
+                    "target",
+                )
+            ],
+        )
+
+    with session_factory() as session:
+        latest = person_read.latest_events(session, [person_id])
+
+    event = latest[person_id]
+    assert event.event_type == "detention"
+    # Placed by its publication, dated by nothing: the two are not merged.
+    assert event.event_date is None
+
+
+def test_event_counts_reads_only_the_latest_run_of_an_article(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A re-extraction opens a new run and keeps the old one. Counting every run counted one
+    arrest twice in «Публикации» and kept counting events a later extractor no longer
+    finds. On the working database this overstated the count by 7829."""
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("ОВД-Инфо", "https://ovd.info")
+        article_id, first = seed.article(
+            source,
+            external_id="run-one",
+            title="Первый прогон",
+            text="Иванову арестовали.",
+            published_at=datetime(2026, 10, 1, tzinfo=UTC),
+        )
+        seed.event(first, "Иванову арестовали.", event_type="arrest", event_date=None, links=[])
+        # A second successful run of the same article, as an extractor bump leaves it.
+        second = ArticleExtractionRunRecord(
+            article_id=article_id,
+            article_content_hash="hash-run-two",
+            extractor_name="rule-based",
+            extractor_version="1.12.0",
+            normalizer_version="1.0.0",
+            status="succeeded",
+            started_at=FIXED_TIME,
+            finished_at=FIXED_TIME,
+        )
+        session.add(second)
+        session.flush()
+        session.add(
+            ExtractedEventRecord(
+                extraction_run_id=second.id,
+                event_type="arrest",
+                event_date=None,
+                start_offset=0,
+                end_offset=5,
+                confidence=0.9,
+                attributes={},
+                extractor_name="rule-based",
+                extractor_version="1.12.0",
+            )
+        )
+
+    with session_factory() as session:
+        counts = identity.event_counts(session, [article_id])
+
+    assert counts == [(article_id, "arrest", 1)]
+
+
+def test_the_storage_of_the_two_pins() -> None:
+    """Both remaining findings of the review, kept together with the ones above."""
+    assert RuleBasedEventExtractor.extractor_version == "1.12.0"
 
 
 def test_the_timeline_says_which_day_it_shows(session_factory: sessionmaker[Session]) -> None:
