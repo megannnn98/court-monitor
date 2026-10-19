@@ -395,7 +395,11 @@ def _event_dates(text: str, published_at: datetime | None = _PUBLISHED) -> list[
         ("22 мая Иванова задержали.", None),
         # A year on its own is not a date: the day and month are unknown, so they are not
         # guessed. Real case: «Мампорию задержали … в апреле 2025 года» got the publication date.
-        ("Мампорию задержали в апреле 2025 года.", None),
+        # A month without a day is no better: the day is unknown and there is no precision
+        # model for a partial date here, so the field stays None rather than being guessed.
+        ("В октябре 2025 года Иванова задержали.", None),
+        ("В октябре Иванова задержали.", None),
+        ("В декабре 2025 года суд приговорил бывшего губернатора к 23 годам колонии.", None),
         ("В 2025 году Мампорию задержали.", None),
         ("В апреле 2025 года, по данным правозащитников, Мампорию задержали.", None),
         ("Мампорию задержали и поместили под домашний арест, это было в апреле 2025 года.", None),
