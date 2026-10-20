@@ -198,6 +198,11 @@ _LOCATION_PATTERN = re.compile(
 )
 
 
+# The next person's name right after a span: a capitalized word, possibly behind a comma
+# or a short conjunction («…Морозова Валерию и Елене Царенко», «…Кадырова, Никита»).
+_NEXT_NAME = re.compile(rf"(?:,\s*)?(?:{_SPACE}(?:и|а|но|да|либо|или))?{_SPACE}{_CAPITALIZED_WORD}")
+
+
 def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphology) -> int:
     """Cut the span where another person starts: a given name cannot follow a patronymic.
 
@@ -208,12 +213,12 @@ def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphol
         if morphology.is_patronymic(previous.group(0)) and morphology.is_given_name(word.group(0)):
             return start + previous.end()
     # «Рамзана Кадырова Никиту Журавеля»: a given name closing a span without a patronymic,
-    # with a capitalized word right after it, opens the next person's name.
+    # with the next person's name right after it, opens that name.
     if (
         len(words) == 3
         and morphology.is_given_name(words[2].group(0))
         and not any(morphology.is_patronymic(word.group(0)) for word in words)
-        and re.match(rf"{_SPACE}{_CAPITALIZED_WORD}", text[end:]) is not None
+        and _NEXT_NAME.match(text[end:]) is not None
     ):
         return start + words[1].end()
     return end

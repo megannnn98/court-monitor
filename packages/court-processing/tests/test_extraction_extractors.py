@@ -779,6 +779,25 @@ def test_a_given_name_ending_a_span_starts_the_next_person() -> None:
     ]
 
 
+def test_a_given_name_ending_a_span_starts_the_next_person_across_a_conjunction() -> None:
+    """Real case: «родителям Дмитрия Морозова Валерию и Елене Царенко позвонили» — the
+    next name came after «и», so the span stayed «Дмитрия Морозова Валерию», and the
+    grouping read «Морозов» as a patronymic («Дмитрий Морозов Морозов»)."""
+    assert _people("Родителям Дмитрия Морозова Валерию и Елене Царенко позвонили.") == [
+        "Дмитрия Морозова",
+        "Елене Царенко",
+    ]
+    # A conjunction that opens no name cuts nothing.
+    assert _people("Родителям Дмитрия Морозова Валерию и других позвонили.") == [
+        "Дмитрия Морозова Валерию"
+    ]
+    # A comma between the span and the next name cuts the same way («и», «а», «но»).
+    assert _people("Бойцы Рамзана Кадырова, Никиту Журавеля избили.") == [
+        "Рамзана Кадырова",
+        "Никиту Журавеля",
+    ]
+
+
 def test_a_name_with_initials_is_brought_to_the_nominative_case() -> None:
     """Real cases: «Е.А. Аничкиной», «Ф.Э. Дзержинского» were stored as written."""
     normalizer = RuleBasedMentionNormalizer()
