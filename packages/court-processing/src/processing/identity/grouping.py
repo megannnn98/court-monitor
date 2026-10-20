@@ -315,6 +315,27 @@ def _display(mention: PersonMention) -> str:
 _PATRONYMIC_ENDINGS = ("вич", "вна", "ична")
 
 
+def _repeats_a_word(word: str, words: Sequence[str]) -> bool:
+    """One word of a name said twice, in any case: «Морозов» beside «Дмитрий Морозов».
+    Compared by base, so «Морозова» repeats «Морозов» and «Гарланда» repeats «Гарланд»."""
+    if "." in word:
+        return False
+    bases = _bases(_fold(word))
+    return any(bases & _bases(_fold(other)) for other in words)
+
+
+def _without_repeated_words(name: str) -> str:
+    """«Дмитрий Морозов Морозов» keeps its first «Морозов»: no real name says a word twice
+    (a double surname is written with a hyphen). A span that named two people
+    («Дмитрия Морозова Валерию») or a model that repeated an answer would otherwise show
+    one man with a doubled name — in any branch that names the entity."""
+    kept: list[str] = []
+    for word in name.split():
+        if not _repeats_a_word(word, kept):
+            kept.append(word)
+    return " ".join(kept)
+
+
 def given_name_first(name: str) -> str:
     """«Турбин Арсений» → «Арсений Турбин»: a model sometimes answers surname first.
 
@@ -358,7 +379,7 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
         region = f"{REGION_SEP}{_fold(entity.region_tag)}" if entity.region_tag else ""
         if given is None or not given.nominative.strip():
             # The rules keep the order the text used; «Турбин Арсений» joins «Арсений Турбин».
-            name = given_name_first(entity.name)
+            name = _without_repeated_words(given_name_first(entity.name))
             key = entity.key if name == entity.name else name_key(name) + region
             gender, source = entity.gender, entity.name_source
         else:
@@ -367,10 +388,16 @@ def apply_names(entities: Sequence[Entity], names: Mapping[str, GivenName]) -> l
                 # The text gave no patronymic: one from the model would join a namesake.
                 name = _without_patronymic(name)
             elif len(name.split()) < 3 and not any("." in word for word in name.split()):
-                # Nor may the model drop the one that keeps this person apart.
+                # Nor may the model drop the one that keeps this person apart. A span that
+                # named two people («Дмитрия Морозова Валерию» → «Дмитрий Морозов Валерий»)
+                # would double a word of the name here; `_without_repeated_words` below
+                # takes that word back out, and a middle word it does not repeat — a
+                # patronymic or a middle name («Джон Пол Смит») — stays.
                 words = name.split()
                 middle = entity.name.split()[1:-1]
                 name = " ".join([words[0], *middle, *words[1:]])
+            # No real name says a word twice (a double surname is written with a hyphen).
+            name = _without_repeated_words(name)
             key = name_key(name) + region
             gender = None if given.gender == "unknown" else given.gender
             source = given.source

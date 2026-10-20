@@ -273,6 +273,63 @@ def test_a_model_neither_adds_nor_drops_the_patronymic_that_parts_namesakes() ->
     }
 
 
+@pytest.mark.parametrize("name", ["П. П. Кузнецов", "И. И. Иванов", "Кузнецов П. П."])
+def test_repeated_initials_stay_in_the_name(name: str) -> None:
+    from processing.identity.grouping import _without_repeated_words
+
+    assert _without_repeated_words(name) == name
+
+
+def test_a_word_the_model_already_says_is_not_put_back_into_the_name() -> None:
+    """Real case: the span «Дмитрия Морозова Валерию» read «Морозов» as the patronymic of
+    «Дмитрий» (the last name became «Валерий»), and the model's «Дмитрий Морозов» came
+    back as «Дмитрий Морозов Морозов» — the name the list showed as «Морозов Дмитрий
+    Морозов». The name comes back whole when the model repeats it in another case."""
+    from processing.identity.grouping import GivenName, apply_names
+
+    junk = mention("Дмитрий", "Валерий", patronymic="Морозов")
+    short = mention("Дмитрий", "Морозов", article=2)
+    entities = group_mentions([junk, short])
+    names = {entity.key: GivenName("Дмитрий Морозов", "male", True) for entity in entities}
+
+    named = apply_names(entities, names)
+
+    assert [(entity.key, entity.name, len(entity.mention_ids)) for entity in named] == [
+        ("дмитрий морозов", "Дмитрий Морозов", 2)
+    ]
+
+
+def test_a_middle_word_the_model_does_not_say_stays() -> None:
+    """A patronymic or a middle name the model left out is put back: dropping it would
+    name two namesakes alike («Джон Пол Смит» is not «Джон Смит» of another man)."""
+    from processing.identity.grouping import GivenName, apply_names
+
+    full = mention("Джон", "Смит", patronymic="Пол")
+    entities = group_mentions([full])
+    names = {entity.key: GivenName("Джон Смит", "male", True) for entity in entities}
+
+    named = apply_names(entities, names)
+
+    assert [(entity.key, entity.name) for entity in named] == [("джон пол смит", "Джон Пол Смит")]
+
+
+def test_a_name_the_model_repeated_is_halved() -> None:
+    """A model sometimes answers the junk back doubled («Дмитрий Морозов Морозов»): the
+    three words skip the middle insert, and only the final deduplication takes the
+    second «Морозов» out."""
+    from processing.identity.grouping import GivenName, apply_names
+
+    junk = mention("Дмитрий", "Валерий", patronymic="Морозов")
+    entities = group_mentions([junk])
+    names = {entity.key: GivenName("Дмитрий Морозов Морозов", "male", True) for entity in entities}
+
+    named = apply_names(entities, names)
+
+    assert [(entity.key, entity.name) for entity in named] == [
+        ("дмитрий морозов", "Дмитрий Морозов")
+    ]
+
+
 @pytest.mark.parametrize(
     ("answer", "stored"),
     [
