@@ -47,8 +47,13 @@ _BACKUP = """
     ON CONFLICT (event_id) DO NOTHING
 """
 _REPORT = """
+    -- `still_substituted` carries the same `published_at IS NOT NULL` guard as the UPDATE.
+    -- Without it `IS NOT DISTINCT FROM` is true for NULL on both sides, so an undated event
+    -- of an article that was never dated would be counted as a surviving substitution and
+    -- would fail the migration on data this change never touches.
     SELECT count(*) FILTER (
                WHERE e.event_date IS NOT DISTINCT FROM a.published_at
+                 AND a.published_at IS NOT NULL
            ) AS still_substituted,
            count(*) FILTER (
                WHERE e.event_date IS NOT NULL

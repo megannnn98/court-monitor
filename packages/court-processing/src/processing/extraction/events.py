@@ -195,17 +195,40 @@ _DAY_MONTH = re.compile(
     r"(?<!\d)(?P<day>[12]?\d|3[01])\s+(?P<month>" + _MONTH_ALTERNATION + r")\.?(?![а-яё])"
     r"\s*(?:(?P<year>(?:19|20)\d{2})\s*(?:года|г\.|года)?)?(?!\d)"
 )
-# «12.10.2025», «12.10.25», «12/10/2025». The year is written out here, never guessed.
+# «12.10.2025», «12/10/2025». The year is written out here, never guessed. The second
+# alternative has no year and needs the guard below: on its own «20.2» is any number.
 _NUMERIC_DATE = re.compile(
     r"(?<!\d)(?P<day>[12]?\d|3[01])\.(?P<month>[01]?\d)\.(?P<year>(?:19|20)\d{2})(?!\d)"
     r"|(?<!\d)(?P<day2>[12]?\d)\.(?P<month2>[01]?\d)(?!\.\d)(?!\d)"
 )
-# «под стражу до 15 декабря», «на срок по 27 ноября»: a date behind «до» or «по» ends a
-# measure of restraint, it does not say when the event happened. «с» is left out on purpose
-# — «с 12 по 15 октября» is a range whose start is the day, and «с 3 октября начался
-# процесс» is one. A date written with a year is refused whatever precedes it: an expiry
-# date is as wrong as a publication date, only less often noticed.
-_UNTIL_DATE = re.compile(r"(?:до|по)\s*$")
+# A reference to a criminal-code article: «ст. 20.2», «статьи 3.9», «ч. 3 ст. 12.8 КоАП РФ».
+# Cut out of the clause before any date is read: «арестовали по ст. 20.2 КоАП РФ» is not an
+# arrest on the 20th of February. Only the reference goes — a real date beside it is kept.
+# A four-digit tail is not an article, so «20.2.2025» is left for _NUMERIC_DATE to read.
+_LEGAL_REFERENCE = re.compile(
+    r"(?:ст\.|стать[ьяеию]|ч\.|п\.)\s*\d+\.\d+(?!\.\d)\s*(?:к\s*оап|ук|кодекс)?\s*(?:рф)?"
+    r"|\d+\.\d+(?!\.\d)\s*(?:к\s*оап\s*рф|ук\s*рф)"
+)
+# «12 октября 1990 года рождения»: the date dates the person, not the event. It is read
+# only because the bare year alone is not a date, which is no reason to trust the day.
+# _DAY_MONTH has already consumed «года» as the year's own ending, so only «рождения»
+# and «г. р.» can follow the match.
+_BIRTH_AFTER = re.compile(r"\s*(?:рождения|г\.\s*р\.?)\b")
+# «под стражу до 15 декабря», «до конца дня 15 декабря», «на срок по 27 ноября»: a date
+# behind «до» or «по» ends a measure of restraint, it does not say when the event happened.
+# Only a fixed qualifier may sit between them — any «до» in the clause would swallow
+# «До суда Петрова арестовали 12 октября», which names a real date. «с» is left out on
+# purpose: «с 12 по 15 октября» is a range whose start is the day, and «с 3 октября начался
+# процесс» is one.
+_UNTIL_DATE = re.compile(
+    r"(?:до|по)\s*(?:конца\s+дня|включительно|исключительно|первого|второго)?\s*$"
+)
+# «12 и 13 октября», «12, 13 октября»: one clause, two days, one month. Only the second
+# is a match on its own, so the count of dates would not see the ambiguity.
+_ENUMERATED_DAYS = re.compile(
+    r"(?<!\d)(?:[12]?\d|3[01])\s*(?:и|или)\s+(?:с\s+)?(?:[12]?\d|3[01])\s+(?:дней\s+)?"
+    r"(?:" + _MONTH_ALTERNATION + r")"
+)
 # A date written without a year may belong to the year before the publication's. It is
 # read that way only when it lands shortly before the publication: news is about what has
 # just happened, so «12 октября» in an article of 5 May names neither this October (still
@@ -244,7 +267,10 @@ class RuleBasedEventExtractor:
     # 1.10.0: «отказал в возбуждении дела», «в возбуждении … отказали» open no case.
     # 1.11.0: `event_date` is only the date the text writes for the event. The publication
     # date is no longer its fallback, so an event whose text names no date has none.
-    extractor_version = "1.11.0"
+    # 1.12.0: a criminal-code reference is not a date («ст. 20.2 КоАП РФ» is not the 20th
+    # of February), a birth date dates the person, a date after «до конца дня» still ends
+    # a measure of restraint, and «12 и 13 октября» is one month and two days.
+    extractor_version = "1.12.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -442,10 +468,18 @@ def _event_date(
 
 def _written_dates(clause: str) -> list[tuple[int, int, int | None]]:
     """(day, month, year as written) of every date the clause spells out, in order."""
+    # Criminal-code references are cut out first, so «ст. 20.2» is never read as a date and
+    # a real date written beside it still is.
+    clause = _LEGAL_REFERENCE.sub(" ", clause)
+    # «12 и 13 октября» is one month and two days: which of them the event is, is undecidable.
+    if _ENUMERATED_DAYS.search(clause):
+        return []
     found: list[tuple[int, int, int | None]] = []
     for match in _DAY_MONTH.finditer(clause):
         month = _month_of(match.group("month"))
         if month is None or _UNTIL_DATE.search(clause[: match.start()]):
+            continue
+        if _BIRTH_AFTER.match(clause[match.end() :]):
             continue
         found.append((int(match.group("day")), month, _year_of(match.group("year"))))
     for match in _NUMERIC_DATE.finditer(clause):
