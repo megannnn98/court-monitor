@@ -27,6 +27,7 @@ INGESTION = "ingestion"
 PROCESSING = "processing"
 ANALYSIS = "analysis"
 RESULTS = "results"
+CASES = "cases"
 ORCHESTRATOR = "orchestrator"
 INVESTIGATION = "investigation"
 SHARED = "shared"
@@ -47,6 +48,7 @@ MODULE_OF: tuple[tuple[str, str], ...] = (
     # people, officials): data the verdicts are checked against, keyed like mentions.
     ("airtable/", ANALYSIS),
     ("results/", RESULTS),
+    ("cases/", CASES),
     ("orchestrator/", ORCHESTRATOR),
     ("investigation/", INVESTIGATION),
     ("db/", SHARED),
@@ -61,20 +63,32 @@ _ORCHESTRATORS = {ORCHESTRATOR, INVESTIGATION}
 # Importing module -> the modules it must not import. Entry points and tooling wire and
 # measure everything, so they have no row.
 FORBIDDEN: dict[str, set[str]] = {
-    INGESTION: {PROCESSING, ANALYSIS, RESULTS} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
-    PROCESSING: {ANALYSIS, RESULTS} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
-    ANALYSIS: {RESULTS} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
-    RESULTS: _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
+    INGESTION: {PROCESSING, ANALYSIS, RESULTS, CASES} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
+    PROCESSING: {ANALYSIS, RESULTS, CASES} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
+    ANALYSIS: {RESULTS, CASES} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
+    RESULTS: {CASES} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
+    # Reads processing and ingestion only; never the analysis, the results or the entry points.
+    CASES: {ANALYSIS, RESULTS} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
     # Two orchestrators that never call each other: Dagster and the pipeline run the
     # scheduled work, the investigation graph answers one question.
     ORCHESTRATOR: {INVESTIGATION} | _OUTSIDE_THE_DOMAIN,
     INVESTIGATION: {ORCHESTRATOR} | _OUTSIDE_THE_DOMAIN,
-    SHARED: {INGESTION, PROCESSING, ANALYSIS, RESULTS} | _ORCHESTRATORS | _OUTSIDE_THE_DOMAIN,
+    SHARED: {INGESTION, PROCESSING, ANALYSIS, RESULTS, CASES}
+    | _ORCHESTRATORS
+    | _OUTSIDE_THE_DOMAIN,
 }
 
 KNOWN_VIOLATIONS: frozenset[str] = frozenset()
 
-_DOMAIN_PACKAGES = ("ingestion", "processing", "persons", "analysis", "airtable", "results")
+_DOMAIN_PACKAGES = (
+    "ingestion",
+    "processing",
+    "persons",
+    "analysis",
+    "airtable",
+    "results",
+    "cases",
+)
 
 # What the pipeline orchestrator may import of the domain: each module's public API,
 # and the registry of sources (their names and kinds).
@@ -166,6 +180,7 @@ CONSOLE_READ_MODELS = frozenset(
         "results.read",
         "processing.evidence.sentences",
         "persons.read",
+        "cases.read",
         # the services
         "analysis.service",
         "processing.identity.service",

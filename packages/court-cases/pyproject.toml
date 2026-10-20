@@ -1,0 +1,18 @@
+[project]
+name = "court-cases"
+version = "0.1.0"
+description = "Conservative, evidence-backed criminal case resolution"
+requires-python = ">=3.13"
+dependencies = ["court-platform", "court-processing", "court-ingestion", "sqlalchemy>=2.0,<3.0"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cases"]
+
+[tool.uv.sources]
+court-platform = { workspace = true }
+court-processing = { workspace = true }
+court-ingestion = { workspace = true }

@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.19.1",
     "court-analysis",
+    "court-cases",
     "court-core",
     "court-ingestion",
     "court-investigation",
@@ -62,6 +63,7 @@ packages = [
 
 [tool.uv.sources]
 court-analysis = { workspace = true }
+court-cases = { workspace = true }
 court-core = { workspace = true }
 court-ingestion = { workspace = true }
 court-investigation = { workspace = true }

@@ -26,6 +26,7 @@ from web.routers import (
     base_unnamed,
     candidate_table,
     candidates,
+    cases,
     cycle,
     dossier,
     entities,
@@ -195,5 +196,6 @@ for module in (
     wiki_overview,
     investigation,
     entity_model,
+    cases,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

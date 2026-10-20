@@ -10,6 +10,7 @@ resolution-markers = [
 [manifest]
 members = [
     "court-analysis",
+    "court-cases",
     "court-core",
     "court-evaluation",
     "court-ingestion",
@@ -494,6 +495,25 @@ requires-dist = [
 ]
 
 [[package]]
+name = "court-cases"
+version = "0.1.0"
+source = { editable = "packages/court-cases" }
+dependencies = [
+    { name = "court-ingestion" },
+    { name = "court-platform" },
+    { name = "court-processing" },
+    { name = "sqlalchemy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "court-ingestion", editable = "packages/court-ingestion" },
+    { name = "court-platform", editable = "packages/court-platform" },
+    { name = "court-processing", editable = "packages/court-processing" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3.0" },
+]
+
+[[package]]
 name = "court-core"
 version = "0.1.0"
 source = { editable = "packages/court-core" }
@@ -514,6 +534,7 @@ version = "0.1.0"
 source = { editable = "tools/court-evaluation" }
 dependencies = [
     { name = "court-analysis" },
+    { name = "court-cases" },
     { name = "court-core" },
     { name = "court-ingestion" },
     { name = "court-investigation" },
@@ -537,6 +558,7 @@ semantic = [
 [package.metadata]
 requires-dist = [
     { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-cases", editable = "packages/court-cases" },
     { name = "court-core", editable = "packages/court-core" },
     { name = "court-ingestion", editable = "packages/court-ingestion" },
     { name = "court-investigation", editable = "packages/court-investigation" },
@@ -613,6 +635,7 @@ source = { editable = "apps/court-monitor" }
 dependencies = [
     { name = "alembic" },
     { name = "court-analysis" },
+    { name = "court-cases" },
     { name = "court-core" },
     { name = "court-ingestion" },
     { name = "court-investigation" },
@@ -642,6 +665,7 @@ semantic = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.19.1" },
     { name = "court-analysis", editable = "packages/court-analysis" },
+    { name = "court-cases", editable = "packages/court-cases" },
     { name = "court-core", editable = "packages/court-core" },
     { name = "court-ingestion", editable = "packages/court-ingestion" },
     { name = "court-investigation", editable = "packages/court-investigation" },

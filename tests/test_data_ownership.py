@@ -99,6 +99,7 @@ OWNER_OF_TABLE: dict[str, str] = {
         ),
         "court-orchestrator",
     ),
+    **dict.fromkeys(("criminal_cases", "case_event_links", "case_participants"), "court-cases"),
     "investigation_runs": "court-investigation",
     **dict.fromkeys(("app_settings", "entity_model_spend"), "court-platform"),
 }
@@ -120,6 +121,7 @@ DISTRIBUTION_OF_MODULE: dict[str, str] = {
     "analysis": "court-analysis",
     "airtable": "court-analysis",
     "results": "court-results",
+    "cases": "court-cases",
     "investigation": "court-investigation",
     "orchestrator": "court-orchestrator",
     "evaluation": "court-evaluation",

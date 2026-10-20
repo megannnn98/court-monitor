@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from cli import (
     areas,
     candidates,
+    cases,
     config,
     extraction,
     ingestion,
@@ -26,6 +27,7 @@ _REGISTRATIONS = (
     rosfinmonitoring.register,
     persecution.register,
     candidates.register,
+    cases.register,
     areas.register_person_resolution,
     areas.register_monitoring,
     investigation.register,

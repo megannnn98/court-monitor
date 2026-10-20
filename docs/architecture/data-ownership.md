@@ -26,7 +26,7 @@ PostgreSQL foreign keys and the shared SQLAlchemy Base stay in place.
 
 ## Complete table ownership map
 
-`tests/test_data_ownership.py::OWNER_OF_TABLE` checks these 60 names against
+`tests/test_data_ownership.py::OWNER_OF_TABLE` checks these 63 names against
 `migrations/model_registry.py` metadata. Names and migration revisions are unchanged.
 
 | Distribution | Owned tables |
@@ -35,6 +35,7 @@ PostgreSQL foreign keys and the shared SQLAlchemy Base stay in place.
 | court-processing | article_extraction_runs, entity_mentions, extracted_events, event_entity_mentions, entity_groups, entity_group_mentions, entity_group_unnamed_mentions, entity_group_charges, entity_group_roles, entity_role_answers, entity_role_decisions, entity_name_overrides, entity_name_normalizations, entity_pair_decisions, entity_removals, entity_official_marks, article_sentences, article_sentence_readings, article_digest_answers, junk_screen_holds, excluded_persons, persons, person_aliases, person_merges, person_event_links, person_resolution_decisions, person_resolution_ai_reviews, review_records |
 | court-analysis | entity_group_politics, entity_politics_answers, entity_politics_decisions, entity_group_news, entity_news_answers, entity_group_rf_matches, rosfinmonitoring_snapshots, rosfinmonitoring_entries, rosfin_matches, rfm_operator_entries, unnamed_figurants, unnamed_screened, unnamed_keeps, unnamed_answers, unnamed_decisions, unnamed_identity_resolutions, persecution_classifications, airtable_known_persons, criminal_articles |
 | court-results | monitoring_findings, entity_done_marks, chat_questions |
+| court-cases | criminal_cases, case_event_links, case_participants |
 | court-orchestrator | monitoring_runs, monitoring_run_items, source_monitoring_state, operator_operation_runs |
 | court-investigation | investigation_runs |
 | court-platform | app_settings, entity_model_spend |
@@ -125,7 +126,7 @@ integration fixtures are tooling and may register metadata or use owner models;
 they are not a production public surface.
 
 Every owner lists its `DISPOSABLE_TABLES`. `evaluation.disposable.wipe` composes
-the same 58 tables as before; platform's maintenance helper only knows its own two
+the 58 tables of before and the three of `court-cases` (61); platform's maintenance helper only knows its own two
 settings tables and accepts the explicit table list. The database-name guard and
 single TRUNCATE transaction are retained. The platform no longer names domain tables.
 

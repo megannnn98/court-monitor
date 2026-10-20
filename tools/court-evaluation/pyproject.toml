@@ -5,6 +5,7 @@ description = "Evaluation tooling of court-monitor: benchmarks and measurements 
 requires-python = ">=3.13"
 dependencies = [
     "court-analysis",
+    "court-cases",
     "court-core",
     "court-ingestion",
     "court-investigation",
@@ -38,6 +39,7 @@ packages = ["src/evaluation"]
 
 [tool.uv.sources]
 court-analysis = { workspace = true }
+court-cases = { workspace = true }
 court-core = { workspace = true }
 court-ingestion = { workspace = true }
 court-investigation = { workspace = true }

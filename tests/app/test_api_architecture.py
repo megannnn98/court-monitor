@@ -133,6 +133,9 @@ ROUTES_AFTER_SPLIT = [
     "POST /api/v1/entity-model",
     "POST /api/v1/entity-model/test",
     "POST /api/v1/entity-model/catalog/refresh",
+    # Criminal cases formed from the events (`resolve-cases`), read-only.
+    "GET /api/v1/cases",
+    "GET /api/v1/cases/{case_id}",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

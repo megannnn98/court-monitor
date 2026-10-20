@@ -29,15 +29,27 @@ INGESTION = "court-ingestion"
 PROCESSING = "court-processing"
 ANALYSIS = "court-analysis"
 RESULTS = "court-results"
+CASES = "court-cases"
 INVESTIGATION = "court-investigation"
 ORCHESTRATOR = "court-orchestrator"
 APP = "court-monitor"
 EVALUATION = "court-evaluation"
 
 PRODUCTION = frozenset(
-    {CORE, PLATFORM, INGESTION, PROCESSING, ANALYSIS, RESULTS, INVESTIGATION, ORCHESTRATOR, APP}
+    {
+        CORE,
+        PLATFORM,
+        INGESTION,
+        PROCESSING,
+        ANALYSIS,
+        RESULTS,
+        CASES,
+        INVESTIGATION,
+        ORCHESTRATOR,
+        APP,
+    }
 )
-DOMAIN = frozenset({INGESTION, PROCESSING, ANALYSIS, RESULTS, INVESTIGATION})
+DOMAIN = frozenset({INGESTION, PROCESSING, ANALYSIS, RESULTS, CASES, INVESTIGATION})
 
 # The workspace distributions each one may depend on: an earlier stage never on a later
 # one, the shared infrastructure on no module, the investigation and the orchestrator not
@@ -50,6 +62,8 @@ MAY_DEPEND_ON: dict[str, frozenset[str]] = {
     PROCESSING: frozenset({CORE, PLATFORM, INGESTION}),
     ANALYSIS: frozenset({CORE, PLATFORM, INGESTION, PROCESSING}),
     RESULTS: frozenset({CORE, PLATFORM, INGESTION, PROCESSING, ANALYSIS}),
+    # Case resolution reads the extracted events and the people through processing.
+    CASES: frozenset({CORE, PLATFORM, INGESTION, PROCESSING}),
     # The results API and the read-only search of sources (ADR 0027), nothing else.
     INVESTIGATION: frozenset({CORE, PLATFORM, INGESTION, RESULTS}),
     ORCHESTRATOR: frozenset({CORE, PLATFORM, INGESTION, PROCESSING, ANALYSIS, RESULTS}),
@@ -206,6 +220,12 @@ def test_the_dependency_graph_has_no_cycle() -> None:
         (INGESTION, PROCESSING),
         (INGESTION, ANALYSIS),
         (INGESTION, RESULTS),
+        (INGESTION, CASES),
+        (PROCESSING, CASES),
+        (ANALYSIS, CASES),
+        (RESULTS, CASES),
+        (CASES, ANALYSIS),
+        (CASES, RESULTS),
         (PROCESSING, ANALYSIS),
         (PROCESSING, RESULTS),
         (ANALYSIS, RESULTS),

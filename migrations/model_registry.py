@@ -9,6 +9,7 @@ this module, and no package imports another's models through it.
 from __future__ import annotations
 
 import analysis.storage.models
+import cases.storage.models
 import db.models.settings
 import ingestion.storage.models
 import investigation.storage.models
@@ -26,6 +27,7 @@ OWNERS = {
     "court-processing (ER v2)": persons.storage.models,
     "court-analysis": analysis.storage.models,
     "court-results": results.storage.models,
+    "court-cases": cases.storage.models,
     "court-orchestrator": orchestrator.storage.models,
     "court-investigation": investigation.storage.models,
     "court-platform": db.models.settings,

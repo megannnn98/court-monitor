@@ -50,6 +50,7 @@ COPY packages/court-ingestion/pyproject.toml packages/court-ingestion/
 COPY packages/court-processing/pyproject.toml packages/court-processing/
 COPY packages/court-analysis/pyproject.toml packages/court-analysis/
 COPY packages/court-results/pyproject.toml packages/court-results/
+COPY packages/court-cases/pyproject.toml packages/court-cases/
 COPY packages/court-investigation/pyproject.toml packages/court-investigation/
 COPY packages/court-orchestrator/pyproject.toml packages/court-orchestrator/
 COPY apps/court-monitor/pyproject.toml apps/court-monitor/

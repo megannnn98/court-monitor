@@ -6,6 +6,7 @@ from __future__ import annotations
 from sqlalchemy import Engine
 
 from analysis import testing as analysis_testing
+from cases import testing as cases_testing
 from db.maintenance import PLATFORM_TABLES, truncate_disposable_tables
 from ingestion import testing as ingestion_testing
 from investigation import testing as investigation_testing
@@ -17,6 +18,7 @@ from results import testing as results_testing
 DISPOSABLE_TABLES = (
     *PLATFORM_TABLES,
     *investigation_testing.DISPOSABLE_TABLES,
+    *cases_testing.DISPOSABLE_TABLES,
     *results_testing.DISPOSABLE_TABLES,
     *orchestrator_testing.DISPOSABLE_TABLES,
     *analysis_testing.DISPOSABLE_TABLES,
