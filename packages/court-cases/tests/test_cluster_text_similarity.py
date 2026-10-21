@@ -32,8 +32,9 @@ def _evidence(**changes: object) -> ClusterEvidence:
 def test_the_signal_is_off_by_default() -> None:
     similarity = TextSimilarity()
     assert similarity.enabled is False
-    assert similarity(None, None) is None  # type: ignore[arg-type]
-    assert similarity.vector("hash", "слова") is None  # type: ignore[arg-type]
+    # Off: nothing is embedded and every pair scores None.
+    assert similarity("a" * 64, "b" * 64) is None
+    assert similarity.vector("hash", "слова") is None
 
 
 def test_the_similarity_never_decides_alone() -> None:
