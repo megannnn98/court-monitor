@@ -3194,6 +3194,274 @@
           }
         }
       }
+    },
+    "/api/v1/cases": {
+      "get": {
+        "summary": "List Cases",
+        "description": "Cases, newest first. `person_key` lists the cases of one person (`entity_groups.key`);\n`ambiguous` only those opened apart from a case they matched.",
+        "operationId": "list_cases_v1",
+        "parameters": [
+          {
+            "name": "person_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 255
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person Key"
+            }
+          },
+          {
+            "name": "ambiguous",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Ambiguous"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}": {
+      "get": {
+        "summary": "Get Case",
+        "description": "A case with its events, the reasons each was joined (score, features, the cases it\nwas not joined to), its participants and its publications.",
+        "operationId": "get_case_v1",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters": {
+      "get": {
+        "summary": "List Clusters",
+        "description": "Clusters, newest first. `person_key` lists the clusters of one person\n(`entity_groups.key`); `article_id` the clusters one publication is in — a publication\nthat tells two steps (a charge and the opening of a case) is in two of them;\n`status` filters by candidate, confirmed or rejected.",
+        "operationId": "list_clusters_v1",
+        "parameters": [
+          {
+            "name": "person_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 255
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person Key"
+            }
+          },
+          {
+            "name": "article_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clusters/{cluster_id}": {
+      "get": {
+        "summary": "Get Cluster",
+        "description": "A cluster with its members (the anchor first), the reasons each joined, the\nclusters each was not joined to, and its publications.",
+        "operationId": "get_cluster_v1",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cluster Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4160,6 +4428,287 @@
         "title": "CandidateTableResponse",
         "description": "The candidates under the legacy page's filters, in its order; the Excel file of the\nsame filters holds every one of `total`."
       },
+      "CaseDetail": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/CaseSummary"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/CaseEventView"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/CaseParticipantView"
+            },
+            "type": "array",
+            "title": "Participants"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CaseSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "events",
+          "participants",
+          "sources"
+        ],
+        "title": "CaseDetail"
+      },
+      "CaseEventView": {
+        "properties": {
+          "evidence_key": {
+            "type": "string",
+            "title": "Evidence Key"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "algorithm_version": {
+            "type": "string",
+            "title": "Algorithm Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_key",
+          "event_id",
+          "article_id",
+          "event_type",
+          "event_date",
+          "score",
+          "reasons",
+          "candidates",
+          "algorithm_version"
+        ],
+        "title": "CaseEventView",
+        "description": "An event of the case and why it is there. `score` and `reasons` are empty for the\nevent that opened the case; `candidates` are the cases it was not joined to."
+      },
+      "CaseListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "CaseListResponse"
+      },
+      "CaseParticipantView": {
+        "properties": {
+          "person_key": {
+            "type": "string",
+            "title": "Person Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "evidence_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence Keys"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_key",
+          "name",
+          "role",
+          "evidence_keys"
+        ],
+        "title": "CaseParticipantView"
+      },
+      "CaseSource": {
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "title",
+          "url",
+          "published_at",
+          "source_name"
+        ],
+        "title": "CaseSource"
+      },
+      "CaseSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "preliminary": {
+            "type": "boolean",
+            "title": "Preliminary"
+          },
+          "case_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Number"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "algorithm_version": {
+            "type": "string",
+            "title": "Algorithm Version"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "ambiguous": {
+            "type": "boolean",
+            "title": "Ambiguous"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "preliminary",
+          "case_number",
+          "description",
+          "algorithm_version",
+          "events",
+          "articles",
+          "ambiguous"
+        ],
+        "title": "CaseSummary"
+      },
       "ChargeResponse": {
         "properties": {
           "article": {
@@ -4195,6 +4744,261 @@
           "publications"
         ],
         "title": "ChargeResponse"
+      },
+      "ClusterDetail": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/ClusterSummary"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterMemberView"
+            },
+            "type": "array",
+            "title": "Members"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "members",
+          "sources"
+        ],
+        "title": "ClusterDetail"
+      },
+      "ClusterListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "ClusterListResponse"
+      },
+      "ClusterMemberView": {
+        "properties": {
+          "evidence_key": {
+            "type": "string",
+            "title": "Evidence Key"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "algorithm_version": {
+            "type": "string",
+            "title": "Algorithm Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evidence_key",
+          "event_id",
+          "article_id",
+          "event_type",
+          "event_date",
+          "role",
+          "status",
+          "score",
+          "reasons",
+          "candidates",
+          "algorithm_version"
+        ],
+        "title": "ClusterMemberView",
+        "description": "One event in a cluster, and why it is there."
+      },
+      "ClusterSource": {
+        "properties": {
+          "article_id": {
+            "type": "integer",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "title",
+          "url",
+          "published_at",
+          "source_name"
+        ],
+        "title": "ClusterSource"
+      },
+      "ClusterSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "core_evidence_key": {
+            "type": "string",
+            "title": "Core Evidence Key"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "members": {
+            "type": "integer",
+            "title": "Members"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "candidates": {
+            "type": "integer",
+            "title": "Candidates"
+          },
+          "algorithm_version": {
+            "type": "string",
+            "title": "Algorithm Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "core_evidence_key",
+          "event_type",
+          "event_date",
+          "status",
+          "score",
+          "members",
+          "articles",
+          "candidates",
+          "algorithm_version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ClusterSummary"
       },
       "ComponentHealth": {
         "properties": {

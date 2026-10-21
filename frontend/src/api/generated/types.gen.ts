@@ -650,6 +650,176 @@ export type CandidateTableResponse = {
 };
 
 /**
+ * CaseDetail
+ */
+export type CaseDetail = {
+    summary: CaseSummary;
+    /**
+     * Events
+     */
+    events: Array<CaseEventView>;
+    /**
+     * Participants
+     */
+    participants: Array<CaseParticipantView>;
+    /**
+     * Sources
+     */
+    sources: Array<CaseSource>;
+};
+
+/**
+ * CaseEventView
+ *
+ * An event of the case and why it is there. `score` and `reasons` are empty for the
+ * event that opened the case; `candidates` are the cases it was not joined to.
+ */
+export type CaseEventView = {
+    /**
+     * Evidence Key
+     */
+    evidence_key: string;
+    /**
+     * Event Id
+     */
+    event_id: number | null;
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Event Date
+     */
+    event_date: string | null;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Candidates
+     */
+    candidates: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Algorithm Version
+     */
+    algorithm_version: string;
+};
+
+/**
+ * CaseListResponse
+ */
+export type CaseListResponse = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<CaseSummary>;
+};
+
+/**
+ * CaseParticipantView
+ */
+export type CaseParticipantView = {
+    /**
+     * Person Key
+     */
+    person_key: string;
+    /**
+     * Name
+     */
+    name: string | null;
+    /**
+     * Role
+     */
+    role: string | null;
+    /**
+     * Evidence Keys
+     */
+    evidence_keys: Array<string>;
+};
+
+/**
+ * CaseSource
+ */
+export type CaseSource = {
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Source Name
+     */
+    source_name: string;
+};
+
+/**
+ * CaseSummary
+ */
+export type CaseSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Preliminary
+     */
+    preliminary: boolean;
+    /**
+     * Case Number
+     */
+    case_number: string | null;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Algorithm Version
+     */
+    algorithm_version: string;
+    /**
+     * Events
+     */
+    events: number;
+    /**
+     * Articles
+     */
+    articles: number;
+    /**
+     * Ambiguous
+     */
+    ambiguous: boolean;
+};
+
+/**
  * ChargeResponse
  */
 export type ChargeResponse = {
@@ -673,6 +843,169 @@ export type ChargeResponse = {
      * Publications
      */
     publications: number;
+};
+
+/**
+ * ClusterDetail
+ */
+export type ClusterDetail = {
+    summary: ClusterSummary;
+    /**
+     * Members
+     */
+    members: Array<ClusterMemberView>;
+    /**
+     * Sources
+     */
+    sources: Array<ClusterSource>;
+};
+
+/**
+ * ClusterListResponse
+ */
+export type ClusterListResponse = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<ClusterSummary>;
+};
+
+/**
+ * ClusterMemberView
+ *
+ * One event in a cluster, and why it is there.
+ */
+export type ClusterMemberView = {
+    /**
+     * Evidence Key
+     */
+    evidence_key: string;
+    /**
+     * Event Id
+     */
+    event_id: number | null;
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Event Date
+     */
+    event_date: string | null;
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Candidates
+     */
+    candidates: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Algorithm Version
+     */
+    algorithm_version: string;
+};
+
+/**
+ * ClusterSource
+ */
+export type ClusterSource = {
+    /**
+     * Article Id
+     */
+    article_id: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+    /**
+     * Source Name
+     */
+    source_name: string;
+};
+
+/**
+ * ClusterSummary
+ */
+export type ClusterSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Core Evidence Key
+     */
+    core_evidence_key: string;
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Event Date
+     */
+    event_date: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Members
+     */
+    members: number;
+    /**
+     * Articles
+     */
+    articles: number;
+    /**
+     * Candidates
+     */
+    candidates: number;
+    /**
+     * Algorithm Version
+     */
+    algorithm_version: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
 };
 
 /**
@@ -7366,3 +7699,151 @@ export type TestEntityModelV1Responses = {
 };
 
 export type TestEntityModelV1Response = TestEntityModelV1Responses[keyof TestEntityModelV1Responses];
+
+export type ListCasesV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Person Key
+         */
+        person_key?: string | null;
+        /**
+         * Ambiguous
+         */
+        ambiguous?: boolean;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/cases';
+};
+
+export type ListCasesV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListCasesV1Error = ListCasesV1Errors[keyof ListCasesV1Errors];
+
+export type ListCasesV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CaseListResponse;
+};
+
+export type ListCasesV1Response = ListCasesV1Responses[keyof ListCasesV1Responses];
+
+export type GetCaseV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Case Id
+         */
+        case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/cases/{case_id}';
+};
+
+export type GetCaseV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCaseV1Error = GetCaseV1Errors[keyof GetCaseV1Errors];
+
+export type GetCaseV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: CaseDetail;
+};
+
+export type GetCaseV1Response = GetCaseV1Responses[keyof GetCaseV1Responses];
+
+export type ListClustersV1Data = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Person Key
+         */
+        person_key?: string | null;
+        /**
+         * Article Id
+         */
+        article_id?: number | null;
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/clusters';
+};
+
+export type ListClustersV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListClustersV1Error = ListClustersV1Errors[keyof ListClustersV1Errors];
+
+export type ListClustersV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ClusterListResponse;
+};
+
+export type ListClustersV1Response = ListClustersV1Responses[keyof ListClustersV1Responses];
+
+export type GetClusterV1Data = {
+    body?: never;
+    path: {
+        /**
+         * Cluster Id
+         */
+        cluster_id: string;
+    };
+    query?: never;
+    url: '/api/v1/clusters/{cluster_id}';
+};
+
+export type GetClusterV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetClusterV1Error = GetClusterV1Errors[keyof GetClusterV1Errors];
+
+export type GetClusterV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: ClusterDetail;
+};
+
+export type GetClusterV1Response = GetClusterV1Responses[keyof GetClusterV1Responses];

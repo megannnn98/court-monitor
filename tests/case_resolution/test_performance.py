@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import time
 
-from case_resolution.bulk import seed_events
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from support.query_counter import count_queries
 
+from case_resolution.bulk import seed_events
 from cases.service import resolve
 
 
