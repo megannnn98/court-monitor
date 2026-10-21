@@ -109,3 +109,51 @@ def test_two_cases_of_one_person_stay_apart(
     resolve(session_factory)
 
     assert clusters(session_factory) == [[first], [second]]
+
+
+def test_one_person_one_step_one_day_and_nothing_else_stays_apart(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The same person, the same step, the same day and nothing else in common: two
+    detentions, not one.
+
+    This is the case the rules must refuse: a series of administrative arrests of one
+    activist looks exactly like this.
+    """
+    world = World(session_factory)
+    first = world.report(IVAN, kind="detention", day=at(2024, 3, 1))
+    second = world.report(IVAN, kind="detention", day=at(2024, 3, 1))
+
+    resolve(session_factory)
+
+    assert clusters(session_factory) == [[first], [second]]
+
+
+def test_one_person_one_step_a_day_apart_and_nothing_else_stays_apart(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The same person, the same step, a day apart and nothing else in common: two
+    detentions."""
+    world = World(session_factory)
+    first = world.report(IVAN, kind="detention", day=at(2024, 3, 1))
+    second = world.report(IVAN, kind="detention", day=at(2024, 3, 2))
+
+    resolve(session_factory)
+
+    assert clusters(session_factory) == [[first], [second]]
+
+
+def test_a_series_of_arrests_on_adjacent_days_stays_apart(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Three arrests on three days, in three different courts: three clusters."""
+    world = World(session_factory)
+    first = world.report(IVAN, kind="arrest", day=at(2024, 3, 1), charges=LAW, orgs=(COURT, MOSCOW))
+    second = world.report(
+        IVAN, kind="arrest", day=at(2024, 3, 2), charges=LAW, orgs=(OTHER_COURT, OMSK)
+    )
+    third = world.report(IVAN, kind="arrest", day=at(2024, 3, 3), charges=LAW, orgs=(FSB, MOSCOW))
+
+    resolve(session_factory)
+
+    assert clusters(session_factory) == [[first], [second], [third]]

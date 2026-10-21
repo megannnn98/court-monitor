@@ -45,8 +45,21 @@ and of groups change on every rebuild, the key does not.
   without a cluster is an event that joined nothing and has candidates only.
 
 **Matching** (`cases.clusters.matching`, pure): a publication joins a cluster when it
-matches the **anchor** directly and nothing contradicts. A missing value counts neither
-for nor against. The contradictions forbid a join whatever the score:
+matches the **anchor** directly, nothing contradicts, and the pair carries enough
+independent evidence. A missing value counts neither for nor against.
+
+**The person and the step are never enough.** The independent features (the court, the
+body, the place, the article of the Criminal Code and its part, the very same words)
+are counted: one of them is needed on the same day, two a day apart or with no day
+at all. The very same words count as two. A pair without enough of them is a
+**candidate**, never a join: two detentions of one person on one day that share
+nothing else are two detentions, and a series of administrative arrests of one
+activist must not be glued into one event. The score of a join runs from 0.67 (the
+same person, the same step, no day, the article and the place) up; the threshold of
+0.60 cuts nothing the rule allows. The rules are versioned: this decision is
+`1.1.0` (`1.0.0` had no such condition and joined too much).
+
+The contradictions forbid a join whatever the score:
 
 * different people (a cluster is about one person);
 * different steps (a cluster is one step);

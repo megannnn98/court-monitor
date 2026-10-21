@@ -336,6 +336,8 @@ def _recorded(candidates: Sequence[tuple[UUID, Match]]) -> list[dict[str, Any]]:
             "score": match.score,
             "features": list(match.features),
             "vetoes": list(match.vetoes),
+            "support": match.support,
+            "required_support": match.required_support,
         }
         for cluster_id, match in sorted(candidates, key=lambda pair: (-pair[1].score, str(pair[0])))
         if match.score >= _RECORDED_SCORE

@@ -2,9 +2,9 @@
 
 A cluster is one event told by several publications: the same person, the same step,
 the same day, in different words. The score is rule weights, not probabilities. A missing
-value counts neither for nor against. A name plus a step is never enough: the step, the
-day and at least one more independent piece of evidence are needed, and a contradiction
-forbids the join.
+value counts neither for nor against. The person and the step are never enough: the day
+is needed, and beside it enough independent evidence — one more piece on the same day,
+two a day apart or with no day at all. A contradiction forbids the join.
 
 The contradictions (they forbid a join, whatever the score):
 
@@ -13,6 +13,11 @@ The contradictions (they forbid a join, whatever the score):
 * the two events are the same step on different days (one detention is not another);
 * the two events are the same step under two different articles of the Criminal Code;
 * the two events name courts that have nothing in common.
+
+And a join needs the independent evidence besides the person and the step: one more piece
+on the same day, two a day apart (or with no day at all). A pair without them is a candidate,
+never a join — two detentions of one person on one day that share nothing else are two
+detentions.
 
 Two clusters are never merged by this module: it decides whether one event joins one
 cluster.
@@ -24,8 +29,10 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-VERSION = "1.0.0"
-# The score a join needs.
+VERSION = "1.1.0"
+# The score a join needs. The lowest score an automatic join can have is 0.67 (the same
+# person, the same step, no date, the article of the Criminal Code and the place), so
+# the threshold cuts nothing the support rule allows.
 AUTO_THRESHOLD = 0.60
 # The shortest sentence taken as «the same words» in two articles.
 MIN_QUOTE_LENGTH = 60
@@ -48,6 +55,20 @@ WEIGHT_EXACT_QUOTE = 0.25
 WEIGHT_TEXT_SIMILARITY = 0.05
 
 _SCOPES = ("court", "authority", "place")
+# The features that stand on their own: the person and the step are never enough.
+_SUPPORTING = (
+    "court",
+    "authority",
+    "place",
+    "charge_part",
+    "charge_article",
+    "exact_quote",
+)
+# How many of them a join needs when the two events are...
+# on the same day: one is enough (the same step of the same person on the same day,
+#     with the same court or the same article);
+# a day apart, or with no day at all: two (one step a day apart is not one step).
+_REQUIRED_SUPPORT = {"same_date": 1, "close_dates": 2, "no_dates": 2}
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,15 +120,28 @@ class ClusterEvidence:
 
 @dataclass(frozen=True, slots=True)
 class Match:
-    """What the comparison found: the score, the pieces it rests on, the contradictions."""
+    """What the comparison found: the score, the pieces it rests on, the contradictions.
+
+    `support` is the number of the independent features the join rests on (the person
+    and the step do not count). A join needs enough of them: one on the same day, two
+    a day apart or with no day at all. A pair without them is a candidate, never a
+    join: two detentions of one person on the same day without anything else in
+    common are two detentions.
+    """
 
     score: float
     features: tuple[str, ...]
     vetoes: tuple[str, ...] = ()
+    support: int = 0
+    required_support: int = 1
 
     @property
     def automatic(self) -> bool:
-        return self.score >= AUTO_THRESHOLD and not self.vetoes
+        return (
+            self.score >= AUTO_THRESHOLD
+            and not self.vetoes
+            and self.support >= self.required_support
+        )
 
 
 def _articles(charges: frozenset[str]) -> frozenset[str]:
@@ -150,14 +184,19 @@ def score_pair(
         vetoes.append("different_event_type")
 
     gap = _date_gap(a, b)
-    if gap is not None:
-        if gap == 0:
-            features.append("same_date")
-            score += WEIGHT_SAME_DATE
-        elif gap <= DATE_TOLERANCE_DAYS:
-            features.append("close_dates")
-            score += WEIGHT_CLOSE_DATES
-        elif a.event_type == b.event_type:
+    if gap is None:
+        required = _REQUIRED_SUPPORT["no_dates"]
+    elif gap == 0:
+        features.append("same_date")
+        score += WEIGHT_SAME_DATE
+        required = _REQUIRED_SUPPORT["same_date"]
+    elif gap <= DATE_TOLERANCE_DAYS:
+        features.append("close_dates")
+        score += WEIGHT_CLOSE_DATES
+        required = _REQUIRED_SUPPORT["close_dates"]
+    else:
+        required = _REQUIRED_SUPPORT["close_dates"]
+        if a.event_type == b.event_type:
             vetoes.append("different_dates_of_same_step")
 
     if a.charges & b.charges:
@@ -189,4 +228,8 @@ def score_pair(
         features.append("text_similarity")
         score += WEIGHT_TEXT_SIMILARITY
 
-    return Match(round(score, 4), tuple(features), tuple(vetoes))
+    support = sum(1 for name in features if name in _SUPPORTING)
+    if "exact_quote" in features:
+        # The very same words are two independent features: a day apart is one step.
+        support = max(support, 2)
+    return Match(round(score, 4), tuple(features), tuple(vetoes), support, required)
