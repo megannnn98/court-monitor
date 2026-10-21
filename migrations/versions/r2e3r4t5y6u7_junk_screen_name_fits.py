@@ -6,7 +6,8 @@ Create Date: 2026-10-21 17:30:00.000000
 
 The cascade's name is `jev-screen-v1:<model>+jev-drop-verifier-v1:<prompt>:<model>:p_drop>=0.50`,
 107 characters; the column held 100, so the first hold it wrote failed the purge step.
-Widening a varchar changes no row.
+Text has no limit, so a longer model or prompt name cannot fail it again; varchar to text
+changes no row.
 """
 
 from collections.abc import Sequence
@@ -25,7 +26,7 @@ def upgrade() -> None:
         "junk_screen_holds",
         "screen",
         existing_type=sa.String(length=100),
-        type_=sa.String(length=200),
+        type_=sa.Text(),
         existing_nullable=False,
     )
 
@@ -36,7 +37,7 @@ def downgrade() -> None:
     op.alter_column(
         "junk_screen_holds",
         "screen",
-        existing_type=sa.String(length=200),
+        existing_type=sa.Text(),
         type_=sa.String(length=100),
         existing_nullable=False,
     )

@@ -374,7 +374,7 @@ class JunkScreenHoldRecord(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="held")
     score: Mapped[float] = mapped_column(Float, nullable=False)
     cutoff: Mapped[float] = mapped_column(Float, nullable=False)
-    screen: Mapped[str] = mapped_column(String(200), nullable=False)
+    screen: Mapped[str] = mapped_column(Text, nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     # What a person or a new extraction said last.
     note: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
