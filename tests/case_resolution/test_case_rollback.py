@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from case_resolution.world import World, at
-from cases.service import rollback_link, resolve
+from cases.service import resolve, rollback_link
 from cases.storage.models import CaseEventLinkRecord
 
 IVAN = "Иван Петров"
