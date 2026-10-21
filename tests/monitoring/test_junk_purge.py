@@ -276,6 +276,27 @@ def test_the_screen_holds_what_reads_like_a_case_and_never_judges_it_again(
     assert "не доказательство" in hold.reason
 
 
+class CascadeNamedScreen(Screen):
+    # The name JEV-1 + JEV-2 give in production: longer than the column once was (100).
+    name = (
+        "jev-screen-v1:typesafe/jev-1.13+jev-drop-verifier-v1:"
+        "jev-strong-prefilter-v1:typesafe/jev-1.13:p_drop>=0.50"
+    )
+
+
+def test_a_hold_stores_the_full_name_of_the_cascade_screen(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _seed(session_factory)
+
+    JunkPurge(session_factory, screen=CascadeNamedScreen()).run()
+
+    with session_factory() as session:
+        hold = session.get_one(JunkScreenHoldRecord, ids["junk"])
+    assert len(CascadeNamedScreen.name) > 100
+    assert hold.screen == CascadeNamedScreen.name
+
+
 def test_a_screen_that_fails_deletes_nothing(session_factory: sessionmaker[Session]) -> None:
     ids = _seed(session_factory)
 
