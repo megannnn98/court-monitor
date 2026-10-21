@@ -10,6 +10,21 @@
 #   docker compose up -d postgres
 #   docker compose run --rm migrate
 #   docker compose --profile production up -d
+#
+# The build every service that runs the image shares. The args stamp the image with
+# what it was built from — the commit, the time and the tag it stands on
+# (apps/court-monitor/src/web/build_info.py). Set them before the build:
+#   export BUILD_COMMIT=$(git rev-parse --short HEAD) BUILD_TIME=$(date -u +%FT%TZ) \
+#          BUILD_TAG=$(git describe --tags --always)
+# Without them the console says «неизвестно»: the honest answer for a working copy,
+# a wrong one for a release.
+x-build: &build
+  context: .
+  args:
+    BUILD_COMMIT: ${BUILD_COMMIT:-}
+    BUILD_TIME: ${BUILD_TIME:-}
+    BUILD_TAG: ${BUILD_TAG:-}
+
 services:
   postgres:
     # PostgreSQL 18.6, pinned by digest. The same build the pgvector image carried until
@@ -39,7 +54,7 @@ services:
 
   # Explicit schema migration step (never run by API workers).
   migrate:
-    build: .
+    build: *build
     image: court-monitor:local
     profiles:
       - migrate
@@ -52,7 +67,7 @@ services:
     command: ["alembic", "upgrade", "head"]
 
   api:
-    build: .
+    build: *build
     image: court-monitor:local
     restart: unless-stopped
     init: true
@@ -179,7 +194,7 @@ services:
         || psql -c "CREATE DATABASE \"$${DAGSTER_PG_DB}\""
 
   dagster-webserver:
-    build: .
+    build: *build
     image: court-monitor:local
     restart: unless-stopped
     init: true
