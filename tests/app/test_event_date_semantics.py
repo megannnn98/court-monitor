@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -372,6 +372,166 @@ def test_event_counts_reads_only_the_latest_run_of_an_article(
         counts = identity.event_counts(session, [article_id])
 
     assert counts == [(article_id, "arrest", 1)]
+
+
+def _article_with_two_runs(
+    session: Session,
+    seed: DatabaseSeeder,
+    *,
+    source_id: int,
+    external_id: str,
+    old_event_type: str,
+    old_event_date: datetime | None,
+    new_event_type: str,
+    new_event_date: datetime | None,
+) -> tuple[int, int, int]:
+    """One article, two successful runs of it, each with an event of its own.
+
+    A re-extraction opens a new run and keeps the old one, so both events stay in the
+    table. The article id and the ids of the two events are returned, the old event's
+    first.
+    """
+    article_id, first = seed.article(
+        source_id,
+        external_id=external_id,
+        title="Первый прогон",
+        text="Иванову арестовали.",
+        published_at=datetime(2026, 10, 1, tzinfo=UTC),
+    )
+    old_event_id = seed.event(
+        first,
+        "Иванову арестовали.",
+        event_type=old_event_type,
+        event_date=old_event_date,
+        links=[],
+    )
+    second = ArticleExtractionRunRecord(
+        article_id=article_id,
+        article_content_hash="hash-second-run",
+        extractor_name="rule-based",
+        extractor_version="1.12.0",
+        normalizer_version="1.0.0",
+        status="succeeded",
+        started_at=FIXED_TIME,
+        finished_at=FIXED_TIME,
+    )
+    session.add(second)
+    session.flush()
+    new_event = ExtractedEventRecord(
+        extraction_run_id=second.id,
+        event_type=new_event_type,
+        event_date=new_event_date,
+        start_offset=0,
+        end_offset=5,
+        confidence=0.9,
+        attributes={},
+        extractor_name="rule-based",
+        extractor_version="1.12.0",
+    )
+    session.add(new_event)
+    session.flush()
+    return article_id, old_event_id, new_event.id
+
+
+def test_articles_with_events_reads_only_the_latest_run_of_an_article(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """An article whose latest extraction finds no arrest is not an arrest article.
+
+    Reading every successful run left the article of a case the newer extractor no longer
+    finds, and the unnamed-figurants stage then asked the model about it. The article
+    whose latest run does find an arrest is still there: the read is narrowed, not
+    emptied.
+    """
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("ОВД-Инфо", "https://ovd.info")
+        stale_article, _, _ = _article_with_two_runs(
+            session,
+            seed,
+            source_id=source,
+            external_id="articles-with-events-stale",
+            old_event_type="arrest",
+            old_event_date=None,
+            new_event_type="detention",
+            new_event_date=None,
+        )
+        fresh_article, _, _ = _article_with_two_runs(
+            session,
+            seed,
+            source_id=source,
+            external_id="articles-with-events-fresh",
+            old_event_type="arrest",
+            old_event_date=None,
+            new_event_type="arrest",
+            new_event_date=None,
+        )
+
+    with session_factory() as session:
+        articles = identity.articles_with_events(session, {"arrest"})
+
+    # The article whose latest run finds no arrest is out; the one that does is in.
+    assert stale_article not in articles
+    assert fresh_article in articles
+
+
+def test_events_undated_reads_only_the_latest_run_of_an_article(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The graph's reports of one event come from the latest run of every article.
+
+    Reading every run showed one arrest twice, once as the old run's report and once as
+    the new one's.
+    """
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("ОВД-Инфо", "https://ovd.info")
+        article_id, old_event_id, new_event_id = _article_with_two_runs(
+            session,
+            seed,
+            source_id=source,
+            external_id="events-undated",
+            old_event_type="arrest",
+            old_event_date=None,
+            new_event_type="arrest",
+            new_event_date=None,
+        )
+
+    with session_factory() as session:
+        events = identity.events_undated(session, [article_id], {"arrest"})
+
+    assert events == [new_event_id]
+    assert old_event_id not in events
+
+
+def test_events_dated_reads_only_the_latest_run_of_an_article(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """The other reports of one event are the latest runs' too.
+
+    The old run's arrest wrote the same day as the new one, so the graph matched it as
+    another report of that event.
+    """
+    day = date(2025, 1, 1)
+    with session_factory.begin() as session:
+        seed = DatabaseSeeder(session)
+        source = seed.source("ОВД-Инфо", "https://ovd.info")
+        _, old_event_id, new_event_id = _article_with_two_runs(
+            session,
+            seed,
+            source_id=source,
+            external_id="events-dated",
+            old_event_type="arrest",
+            old_event_date=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
+            new_event_type="arrest",
+            new_event_date=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
+        )
+
+    with session_factory() as session:
+        events = identity.events_dated(session, {("arrest", day)})
+
+    assert events == [new_event_id]
+    assert old_event_id not in events
 
 
 def test_the_storage_of_the_two_pins() -> None:

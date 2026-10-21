@@ -518,16 +518,25 @@ def by_name(session: Session, ids: Collection[int]) -> list[int]:
 
 _WITH_EVENTS = text(
     """
-    SELECT DISTINCT r.article_id FROM article_extraction_runs r
+    WITH latest AS (
+        -- Only the article's latest successful run, as the collector takes it. A
+        -- re-extraction opens a new run and keeps the old one, so reading every run
+        -- keeps the articles a later extractor no longer finds a case in.
+        SELECT DISTINCT ON (article_id) id, article_id
+        FROM article_extraction_runs
+        WHERE status = 'succeeded'
+        ORDER BY article_id, id DESC
+    )
+    SELECT DISTINCT r.article_id FROM latest r
     JOIN extracted_events e ON e.extraction_run_id = r.id
-    WHERE r.status = 'succeeded' AND e.event_type = ANY(:types)
+    WHERE e.event_type = ANY(:types)
     ORDER BY r.article_id
     """
 )
 
 
 def articles_with_events(session: Session, event_types: Collection[str]) -> list[int]:
-    """The articles a successful extraction found an event of these types in, by id."""
+    """The articles whose latest successful extraction found an event of these types, by id."""
     return list(session.scalars(_WITH_EVENTS, {"types": list(event_types)}))
 
 
@@ -689,15 +698,34 @@ _EVENTS_NAMING = text(
 )
 _EVENTS_DATED = text(
     """
+    WITH latest AS (
+        -- Only the article's latest successful run, as the collector takes it. A
+        -- re-extraction opens a new run and keeps the old one, so reading every run
+        -- counts one event as two reports of it.
+        SELECT DISTINCT ON (article_id) id, article_id
+        FROM article_extraction_runs
+        WHERE status = 'succeeded'
+        ORDER BY article_id, id DESC
+    )
     SELECT e.id FROM extracted_events e
+    JOIN latest r ON r.id = e.extraction_run_id
     JOIN unnest(CAST(:types AS text[]), CAST(:days AS date[])) AS k(event_type, day)
       ON k.event_type = e.event_type AND k.day = e.event_date::date
     """
 )
 _EVENTS_UNDATED = text(
     """
+    WITH latest AS (
+        -- Only the article's latest successful run, as the collector takes it. A
+        -- re-extraction opens a new run and keeps the old one, so reading every run
+        -- counts one event as two reports of it.
+        SELECT DISTINCT ON (article_id) id, article_id
+        FROM article_extraction_runs
+        WHERE status = 'succeeded'
+        ORDER BY article_id, id DESC
+    )
     SELECT e.id FROM extracted_events e
-    JOIN article_extraction_runs r ON r.id = e.extraction_run_id
+    JOIN latest r ON r.id = e.extraction_run_id
     WHERE e.event_date IS NULL AND r.article_id = ANY(:articles) AND e.event_type = ANY(:types)
     """
 )
@@ -767,7 +795,10 @@ def events_naming(session: Session, group_id: int) -> list[int]:
 
 
 def events_dated(session: Session, keys: Collection[tuple[str, date]]) -> list[int]:
-    """The events of these (type, day), by the day their own date names."""
+    """The events of these (type, day), by the day their own date names.
+
+    Only the articles' latest successful runs: an older run's event is a report of an
+    event the current extraction no longer tells of."""
     if not keys:
         return []
     ordered = sorted(keys)
@@ -782,7 +813,10 @@ def events_dated(session: Session, keys: Collection[tuple[str, date]]) -> list[i
 def events_undated(
     session: Session, article_ids: Collection[int], types: Collection[str]
 ) -> list[int]:
-    """The events without a date of their own, of these types, in these articles."""
+    """The events without a date of their own, of these types, in these articles.
+
+    Only the articles' latest successful runs: an older run's event is a report of an
+    event the current extraction no longer tells of."""
     if not article_ids or not types:
         return []
     return list(
