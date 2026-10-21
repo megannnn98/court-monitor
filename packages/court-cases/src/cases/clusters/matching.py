@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 # The score a join needs. The lowest score an automatic join can have is 0.67 (the same
 # person, the same step, no date, the article of the Criminal Code and the place), so
 # the threshold cuts nothing the support rule allows.

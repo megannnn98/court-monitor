@@ -94,8 +94,12 @@ class ClusterReport:
     reattached: int = 0
     joined: int = 0
     opened: int = 0
-    # Of the opened clusters, those that had a candidate they were not joined to.
-    ambiguous: int = 0
+    # Of the opened clusters, those whose anchor had candidates recorded: the event did
+    # not match any cluster automatically. This is the usual case of a new event.
+    opened_with_candidates: int = 0
+    # Of those, the true ambiguities: two or more anchors matched automatically and the
+    # rule refused to choose. Rare; each one is a person's decision to make.
+    ambiguous_auto: int = 0
     # Events without a name: candidates only, no cluster.
     candidates_only: int = 0
     # Memberships whose event or article is gone.
@@ -193,8 +197,18 @@ def _resolve_batch(
         unchanged=report.unchanged + len(linked),
         reattached=report.reattached + outcomes["reattached"],
         joined=report.joined + outcomes["joined"],
-        opened=report.opened + outcomes["opened"] + outcomes["opened_ambiguous"],
-        ambiguous=report.ambiguous + outcomes["opened_ambiguous"],
+        opened=(
+            report.opened
+            + outcomes["opened"]
+            + outcomes["opened_with_candidates"]
+            + outcomes["opened_ambiguous_auto"]
+        ),
+        opened_with_candidates=(
+            report.opened_with_candidates
+            + outcomes["opened_with_candidates"]
+            + outcomes["opened_ambiguous_auto"]
+        ),
+        ambiguous_auto=report.ambiguous_auto + outcomes["opened_ambiguous_auto"],
         candidates_only=report.candidates_only + outcomes["candidates_only"],
         batches=report.batches + 1,
     )
@@ -239,9 +253,12 @@ def _resolve_event(session: Session, event: CaseEvent, text_similarity: Any) -> 
         cluster_id = chosen[0]
         _join(session, key, cluster_id, event, evidence, chosen[1], recorded)
         return "joined"
+    automatic = [pair for pair in candidates if pair[1].automatic]
     cluster_id = _open_cluster(session, key, event, evidence, recorded)
     _join(session, key, cluster_id, event, evidence, Match(0.0, ()), recorded, core=True)
-    return "opened_ambiguous" if recorded else "opened"
+    if len(automatic) >= 2:
+        return "opened_ambiguous_auto"
+    return "opened_with_candidates" if recorded else "opened"
 
 
 def _candidates(
@@ -340,7 +357,9 @@ def _recorded(candidates: Sequence[tuple[UUID, Match]]) -> list[dict[str, Any]]:
             "required_support": match.required_support,
         }
         for cluster_id, match in sorted(candidates, key=lambda pair: (-pair[1].score, str(pair[0])))
-        if match.score >= _RECORDED_SCORE
+        # Only a pair the rule could have joined is worth recording: a pair of the same
+        # person and the same step and nothing else is not (ADR 0033).
+        if match.score >= _RECORDED_SCORE and match.support >= 1
     ][:MAX_RECORDED_CANDIDATES]
 
 
@@ -384,11 +403,13 @@ def _join(
         EventClusterMemberRecord(
             evidence_key=key,
             event_id=event.id,
+            article_id=event.article_id,
             cluster_id=cluster_id,
             role="core" if core else "member",
             status="confirmed",
             score=match.score,
             reasons=list(match.features),
+            evidence=evidence.to_json(),
             candidates=recorded,
             algorithm_version=matching.VERSION,
             active=True,
@@ -408,11 +429,13 @@ def _record_candidates(
         EventClusterMemberRecord(
             evidence_key=key,
             event_id=event.id,
+            article_id=event.article_id,
             cluster_id=None,
             role="candidate",
             status="candidate",
             score=0.0,
             reasons=[],
+            evidence=evidence.to_json(),
             candidates=_recorded(candidates),
             algorithm_version=matching.VERSION,
             active=True,

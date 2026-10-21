@@ -34,7 +34,7 @@ def _evidence(**changes: object) -> ClusterEvidence:
 
 
 def test_the_version_is_raised_with_the_rule() -> None:
-    assert VERSION == "1.1.0"
+    assert VERSION == "1.1.1"
 
 
 def test_the_person_and_the_step_alone_are_never_enough() -> None:

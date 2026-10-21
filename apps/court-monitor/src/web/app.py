@@ -27,6 +27,7 @@ from web.routers import (
     candidate_table,
     candidates,
     cases,
+    clusters,
     cycle,
     dossier,
     entities,
@@ -197,5 +198,6 @@ for module in (
     investigation,
     entity_model,
     cases,
+    clusters,
 ):
     app.include_router(module.router, prefix="/api/v1", generate_unique_id_function=_operation_id)

@@ -7,12 +7,13 @@ import random
 from uuid import UUID
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from case_resolution.world import World, at
 from cases import read
 from cases.service import ResolutionReport, resolve
+from cases.storage.models import CaseEventLinkRecord
 from evaluation.disposable import wipe
 
 IVAN = "Иван Петров"
@@ -117,19 +118,33 @@ def test_a_judge_in_many_publications_joins_no_cases(
         assert read.cases_of_person(session, judge.lower()) == []
 
 
-def test_a_publication_without_a_name_gets_its_own_case(
+def test_a_publication_without_a_name_forms_no_case(
     session_factory: sessionmaker[Session],
 ) -> None:
+    """Nobody is named: no case is formed, and the link records that the event was
+    looked at (ADR 0033)."""
     world = World(session_factory)
     words = "Задержали участника акции, сообщили в полиции города, возбуждено дело о беспорядках"
     world.report(IVAN, sentence=words, charges=LAW, orgs=(MOSCOW,))
-    world.report(sentence=words, charges=LAW, orgs=(MOSCOW,))
+    unnamed = world.report(sentence=words, charges=LAW, orgs=(MOSCOW,))
 
-    run(session_factory)
+    report = run(session_factory)
 
     found = cases(session_factory)
-    assert len(found) == 2
-    assert sorted(len(c.participants) for c in found) == [0, 1]
+    assert len(found) == 1
+    assert report.without_case == 1
+    with session_factory() as session:
+        link = session.scalar(
+            select(CaseEventLinkRecord).where(CaseEventLinkRecord.event_id == unnamed)
+        )
+        assert link is not None
+        assert link.case_id is None
+        assert link.status == "candidate"
+
+    # The second run does not look at it again.
+    again = run(session_factory)
+    assert again.without_case == 0
+    assert again.unchanged >= 1
 
 
 def test_one_article_with_two_cases(session_factory: sessionmaker[Session]) -> None:

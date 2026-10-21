@@ -274,3 +274,41 @@ def test_a_rolled_back_membership_stays_in_the_history(
         assert kept.decision_note == "это другое событие"
     # The cluster of the rolled back member is gone; the anchor's cluster stays.
     assert len(clusters(session_factory)) == 1
+
+
+def test_a_bare_pair_leaves_no_candidate(session_factory: sessionmaker[Session]) -> None:
+    """The same person, the same step, the same day and nothing else: no candidate is
+    recorded — the pair is not one the rule could have joined."""
+    world = World(session_factory)
+    world.report(IVAN, kind="detention", day=at(2024, 3, 1))
+    world.report(IVAN, kind="detention", day=at(2024, 3, 1))
+
+    report = run(session_factory)
+
+    assert (report.opened, report.opened_with_candidates) == (2, 0)
+    assert report.ambiguous_auto == 0
+    with session_factory() as session:
+        members = list(session.scalars(select(EventClusterMemberRecord)))
+        assert members and all(member.candidates == [] for member in members)
+
+
+def test_a_candidate_is_recorded_when_the_pair_has_a_support(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """A day apart with one support: not a join, but a candidate worth recording."""
+    world = World(session_factory)
+    world.report(IVAN, kind="detention", day=at(2024, 3, 1), orgs=(MOSCOW,))
+    second = world.report(IVAN, kind="detention", day=at(2024, 3, 2), orgs=(MOSCOW,))
+
+    report = run(session_factory)
+
+    assert (report.opened, report.joined) == (2, 0)
+    assert report.opened_with_candidates == 1
+    assert report.ambiguous_auto == 0
+    with session_factory() as session:
+        member = session.scalar(
+            select(EventClusterMemberRecord).where(EventClusterMemberRecord.event_id == second)
+        )
+        assert member is not None and member.candidates
+        assert member.candidates[0]["support"] == 1
+        assert member.candidates[0]["required_support"] == 2

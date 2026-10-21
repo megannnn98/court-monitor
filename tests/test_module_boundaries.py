@@ -181,6 +181,8 @@ CONSOLE_READ_MODELS = frozenset(
         "processing.evidence.sentences",
         "persons.read",
         "cases.read",
+        # the clusters of publications (ADR 0033): the list and one cluster
+        "cases.clusters.read",
         # the services
         "analysis.service",
         "processing.identity.service",

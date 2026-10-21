@@ -60,11 +60,18 @@ def upgrade() -> None:
             sa.ForeignKey("extracted_events.id", ondelete="SET NULL"),
             unique=True,
         ),
+        sa.Column(
+            "article_id",
+            sa.Integer(),
+            sa.ForeignKey("parsed_articles.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("cluster_id", sa.Uuid(), sa.ForeignKey("event_clusters.id", ondelete="CASCADE")),
         sa.Column("role", sa.String(length=16), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("reasons", postgresql.JSONB(), nullable=False),
+        sa.Column("evidence", postgresql.JSONB(), nullable=False),
         sa.Column("candidates", postgresql.JSONB(), nullable=False),
         sa.Column("algorithm_version", sa.String(length=32), nullable=False),
         sa.Column("active", sa.Boolean(), nullable=False),
@@ -80,12 +87,16 @@ def upgrade() -> None:
     )
     op.create_index("ix_event_cluster_members_cluster_id", "event_cluster_members", ["cluster_id"])
     op.create_index("ix_event_cluster_members_status", "event_cluster_members", ["status"])
+    op.create_index("ix_event_cluster_members_article_id", "event_cluster_members", ["article_id"])
     # The status of a link: candidate | confirmed | rejected. The links made before this
     # migration were automatic and confirmed.
     op.add_column(
         "case_event_links",
         sa.Column("status", sa.String(length=16), nullable=False, server_default="confirmed"),
     )
+    # An event that names nobody forms no case: its link keeps the fact that it was
+    # looked at, with no case (ADR 0033).
+    op.alter_column("case_event_links", "case_id", existing_type=sa.Uuid(), nullable=True)
     op.add_column("case_event_links", sa.Column("decided_by", sa.String(length=128), nullable=True))
     op.add_column(
         "case_event_links", sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True)
@@ -94,6 +105,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM case_event_links WHERE case_id IS NULL")
+    op.alter_column("case_event_links", "case_id", existing_type=sa.Uuid(), nullable=False)
     op.drop_column("case_event_links", "decision_note")
     op.drop_column("case_event_links", "decided_at")
     op.drop_column("case_event_links", "decided_by")

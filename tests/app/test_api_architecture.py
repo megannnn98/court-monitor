@@ -136,6 +136,9 @@ ROUTES_AFTER_SPLIT = [
     # Criminal cases formed from the events (`resolve-cases`), read-only.
     "GET /api/v1/cases",
     "GET /api/v1/cases/{case_id}",
+    # The clusters of publications about one event (ADR 0033): read-only.
+    "GET /api/v1/clusters",
+    "GET /api/v1/clusters/{cluster_id}",
 ]
 ALL_ROUTES = sorted(ROUTES_BEFORE_SPLIT + ROUTES_AFTER_SPLIT)
 # Only the shared dependencies module may build the engine and the session factory.

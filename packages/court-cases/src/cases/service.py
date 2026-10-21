@@ -55,6 +55,9 @@ class ResolutionReport:
     ambiguous: int = 0
     moved_out: int = 0
     deactivated: int = 0
+    # Events that name nobody: no case is formed for them, the link records that they
+    # were looked at (ADR 0033).
+    without_case: int = 0
     batches: int = 0
     dry_run: bool = False
 
@@ -156,6 +159,7 @@ def _resolve_batch(
         opened=report.opened + outcomes["opened"] + outcomes["opened_ambiguous"],
         ambiguous=report.ambiguous + outcomes["opened_ambiguous"],
         moved_out=report.moved_out + outcomes["moved_out"],
+        without_case=report.without_case + outcomes["without_case"],
         batches=report.batches + 1,
     )
 
@@ -187,6 +191,11 @@ def _resolve_event(session: Session, event: CaseEvent) -> str:
     evidence = evidence_of(event)
     if link is not None:
         return _reattach(session, link, event, evidence)
+    if not evidence.targets:
+        # Nobody is named: there is no case to form. The link keeps the fact that the
+        # event was looked at, so a later run does not look at it again.
+        _link_without_case(session, key, event, evidence)
+        return "without_case"
     candidates = _candidates(session, evidence)
     chosen = matching.choose_case([(str(case_id), match) for case_id, match in candidates])
     recorded = [
@@ -207,6 +216,27 @@ def _resolve_event(session: Session, event: CaseEvent) -> str:
     case_id = _open_case(session, event)
     _link(session, key, case_id, event, evidence, Match(0.0, ()), recorded)
     return "opened_ambiguous" if recorded else "opened"
+
+
+def _link_without_case(session: Session, key: str, event: CaseEvent, evidence: Evidence) -> None:
+    """The event names nobody: it is recorded as looked at, with no case."""
+    session.add(
+        CaseEventLinkRecord(
+            evidence_key=key,
+            case_id=None,
+            event_id=event.id,
+            article_id=event.article_id,
+            active=True,
+            status="candidate",
+            case_number=None,
+            targets=[],
+            evidence=evidence.to_json(),
+            score=0.0,
+            reasons=[],
+            candidates=[],
+            algorithm_version=matching.VERSION,
+        )
+    )
 
 
 def _candidates(session: Session, evidence: Evidence) -> list[tuple[UUID, Match]]:

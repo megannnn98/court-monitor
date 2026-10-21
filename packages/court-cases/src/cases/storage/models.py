@@ -60,7 +60,9 @@ class CaseEventLinkRecord(Base):
 
     # sha256 of the article, the event type, the quote and its place among equal ones.
     evidence_key: Mapped[str] = mapped_column(String(64), primary_key=True)
-    case_id: Mapped[UUID] = mapped_column(ForeignKey("criminal_cases.id"), nullable=False)
+    # None: the event names nobody, so no case was formed for it. The link still
+    # records that the event was looked at (ADR 0033).
+    case_id: Mapped[UUID | None] = mapped_column(ForeignKey("criminal_cases.id"), nullable=True)
     # SET NULL keeps the link when processing replaces its events; the next run re-attaches.
     event_id: Mapped[int | None] = mapped_column(
         ForeignKey("extracted_events.id", ondelete="SET NULL"), unique=True, nullable=True
@@ -168,6 +170,7 @@ class EventClusterMemberRecord(Base):
     __table_args__ = (
         Index("ix_event_cluster_members_cluster_id", "cluster_id"),
         Index("ix_event_cluster_members_status", "status"),
+        Index("ix_event_cluster_members_article_id", "article_id"),
     )
 
     # sha256 of the article, the event type, the quote and its place among equal ones.
@@ -176,6 +179,10 @@ class EventClusterMemberRecord(Base):
     # replaces its events.
     event_id: Mapped[int | None] = mapped_column(
         ForeignKey("extracted_events.id", ondelete="SET NULL"), unique=True, nullable=True
+    )
+    # The publication the event was found in.
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("parsed_articles.id", ondelete="CASCADE"), nullable=False
     )
     # None: the event joined no cluster and has candidates only.
     cluster_id: Mapped[UUID | None] = mapped_column(
@@ -187,6 +194,9 @@ class EventClusterMemberRecord(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
     reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    # The event as it was scored (the step, the day, the people, the articles, the
+    # courts, the bodies, the places, the words), to read without the events.
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     # The clusters the event matched but was not joined to.
     candidates: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     algorithm_version: Mapped[str] = mapped_column(String(32), nullable=False)

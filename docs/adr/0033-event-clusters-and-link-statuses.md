@@ -57,7 +57,8 @@ nothing else are two detentions, and a series of administrative arrests of one
 activist must not be glued into one event. The score of a join runs from 0.67 (the
 same person, the same step, no day, the article and the place) up; the threshold of
 0.60 cuts nothing the rule allows. The rules are versioned: this decision is
-`1.1.0` (`1.0.0` had no such condition and joined too much).
+`1.1.0` (`1.0.0` had no such condition and joined too much); `1.1.1` adds the recording
+rule below.
 
 The contradictions forbid a join whatever the score:
 
@@ -88,6 +89,27 @@ dropped because nothing used them. Here there are no vector tables, no pgvector 
 retrieval: the e5 vectors are computed in the process, only for the pairs the rules have
 already narrowed, and only as a tie-breaker of a ranking. Nothing in the database depends
 on them, and the stage works with the signal off.
+
+### An article without a name, and the links without a case
+
+**An article that names nobody forms no case.** ADR 0032 opened a case for every event,
+including the events of the articles that name no person; on the working database that
+gave a case per event (27 062 cases for 27 323 events, each of one event). A case is a
+prosecution of a person: without a person there is nothing to prosecute. Such an event
+keeps a link with `case_id = NULL` (the column became nullable), the status `candidate`,
+and no case is created. The link records that the event was looked at, so a later run
+does not look at it again.
+
+The same article gets **candidates** at the cluster level: the court, the article of the
+Criminal Code, the place, the day and the words of the previous hearing are enough to
+offer the clusters it may belong to, and never enough to join one.
+
+**What is recorded as a candidate is what the rule could have joined.** A pair of one
+person and one step and nothing else (no court, no body, no place, no article, no same
+words) is not recorded: on the working database 87.6 % of the recorded candidates were
+exactly this, and the list of candidates became noise. A candidate is shown only when
+the pair rests on at least one independent feature (`support >= 1`). The rule version
+that carries both decisions is `1.1.1`.
 
 ### The statuses and the rollback
 
@@ -123,7 +145,12 @@ its cluster, and no cluster id is given twice.
 ## Consequences
 
 * The console can answer «what else was written about this event?», and the investigations
-  can start from a cluster instead of from one publication.
+  can start from a cluster instead of from one publication. The read-only API is
+  `GET /api/v1/clusters` (with `person_key`, `article_id`, `status`) and
+  `GET /api/v1/clusters/{id}`; a publication that tells two steps is in two clusters and
+  both are returned. Rolling a membership back stays a command line (`resolve-clusters`
+  writes, a person decides): a route that changes data would need the authentication and
+  the CSRF of ADR 0022, which is a task of its own.
 * The clusters are conservative: the price of a missed join (a publication left in a
   cluster of its own) is much lower than the price of a wrong join (two independent
   events in one cluster, or two cases merged).
