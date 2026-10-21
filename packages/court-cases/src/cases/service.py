@@ -16,7 +16,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -81,6 +81,25 @@ def evidence_of(event: CaseEvent) -> Evidence:
         quote_hash=hashlib.sha256(words.encode()).hexdigest(),
         quote_length=len(words),
     )
+
+
+def rollback_link(session: Session, evidence_key: str, *, author: str, reason: str) -> bool:
+    """Roll a link back: the link stops counting, and the decision is kept.
+
+    Nothing is deleted: the row stays with `active = false`, the status `rejected`, and
+    who decided, when and why. The events and the cases themselves are untouched.
+    """
+    if not author or not reason:
+        raise ValueError("a rollback needs an author and a reason")
+    link = session.get(CaseEventLinkRecord, evidence_key)
+    if link is None:
+        return False
+    link.active = False
+    link.status = "rejected"
+    link.decided_by = author
+    link.decided_at = datetime.now(UTC)
+    link.decision_note = reason
+    return True
 
 
 def resolve(
@@ -240,6 +259,7 @@ def _link(
             event_id=event.id,
             article_id=event.article_id,
             active=True,
+            status="confirmed",
             case_number=evidence.case_number,
             targets=sorted(evidence.targets),
             evidence=evidence.to_json(),

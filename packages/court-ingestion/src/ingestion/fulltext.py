@@ -192,3 +192,48 @@ def headlines(session: Session, words: Sequence[str], *, limit: int) -> tuple[in
         rows[0].total if rows else 0,
         [Headline(row.id, row.title, row.source, row.published_at, row.snippet) for row in rows],
     )
+
+
+def articles_holding(
+    session: Session,
+    article_ids: Sequence[int],
+    all_of: Sequence[str],
+    *,
+    any_of: Sequence[str] = (),
+) -> set[int]:
+    """The ids of the given articles whose text holds the words.
+
+    Every word of `all_of` and at least one of `any_of` must be in the text. The
+    articles are the ones asked about: the caller knows which ones it means, and the
+    answer is about them alone, not about the whole corpus.
+    """
+    wanted = sorted({int(article_id) for article_id in article_ids})
+    if not wanted:
+        return set()
+    name_words = [word for word in _WORD.findall(" ".join(all_of)) if len(word) >= 2]
+    terms = [term.strip() for term in any_of if term.strip()]
+    if not name_words and not terms:
+        return set(wanted)
+    parts: list[str] = []
+    params: dict[str, object] = {"ids": wanted}
+    if name_words:
+        parts.append("plainto_tsquery('russian', :name)")
+        params["name"] = " ".join(name_words)
+    if terms:
+        parts.append(
+            """(SELECT to_tsquery('simple', string_agg('(' || term_query || ')', ' | '))
+                FROM (SELECT string_agg(quote_literal(v.lexeme) || ':*', ' & ') AS term_query
+                      FROM unnest(CAST(:terms AS text[])) WITH ORDINALITY AS t(term, n)
+                      CROSS JOIN LATERAL unnest(to_tsvector('russian', t.term)) AS v
+                      GROUP BY t.n) AS each_term)"""
+        )
+        params["terms"] = terms
+    statement = text(
+        f"""
+        WITH q AS (SELECT {_combined(parts)} AS query)
+        SELECT a.id
+        FROM q, parsed_articles a
+        WHERE a.id = ANY(CAST(:ids AS int[])) AND a.search_vector @@ q.query
+        """
+    )
+    return {int(row[0]) for row in session.execute(statement, params)}

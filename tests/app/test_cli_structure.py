@@ -107,7 +107,7 @@ def test_validate_config_runs_without_a_database() -> None:
 def test_every_command_is_registered_once_with_a_handler() -> None:
     subparsers = _subparsers()
 
-    assert len(subparsers) == 27
+    assert len(subparsers) == 28
     for command, parser in subparsers.items():
         assert callable(parser.get_default("handler")), command
     # The command that built the vector index went with the vectors (ADR 0028).

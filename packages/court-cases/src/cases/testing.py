@@ -12,4 +12,6 @@ DISPOSABLE_TABLES = (
     "case_participants",
     "case_event_links",
     "criminal_cases",
+    "event_cluster_members",
+    "event_clusters",
 )

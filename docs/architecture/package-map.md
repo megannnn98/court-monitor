@@ -213,9 +213,9 @@ loaded lazily by `processing.junk.embedder`; nothing else needs it installed.
 |---|---|
 | Workspace dependencies | court-platform, court-ingestion, court-processing |
 | Libraries | sqlalchemy |
-| Public API | `cases.service.resolve`; `cases.read` ([ADR 0032](../adr/0032-criminal-case-resolution.md)) |
-| Owns | `criminal_cases`, `case_event_links`, `case_participants` |
-| Called by | the app (`resolve-cases`, `/api/v1/cases`) |
+| Public API | `cases.service.resolve`; `cases.read` ([ADR 0032](../adr/0032-criminal-case-resolution.md)); `cases.clusters.service.resolve` ([ADR 0033](../adr/0033-event-clusters-and-link-statuses.md)) |
+| Owns | `criminal_cases`, `case_event_links`, `case_participants`, `event_clusters`, `event_cluster_members` |
+| Called by | the app (`resolve-cases`, `resolve-clusters`, `/api/v1/cases`) |
 
 ### court-investigation
 
