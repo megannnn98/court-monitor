@@ -14,7 +14,7 @@ const deactivate = vi.mocked(deactivateOfficialV1);
 const LIST = {
   total: 1,
   rows: [{ external_id: "console:ольга минакова", full_name: "Ольга Минакова", entity_key: "ольга минакова", entity_name: "Минакова Ольга", category: "судья", reason: "судья", active: true }],
-  suggestions: [{ key: "иван петров", name: "Петров Иван", category: "полицейский", reason: "так в тексте" }],
+  suggestions: [{ key: "иван петров", name: "Петров Иван", category: "полицейский", reason: "так в тексте", possible_duplicates: ["Петров Иван Иванович"] }],
   categories: [
     { value: "judge", label: "судья" },
     { value: "police", label: "полицейский" }
@@ -53,4 +53,13 @@ it("accepts a suggestion and takes a person out of force", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Снять" }));
   await waitFor(() => expect(deactivate).toHaveBeenCalledWith({ body: { external_id: "console:ольга минакова" } }));
   expect(screen.getByRole("link", { name: "Минакова Ольга" }).getAttribute("href")).toBe("/investigations/%D0%BE%D0%BB%D1%8C%D0%B3%D0%B0%20%D0%BC%D0%B8%D0%BD%D0%B0%D0%BA%D0%BE%D0%B2%D0%B0");
+});
+
+it("marks a suggestion that may be a person already named, with a way to decide", async () => {
+  renderPage(<OfficialsPage />);
+
+  const offered = await screen.findByRole("region", { name: "Предложения системы" });
+  const mark = within(offered).getByRole("link", { name: "возможный дубль" });
+  expect(mark.getAttribute("href")).toBe("/review/pairs");
+  expect(mark.getAttribute("title")).toContain("Петров Иван Иванович");
 });

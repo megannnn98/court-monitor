@@ -7937,6 +7937,14 @@
           "reason": {
             "type": "string",
             "title": "Reason"
+          },
+          "possible_duplicates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Possible Duplicates",
+            "default": []
           }
         },
         "type": "object",

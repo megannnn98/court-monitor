@@ -19,6 +19,7 @@ from processing.storage.models import (
     EntityGroupRecord,
     EntityGroupRoleRecord,
     EntityOfficialMarkRecord,
+    EntityPairDecisionRecord,
     ExcludedPersonRecord,
 )
 from web.app import app
@@ -338,3 +339,34 @@ def test_the_api_reads_and_changes_the_list_the_page_does(
     assert off == {"status": "deactivated"} and _rows(session_factory)[0].active is False
     assert nobody.status_code == 404
     assert nothing.status_code == 404 and nothing.json()["detail"] == "Такого предложения нет"
+
+
+def test_a_suggestion_names_the_entity_it_may_be_spelled_as(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«Эммануэль» and «Эмманюэль» Макрон: the suggestion says so; a pair decided
+    «different» in the review no longer does."""
+    _entity(session_factory, "эммануэль макрон", "Эммануэль Макрон")
+    _entity(session_factory, "эмманюэль макрон", "Эмманюэль Макрон")
+    _entity(session_factory, "ольга минакова", "Ольга Минакова")
+    _role(session_factory, "эммануэль макрон", "official", "model")
+    _role(session_factory, "ольга минакова", "judge", "model")
+
+    with _client(session_factory) as client:
+        before = client.get("/api/v1/officials").json()["suggestions"]
+        with session_factory.begin() as session:
+            session.add(
+                EntityPairDecisionRecord(
+                    key_a="эммануэль макрон",
+                    key_b="эмманюэль макрон",
+                    decision="different",
+                    source="manual",
+                )
+            )
+        after = client.get("/api/v1/officials").json()["suggestions"]
+
+    assert {row["name"]: row["possible_duplicates"] for row in before} == {
+        "Эммануэль Макрон": ["Эмманюэль Макрон"],
+        "Ольга Минакова": [],
+    }
+    assert [row["possible_duplicates"] for row in after] == [[], []]

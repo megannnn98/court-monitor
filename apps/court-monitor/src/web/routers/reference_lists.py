@@ -31,7 +31,7 @@ from web.ui.officials_list import (
     apply_add_suggested,
     apply_deactivate,
     category_label,
-    official_suggestions,
+    official_suggestion_items,
     officials_listing,
 )
 
@@ -105,9 +105,13 @@ def get_officials(db: Session = Depends(get_db)) -> OfficialsResponse:  # noqa: 
         ],
         suggestions=[
             OfficialSuggestionResponse(
-                key=key, name=name, category=category_label(kind), reason=reason
+                key=item.key,
+                name=item.name,
+                category=category_label(item.kind),
+                reason=item.reason,
+                possible_duplicates=list(item.possible_duplicates),
             )
-            for key, name, kind, reason in official_suggestions(db)
+            for item in official_suggestion_items(db)
         ],
         categories=[
             OptionResponse(value=value, label=category_label(value)) for value in CATEGORIES

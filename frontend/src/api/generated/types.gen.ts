@@ -2812,6 +2812,10 @@ export type OfficialSuggestionResponse = {
      * Reason
      */
     reason: string;
+    /**
+     * Possible Duplicates
+     */
+    possible_duplicates?: Array<string>;
 };
 
 /**

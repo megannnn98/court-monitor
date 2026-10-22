@@ -84,6 +84,11 @@ def official_suggestions(db: Session) -> list[tuple[str, str, str, str]]:
     ]
 
 
+def official_suggestion_items(db: Session) -> list[exclusion_list.Suggestion]:
+    """The same suggestions with the names they may be a duplicate of."""
+    return exclusion_list.suggestions(db, limit=PAGE_SIZE)
+
+
 def _suggestions_html(items: list[tuple[str, str, str, str]]) -> str:
     if not items:
         return ""

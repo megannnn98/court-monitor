@@ -11,11 +11,15 @@ from support.db_fixtures import DatabaseSeeder
 from analysis.service import GroupFollowers
 from processing.identity.collector import EntityCollector
 from processing.identity.disputes import (
+    BY_RF,
     DIFFERENT,
     SAME,
     EntityRef,
+    _only_respelled,
     decide,
+    decided_pairs,
     find_pairs,
+    merge_clear_pairs,
     merge_decided,
 )
 from processing.identity.grouping import Entity
@@ -29,6 +33,28 @@ from processing.storage.models import (
 
 def ref(id_: int, key: str, name: str, mentions: int = 1) -> EntityRef:
     return EntityRef(id=id_, key=key, name=name, mention_count=mentions)
+
+
+def test_a_given_name_spelled_with_one_letter_changed_is_a_pair() -> None:
+    entities = [
+        ref(1, "эммануэль макрон", "Эммануэль Макрон", 40),
+        ref(2, "эмманюэль макрон", "Эмманюэль Макрон", 3),
+        # A short name one letter apart is no spelling of the other.
+        ref(3, "олег орлов", "Олег Орлов"),
+        ref(4, "олаг орлов", "Олаг Орлов"),
+        # The old rule still finds a form one letter apart in a short name.
+        ref(5, "лидия сидорова", "Лидия Сидорова"),
+        ref(6, "лидии сидорова", "Лидии Сидорова"),
+    ]
+
+    pairs = find_pairs(entities)
+
+    assert [(pair.kind, pair.left.name, pair.right.name) for pair in pairs] == [
+        ("similar", "Эммануэль Макрон", "Эмманюэль Макрон"),
+        ("similar", "Лидия Сидорова", "Лидии Сидорова"),
+    ]
+    # Only the one-letter guess is left to a person; the old rule's pair may be merged.
+    assert [_only_respelled(pair) for pair in pairs] == [True, False]
 
 
 def test_the_pairs_are_a_missing_patronymic_and_a_form_of_a_given_name() -> None:
@@ -236,3 +262,54 @@ def test_a_decision_holds_when_the_rules_cut_the_surname_another_way() -> None:
     assert resolve_keys(decided, today) == [
         ("алексей анатольевич навальн · москва", "алексей навальн")
     ]
+
+
+def _refs(session: Session) -> list[EntityRef]:
+    return [
+        EntityRef(id=group.id, key=group.key, name=group.name, mention_count=group.mention_count)
+        for group in session.scalars(select(EntityGroupRecord))
+    ]
+
+
+def _group(session: Session, key: str, name: str) -> int:
+    group = EntityGroupRecord(
+        key=key,
+        name=name,
+        variants=[],
+        mention_count=5,
+        article_count=1,
+        event_types={},
+        regions=[],
+    )
+    session.add(group)
+    session.flush()
+    return group.id
+
+
+def test_a_clear_pair_merges_by_the_list_but_a_one_letter_guess_waits_for_a_person(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        spelled = [
+            _group(session, "эммануэль макрон", "Эммануэль Макрон"),
+            _group(session, "эмманюэль макрон", "Эмманюэль Макрон"),
+        ]
+        ending = [
+            _group(session, "лида мониава", "Лида Мониава"),
+            _group(session, "лидия мониава", "Лидия Мониава"),
+        ]
+
+    with session_factory.begin() as session:
+        merged = merge_clear_pairs(
+            session, listed={spelled[0], ending[0]}, downstream=GroupFollowers()
+        )
+
+    # The pair of one ending's difference merged; the guess stays, undecided.
+    assert merged == Counter({BY_RF: 1})
+    with session_factory() as session:
+        keys = set(session.scalars(select(EntityGroupRecord.key)))
+        assert {"эммануэль макрон", "эмманюэль макрон"} <= keys
+        assert len(keys & {"лида мониава", "лидия мониава"}) == 1
+        assert [pair.kind for pair in find_pairs(_refs(session), decided_pairs(session))] == [
+            "similar"
+        ]

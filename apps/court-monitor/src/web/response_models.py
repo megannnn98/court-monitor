@@ -1214,6 +1214,8 @@ class OfficialSuggestionResponse(BaseModel):
     name: str
     category: str
     reason: str
+    # Other entities that may be this person spelled otherwise; the pair review decides.
+    possible_duplicates: list[str] = []
 
 
 class OfficialsResponse(BaseModel):
