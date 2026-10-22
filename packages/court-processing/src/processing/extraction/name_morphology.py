@@ -200,6 +200,12 @@ class NameMorphology:
             keys |= {key[:-1] for key in keys if key[-1:] in "ая" and len(key) > 4}
         return frozenset(keys)
 
+    def is_oblique(self, word: str) -> bool:
+        """Whether the word is a name in an oblique case («Сергея», «Трампа»), not the
+        nominative («Сергей»). A word the dictionary has no name reading for says nothing."""
+        forms = self.name_normal_forms(word)
+        return bool(forms) and word.lower().replace("ё", "е") not in forms
+
     def gender_of(self, name: str) -> str | None:
         """The gender of a person's name, or None when nothing states it.
 

@@ -798,6 +798,33 @@ def test_a_given_name_ending_a_span_starts_the_next_person_across_a_conjunction(
     ]
 
 
+def test_a_surname_in_the_nominative_after_a_name_in_an_oblique_case_is_another_person() -> None:
+    """Real case: «хабаровского губернатора Сергея Фургала Чихунов анонсировал акции» was one
+    person, and Чихунов (another man) was lost in it."""
+    assert _people("После ареста губернатора Сергея Фургала Чихунов анонсировал акции.") == [
+        "Сергея Фургала"
+    ]
+    # One name in one case stays one name, in the genitive and in the nominative.
+    assert _people("После ареста Сергея Фургала Чихунова анонсировали акции.") == [
+        "Сергея Фургала Чихунова"
+    ]
+    assert _people("Задержан Сергей Фургал Чихунов по делу.") == ["Сергей Фургал Чихунов"]
+
+
+def test_a_rare_given_name_still_counts_in_a_run_of_names() -> None:
+    """Real case: «зятя президента США Дональда Трампа Джареда Кушнера» was «Дональда Трампа
+    Джареда» and «Кушнера»: «Джареда» is not in the dictionary, so the run counted three
+    names, not four."""
+    assert _people(
+        "Проект связан с компанией зятя президента США Дональда Трампа Джареда Кушнера."
+    ) == [
+        "Дональда Трампа",
+        "Джареда Кушнера",
+    ]
+    # A verb before one name is no name: the three words stay one.
+    assert _people("Задержали Дон Виктор Кирман вчера.") == ["Дон Виктор Кирман"]
+
+
 def test_a_name_with_initials_is_brought_to_the_nominative_case() -> None:
     """Real cases: «Е.А. Аничкиной», «Ф.Э. Дзержинского» were stored as written."""
     normalizer = RuleBasedMentionNormalizer()
