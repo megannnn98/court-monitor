@@ -15,7 +15,7 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from processing.identity.disputes import EntityRef, decided_pairs, find_pairs
+from processing.identity.disputes import EntityRef, decided_pairs, find_pairs, pair_keys
 from processing.identity.grouping import REGION_SEP
 from processing.roles.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
 from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
@@ -150,11 +150,42 @@ def _possible_duplicates(session: Session, keys: list[str]) -> dict[str, tuple[s
     ]
     asked = set(keys)
     found: dict[str, list[str]] = {}
-    for pair in find_pairs(refs, decided_pairs(session)):
+    decided = decided_pairs(session)
+    for pair in find_pairs(refs, decided):
         for mine, other in ((pair.left, pair.right), (pair.right, pair.left)):
             if mine.key in asked:
                 found.setdefault(mine.key, []).append(other.name)
+    for key, names in _name_and_patronymic(session, keys, set(decided)).items():
+        found.setdefault(key, []).extend(names)
     return {key: tuple(names) for key, names in found.items()}
+
+
+def _name_and_patronymic(
+    session: Session, keys: list[str], decided: set[tuple[str, str]]
+) -> dict[str, list[str]]:
+    """«Алексей Михайлович» and «Алексей Михайлович Становский»: the first has the
+    patronymic where a surname stands, so the pair review, which pairs by surname, never
+    sees the two. Each is named to the other; nothing is merged — a name and a patronymic
+    alone are any number of people."""
+    found: dict[str, list[str]] = {}
+    for key in keys:
+        words = key.split(REGION_SEP)[0].split()
+        if len(words) < 2:
+            continue
+        bare = " ".join(words[:2])
+        if len(words) == 2:
+            # The bare name's own card, with a region or not, is the same entity.
+            related = EntityGroupRecord.key.startswith(f"{bare} ", autoescape=True)
+        else:
+            related = (EntityGroupRecord.key == bare) | EntityGroupRecord.key.startswith(
+                f"{bare}{REGION_SEP}", autoescape=True
+            )
+        for row in session.execute(
+            select(EntityGroupRecord.key, EntityGroupRecord.name).where(related)
+        ):
+            if row.key != key and pair_keys(key, row.key) not in decided:
+                found.setdefault(key, []).append(row.name)
+    return found
 
 
 def _normalized(name: str) -> str:

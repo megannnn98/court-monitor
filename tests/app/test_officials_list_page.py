@@ -370,3 +370,40 @@ def test_a_suggestion_names_the_entity_it_may_be_spelled_as(
         "Ольга Минакова": [],
     }
     assert [row["possible_duplicates"] for row in after] == [[], []]
+
+
+def test_a_name_with_a_patronymic_and_the_same_with_a_surname_are_named_to_each_other(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«Алексей Михайлович» has the patronymic where a surname stands, so the pair review
+    never pairs it with «Алексей Михайлович Становский». The suggestion says so; a name
+    with another patronymic or nobody to pair with is left alone."""
+    for key, name in (
+        ("алексей михайлович", "Алексей Михайлович"),
+        ("алексей михайлович становский", "Алексей Михайлович Становский"),
+        ("алексей петрович становский", "Алексей Петрович Становский"),
+        ("василий викторович", "Василий Викторович"),
+    ):
+        _entity(session_factory, key, name)
+        _role(session_factory, key, "judge", "model")
+
+    with _client(session_factory) as client:
+        before = client.get("/api/v1/officials").json()["suggestions"]
+        with session_factory.begin() as session:
+            session.add(
+                EntityPairDecisionRecord(
+                    key_a="алексей михайлович",
+                    key_b="алексей михайлович становский",
+                    decision="different",
+                    source="manual",
+                )
+            )
+        after = client.get("/api/v1/officials").json()["suggestions"]
+
+    assert {row["name"]: row["possible_duplicates"] for row in before} == {
+        "Алексей Михайлович": ["Алексей Михайлович Становский"],
+        "Алексей Михайлович Становский": ["Алексей Михайлович"],
+        "Алексей Петрович Становский": [],
+        "Василий Викторович": [],
+    }
+    assert [row["possible_duplicates"] for row in after] == [[], [], [], []]
