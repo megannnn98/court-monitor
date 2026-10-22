@@ -12,6 +12,7 @@ from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipelin
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck
 from cli.context import CliContext
 from cli_batches import (
     DEFAULT_WORKERS,
@@ -90,6 +91,12 @@ def run_import_rosfinmonitoring(args: argparse.Namespace, context: CliContext) -
         f"{ingestion_result.entries_created} entries created, "
         f"{ingestion_result.entries_updated} updated, "
         f"{ingestion_result.skipped_duplicates} duplicates skipped"
+    )
+    # The marks «в перечне» are read from the matches, which only a check rewrites.
+    check = EntityRfCheck(session_factory).match_latest()
+    print(
+        f"entities matched against snapshot {check.snapshot_id}: "
+        f"{check.full} full, {check.possible} possible, {check.merged} pairs merged"
     )
 
 

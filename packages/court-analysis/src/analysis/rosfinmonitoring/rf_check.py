@@ -138,6 +138,16 @@ class EntityRfCheck:
 
     def run(self) -> RfCheckResult:
         download_error, new_snapshot = self._refresh_list()
+        return self._match(download_error, new_snapshot)
+
+    def match_latest(self) -> RfCheckResult:
+        """Compare every entity with the snapshot already stored, downloading nothing.
+
+        For a snapshot that came in some other way (`import-rosfinmonitoring`): without
+        this the matches, and so the «в перечне» marks, stay those of the older list."""
+        return self._match(None, False)
+
+    def _match(self, download_error: str | None, new_snapshot: bool) -> RfCheckResult:
         lookup = SqlAlchemyRosfinmonitoringSnapshotLookup(self._session_factory)
         latest = lookup.latest_imported_snapshot()
         if latest is None:

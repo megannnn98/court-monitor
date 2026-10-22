@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import argparse
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
+from support.cli_context import SessionContext
 
 from analysis.rosfinmonitoring.download import ListPage
 from analysis.rosfinmonitoring.inclusion_dates import (
@@ -25,6 +28,7 @@ from analysis.storage.models import (
     RosfinmonitoringEntryRecord,
     RosfinmonitoringSnapshotRecord,
 )
+from cli.rosfinmonitoring import run_import_rosfinmonitoring
 from processing.storage.models import EntityGroupRecord, EntityPairDecisionRecord
 
 PERSONS = """
@@ -646,6 +650,27 @@ def test_a_fresh_list_becomes_a_snapshot_and_the_entities_are_matched_by_name(
     assert again.download_error is None
     assert _snapshots(session_factory) == 1
     assert _levels(session_factory) == {"Абдулла Гасанович Абабакаров": ["full"]}
+
+
+def test_a_snapshot_imported_by_hand_marks_the_entities_already_in_our_base(
+    session_factory: sessionmaker[Session], tmp_path: Path
+) -> None:
+    _entities(session_factory, *PEOPLE)
+    EntityRfCheck(session_factory, download=_page).run()
+    assert "Пётр Сидоров" not in _levels(session_factory)
+
+    listing = tmp_path / "list.html"
+    # The importer takes a file for HTML only when it opens like a page.
+    changed = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
+    listing.write_bytes(b"<!doctype html><html><body>" + _page(changed) + b"</body></html>")
+    args = argparse.Namespace(
+        file=listing, source_url="https://example.test/list", snapshot_date=None
+    )
+    run_import_rosfinmonitoring(args, SessionContext(session_factory))
+
+    # No check ran, only the import: the new entry's owner is marked all the same.
+    assert _snapshots(session_factory) == 2
+    assert _levels(session_factory)["Пётр Сидоров"] == ["name"]
 
 
 def test_a_changed_list_is_a_new_snapshot_and_the_check_uses_it(
