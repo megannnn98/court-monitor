@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from pathlib import Path
 
 import httpx
@@ -13,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.cli_context import SessionContext
 
+import cli.rosfinmonitoring as cli_rosfinmonitoring
 from analysis.rosfinmonitoring.download import ListPage
 from analysis.rosfinmonitoring.inclusion_dates import (
     InclusionDates,
@@ -652,25 +654,89 @@ def test_a_fresh_list_becomes_a_snapshot_and_the_entities_are_matched_by_name(
     assert _levels(session_factory) == {"Абдулла Гасанович Абабакаров": ["full"]}
 
 
-def test_a_snapshot_imported_by_hand_marks_the_entities_already_in_our_base(
-    session_factory: sessionmaker[Session], tmp_path: Path
+def _import_by_hand(
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+    path: Path,
+    persons: str,
 ) -> None:
-    _entities(session_factory, *PEOPLE)
-    EntityRfCheck(session_factory, download=_page).run()
-    assert "Пётр Сидоров" not in _levels(session_factory)
-
-    listing = tmp_path / "list.html"
+    """`import-rosfinmonitoring` with the sources of the days of inclusion stood in for,
+    the way the check is given them: the command's own check would reach the network."""
     # The importer takes a file for HTML only when it opens like a page.
-    changed = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
-    listing.write_bytes(b"<!doctype html><html><body>" + _page(changed) + b"</body></html>")
-    args = argparse.Namespace(
-        file=listing, source_url="https://example.test/list", snapshot_date=None
+    path.write_bytes(b"<!doctype html><html><body>" + _page(persons) + b"</body></html>")
+    monkeypatch.setattr(
+        cli_rosfinmonitoring,
+        "EntityRfCheck",
+        partial(EntityRfCheck, inclusion_dates=_inclusion_dates(), operator_table=lambda: None),
     )
+    args = argparse.Namespace(file=path, source_url="https://example.test/list", snapshot_date=None)
     run_import_rosfinmonitoring(args, SessionContext(session_factory))
 
-    # No check ran, only the import: the new entry's owner is marked all the same.
+
+def _check(session_factory: sessionmaker[Session]) -> EntityRfCheck:
+    return EntityRfCheck(
+        session_factory,
+        download=_page,
+        inclusion_dates=_inclusion_dates(),
+        operator_table=lambda: None,
+    )
+
+
+def test_a_snapshot_imported_by_hand_marks_the_entities_already_in_our_base(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _entities(session_factory, *PEOPLE)
+    _check(session_factory).run()
+    assert "Пётр Сидоров" not in _levels(session_factory)
+
+    changed = PERSONS + "<li>3. СИДОРОВ ПЕТР НИКОЛАЕВИЧ*, 01.01.1990 г.р. , Г. ТВЕРЬ;</li>"
+    _import_by_hand(session_factory, monkeypatch, tmp_path / "list.html", changed)
+
+    # Only the import was run by hand; the command matches the entities itself.
     assert _snapshots(session_factory) == 2
     assert _levels(session_factory)["Пётр Сидоров"] == ["name"]
+    with session_factory() as session:
+        matched_snapshot = session.scalar(
+            select(RosfinmonitoringEntryRecord.snapshot_id)
+            .join(
+                EntityGroupRfMatchRecord,
+                EntityGroupRfMatchRecord.entry_id == RosfinmonitoringEntryRecord.id,
+            )
+            .join(EntityGroupRecord, EntityGroupRecord.id == EntityGroupRfMatchRecord.group_id)
+            .where(EntityGroupRecord.name == "Пётр Сидоров")
+        )
+        newest = session.scalar(select(func.max(RosfinmonitoringSnapshotRecord.id)))
+    assert matched_snapshot == newest
+
+
+def test_a_list_cut_short_is_not_imported_by_hand_and_keeps_the_matches(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def people(count: int) -> str:
+        # The first two are the entities of PEOPLE; the rest only make the list long.
+        return PERSONS + "".join(
+            f"<li>{n}. ФАМИЛИЯ{chr(65 + n)} ИМЯ{chr(65 + n)} ОТЧЕСТВО{chr(65 + n)}*, , ;</li>"
+            for n in range(3, count + 1)
+        )
+
+    def page_of_ten() -> bytes:
+        return _page(people(10))
+
+    _entities(session_factory, *PEOPLE)
+    EntityRfCheck(
+        session_factory,
+        download=page_of_ten,
+        inclusion_dates=_inclusion_dates(),
+        operator_table=lambda: None,
+    ).run()
+    before = _levels(session_factory)
+
+    # Eight of ten is under nine tenths of the list in use.
+    with pytest.raises(SystemExit, match="для целого перечня"):
+        _import_by_hand(session_factory, monkeypatch, tmp_path / "list.html", people(8))
+
+    assert _snapshots(session_factory) == 1
+    assert _levels(session_factory) == before
 
 
 def test_a_changed_list_is_a_new_snapshot_and_the_check_uses_it(

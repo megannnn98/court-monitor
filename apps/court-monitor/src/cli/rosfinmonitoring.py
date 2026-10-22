@@ -12,7 +12,8 @@ from analysis.rosfinmonitoring.ingestion import RosfinmonitoringIngestionPipelin
 from analysis.rosfinmonitoring.matcher import RuleBasedRosfinmonitoringMatcher
 from analysis.rosfinmonitoring.matcher_persistence import RosfinMatchPersistence
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence
-from analysis.rosfinmonitoring.rf_check import EntityRfCheck
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck, whole_list_floor
+from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from cli.context import CliContext
 from cli_batches import (
     DEFAULT_WORKERS,
@@ -82,7 +83,14 @@ def run_import_rosfinmonitoring(args: argparse.Namespace, context: CliContext) -
     ingestion = RosfinmonitoringIngestionPipeline(RosfinmonitoringPersistence(session_factory))
     try:
         ingestion_result = ingestion.ingest_from_file(
-            str(args.file), source_url=args.source_url, snapshot_date=snapshot_date
+            str(args.file),
+            source_url=args.source_url,
+            snapshot_date=snapshot_date,
+            # The check below rewrites every match from this file: a page cut short must
+            # not reach it, as it does not reach the cycle.
+            min_entries=whole_list_floor(
+                SqlAlchemyRosfinmonitoringSnapshotLookup(session_factory).latest_imported_snapshot()
+            ),
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
@@ -96,7 +104,8 @@ def run_import_rosfinmonitoring(args: argparse.Namespace, context: CliContext) -
     check = EntityRfCheck(session_factory).match_latest()
     print(
         f"entities matched against snapshot {check.snapshot_id}: "
-        f"{check.full} full, {check.possible} possible, {check.merged} pairs merged"
+        f"{check.full} full, {check.possible} possible, {check.merged} pairs merged, "
+        f"{check.merged_region} by region"
     )
 
 

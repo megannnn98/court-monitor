@@ -51,7 +51,10 @@ from analysis.rosfinmonitoring.operator_table import inclusion_dates as operator
 from analysis.rosfinmonitoring.operator_table import store as store_operator_table
 from analysis.rosfinmonitoring.parser import HtmlRosfinmonitoringParser
 from analysis.rosfinmonitoring.persistence import RosfinmonitoringPersistence, compute_content_hash
-from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
+from analysis.rosfinmonitoring.snapshot_lookup import (
+    RosfinmonitoringSnapshotSummary,
+    SqlAlchemyRosfinmonitoringSnapshotLookup,
+)
 from analysis.storage.models import EntityGroupRfMatchRecord, RosfinmonitoringEntryRecord
 from processing import read as identity_read
 from processing.identity.service import BY_REGION, BY_RF, IdentityService
@@ -118,6 +121,11 @@ def match_level(entity_patronymic: str | None, entry_patronymic: str | None) -> 
 
 # The least a new page may hold of the entries of the snapshot in use.
 WHOLE_LIST_SHARE = 0.9
+
+
+def whole_list_floor(latest: RosfinmonitoringSnapshotSummary | None) -> int:
+    """The fewest entries a new page may hold to be taken for the whole list."""
+    return int(latest.entry_count * WHOLE_LIST_SHARE) if latest else 1
 
 
 class EntityRfCheck:
@@ -297,7 +305,7 @@ class EntityRfCheck:
                 snapshot_date=seen_at,
                 # People leave the list a few at a time: a page with more than a tenth
                 # of the entries gone is a page cut short or dressed as the list.
-                min_entries=int(latest.entry_count * WHOLE_LIST_SHARE) if latest else 1,
+                min_entries=whole_list_floor(latest),
             )
         except ValueError as exc:  # the page parsed to no entries: the site changed
             logger.warning("event=rf_list_unusable error=%s", exc)
