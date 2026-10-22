@@ -98,9 +98,11 @@ class RosfinmonitoringIngestionPipeline:
         file_path: str,
         source_url: str,
         snapshot_date: datetime | None = None,
+        *,
+        min_entries: int = 1,
     ) -> RosfinmonitoringIngestionResult:
         """Ingest Rosfinmonitoring data from a file."""
         with open(file_path, "rb") as f:
             raw_content = f.read()
 
-        return self.ingest(raw_content, source_url, snapshot_date)
+        return self.ingest(raw_content, source_url, snapshot_date, min_entries=min_entries)
