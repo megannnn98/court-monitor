@@ -13,6 +13,7 @@ from processing.identity.collector import EntityCollector
 from processing.identity.disputes import (
     BY_RF,
     DIFFERENT,
+    NAME_PATRONYMIC,
     SAME,
     EntityRef,
     _only_respelled,
@@ -313,3 +314,44 @@ def test_a_clear_pair_merges_by_the_list_but_a_one_letter_guess_waits_for_a_pers
         assert [pair.kind for pair in find_pairs(_refs(session), decided_pairs(session))] == [
             "similar"
         ]
+
+
+def test_a_name_and_a_patronymic_beside_the_same_with_a_surname_is_a_pair_for_a_person() -> None:
+    entities = [
+        ref(1, "максим павлович", "Максим Павлович", 3),
+        ref(2, "максим павлович кисель", "Максим Павлович Кисель", 2),
+        # Another patronymic, and a name with nobody to pair with: no pair.
+        ref(3, "максим петрович кисель", "Максим Петрович Кисель"),
+        ref(4, "василий викторович", "Василий Викторович"),
+    ]
+
+    pairs = find_pairs(entities)
+
+    assert [(pair.kind, pair.left.name, pair.right.name) for pair in pairs] == [
+        (NAME_PATRONYMIC, "Максим Павлович", "Максим Павлович Кисель")
+    ]
+    assert find_pairs(entities, [("максим павлович", "максим павлович кисель")]) == []
+
+
+def test_a_name_and_a_patronymic_is_never_merged_and_does_not_hold_back_a_clear_pair(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with session_factory.begin() as session:
+        bare = _group(session, "максим павлович", "Максим Павлович")
+        full = _group(session, "максим павлович кисель", "Максим Павлович Кисель")
+        # «Максим Кисель» is clearly this full name, and the pair above must not make
+        # either of them «in another pair» — nor merge when a side is on the list.
+        short = _group(session, "максим кисель", "Максим Кисель")
+
+    with session_factory.begin() as session:
+        merged = merge_clear_pairs(session, listed={bare}, downstream=GroupFollowers())
+
+    assert merged == Counter({"region": 1})
+    with session_factory() as session:
+        keys = set(session.scalars(select(EntityGroupRecord.key)))
+        assert "максим павлович" in keys
+        assert len(keys & {"максим павлович кисель", "максим кисель"}) == 1
+        assert [pair.kind for pair in find_pairs(_refs(session), decided_pairs(session))] == [
+            NAME_PATRONYMIC
+        ]
+    assert full != short

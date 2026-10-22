@@ -170,6 +170,7 @@ def test_the_pairs_are_listed_and_decided(session_factory: sessionmaker[Session]
     assert {option["value"]: option["count"] for option in listed["kinds"]} == {
         "all": 2,
         "patronymic": 1,
+        "name_patronymic": 0,
         "similar": 1,
         "region": 0,
     }

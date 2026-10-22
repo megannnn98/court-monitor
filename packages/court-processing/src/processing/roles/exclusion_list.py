@@ -156,7 +156,8 @@ def _possible_duplicates(session: Session, keys: list[str]) -> dict[str, tuple[s
             if mine.key in asked:
                 found.setdefault(mine.key, []).append(other.name)
     for key, names in _name_and_patronymic(session, keys, set(decided)).items():
-        found.setdefault(key, []).extend(names)
+        shown = found.setdefault(key, [])
+        shown.extend(name for name in names if name not in shown)
     return {key: tuple(names) for key, names in found.items()}
 
 
