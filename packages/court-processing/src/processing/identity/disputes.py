@@ -49,6 +49,8 @@ BY_RF = "rf"
 BY_REGION = "region"
 PATRONYMIC = "patronymic"
 SIMILAR = "similar"
+# A given name this long, one letter apart from another, is a spelling of it.
+MIN_SPELLED = 7
 REGION = "region"
 # The stronger of two roles survives a merge.
 _ROLE_RANK = {"figurant": 3, "possible": 2, "mentioned": 1, "unclear": 0}
@@ -80,13 +82,27 @@ def pair_keys(first: str, second: str) -> tuple[str, str]:
 
 def _similar_given(first: str, second: str) -> bool:
     """«лида» and «лидия», «данил» and «данила»: the shorter without its last letter
-    begins the longer, at most two letters longer."""
+    begins the longer, at most two letters longer. Or a long name spelled with one letter
+    changed: «эммануэль» and «эмманюэль»."""
+    return _ending_differs(first, second) or _respelled(first, second)
+
+
+def _ending_differs(first: str, second: str) -> bool:
     short, long = sorted((first, second), key=len)
     return (
         first != second
         and len(short) >= 3
         and len(long) - len(short) <= 2
         and long.startswith(short[:-1])
+    )
+
+
+def _respelled(first: str, second: str) -> bool:
+    """One letter apart in a long name; a guess, so it is never merged without a person."""
+    return (
+        len(first) == len(second)
+        and len(first) >= MIN_SPELLED
+        and sum(a != b for a, b in zip(first, second, strict=True)) == 1
     )
 
 
@@ -405,6 +421,12 @@ def decide(
     return merge_groups(session, groups[0], groups[1], downstream=downstream)
 
 
+def _only_respelled(pair: Pair) -> bool:
+    """A pair found by the one-letter rule alone: left for a person."""
+    first, second = (_words(ref.key)[0] for ref in (pair.left, pair.right))
+    return not _ending_differs(first, second)
+
+
 def merge_clear_pairs(
     session: Session, *, listed: Collection[int], downstream: IdentityDownstream
 ) -> Counter[str]:
@@ -433,6 +455,8 @@ def merge_clear_pairs(
     merged: Counter[str] = Counter()
     for pair in pairs:
         if seen[pair.left.id] > 1 or seen[pair.right.id] > 1:
+            continue
+        if pair.kind == SIMILAR and _only_respelled(pair):
             continue
         if pair.left.id in listed or pair.right.id in listed:
             source = BY_RF

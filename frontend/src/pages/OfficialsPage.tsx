@@ -114,6 +114,15 @@ export function OfficialsPage() {
                           <Link className="underline" to={dossierPath(item.key)}>
                             {item.name}
                           </Link>
+                          {item.possible_duplicates?.length ? (
+                            <Link
+                              className="ml-2 rounded border border-amber-500 px-1 text-xs text-amber-700"
+                              to="/review/pairs"
+                              title={`Может быть тем же человеком: ${item.possible_duplicates.join(", ")}. Решение — на странице «Пары».`}
+                            >
+                              возможный дубль
+                            </Link>
+                          ) : null}
                         </TableCell>
                         <TableCell>{item.category}</TableCell>
                         <TableCell className="whitespace-normal text-xs">{item.reason}</TableCell>

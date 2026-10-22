@@ -9,12 +9,14 @@ transaction; the caller commits.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from processing.identity.disputes import EntityRef, decided_pairs, find_pairs
+from processing.identity.grouping import REGION_SEP
 from processing.roles.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
 from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
 
@@ -51,6 +53,8 @@ class Suggestion:
     name: str
     kind: str
     reason: str
+    # The names of the other entities that may be this person spelled otherwise.
+    possible_duplicates: tuple[str, ...] = ()
 
 
 def _official(record: ExcludedPersonRecord) -> Official:
@@ -121,7 +125,36 @@ def suggestions(session: Session, *, limit: int) -> list[Suggestion]:
         found.append(
             Suggestion(keys[role.group_id], names[role.group_id], role.kind or "", role.reason)
         )
-    return sorted(found, key=lambda item: (item.kind, item.name))[:limit]
+    shown = sorted(found, key=lambda item: (item.kind, item.name))[:limit]
+    duplicates = _possible_duplicates(session, [item.key for item in shown])
+    return [replace(item, possible_duplicates=duplicates.get(item.key, ())) for item in shown]
+
+
+def _possible_duplicates(session: Session, keys: list[str]) -> dict[str, tuple[str, ...]]:
+    """For each key, the names of the entities of the same surname that the pair review
+    would offer as the same person; a pair decided there is not offered."""
+    if not keys:
+        return {}
+    surnames = {key.split(REGION_SEP)[0].split()[-1] for key in keys}
+    refs = [
+        EntityRef(id=row.id, key=row.key, name=row.name, mention_count=row.mention_count)
+        for row in session.execute(
+            select(
+                EntityGroupRecord.id,
+                EntityGroupRecord.key,
+                EntityGroupRecord.name,
+                EntityGroupRecord.mention_count,
+            )
+        )
+        if row.key.split(REGION_SEP)[0].split()[-1] in surnames
+    ]
+    asked = set(keys)
+    found: dict[str, list[str]] = {}
+    for pair in find_pairs(refs, decided_pairs(session)):
+        for mine, other in ((pair.left, pair.right), (pair.right, pair.left)):
+            if mine.key in asked:
+                found.setdefault(mine.key, []).append(other.name)
+    return {key: tuple(names) for key, names in found.items()}
 
 
 def _normalized(name: str) -> str:
