@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.group_followers import GroupFollowers
@@ -67,6 +68,9 @@ INSERT_CHUNK = 5_000
 INCLUSION_TIMEOUT_SECONDS = 120.0
 FULL = "full"
 NAME = "name"
+# Held for the whole of a check: the cycle, `check-rosfinmonitoring` and the import by hand
+# all rewrite the same matches.
+CHECK_LOCK_KEY = "entities:rf_check"
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,17 @@ def whole_list_floor(latest: RosfinmonitoringSnapshotSummary | None) -> int:
     return int(latest.entry_count * WHOLE_LIST_SHARE) if latest else 1
 
 
+@contextmanager
+def exclusive_check(session_factory: sessionmaker[Session]) -> Iterator[None]:
+    """One check at a time; a second waits. Transaction-level, so it is released with the
+    session on any exit, a crash of the process included."""
+    with session_factory() as lock_session:
+        lock_session.execute(
+            select(func.pg_advisory_xact_lock(func.hashtextextended(CHECK_LOCK_KEY, 0)))
+        )
+        yield
+
+
 class EntityRfCheck:
     def __init__(
         self,
@@ -156,6 +171,12 @@ class EntityRfCheck:
         return self._match(None, False)
 
     def _match(self, download_error: str | None, new_snapshot: bool) -> RfCheckResult:
+        # The snapshot is chosen, the groups read and the matches written under one lock:
+        # a check that read before another wrote would write what that one already replaced.
+        with exclusive_check(self._session_factory):
+            return self._match_locked(download_error, new_snapshot)
+
+    def _match_locked(self, download_error: str | None, new_snapshot: bool) -> RfCheckResult:
         lookup = SqlAlchemyRosfinmonitoringSnapshotLookup(self._session_factory)
         latest = lookup.latest_imported_snapshot()
         if latest is None:

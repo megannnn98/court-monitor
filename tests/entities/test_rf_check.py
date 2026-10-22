@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import threading
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -22,7 +24,7 @@ from analysis.rosfinmonitoring.inclusion_dates import (
     normalize_name,
 )
 from analysis.rosfinmonitoring.operator_table import OperatorRow, OperatorTableUnavailable
-from analysis.rosfinmonitoring.rf_check import EntityRfCheck, match_level
+from analysis.rosfinmonitoring.rf_check import EntityRfCheck, exclusive_check, match_level
 from analysis.rosfinmonitoring.snapshot_lookup import SqlAlchemyRosfinmonitoringSnapshotLookup
 from analysis.storage.models import (
     EntityGroupRfMatchRecord,
@@ -654,6 +656,10 @@ def test_a_fresh_list_becomes_a_snapshot_and_the_entities_are_matched_by_name(
     assert _levels(session_factory) == {"Абдулла Гасанович Абабакаров": ["full"]}
 
 
+# The sources of the days of inclusion stood in for: a check reaches the network otherwise.
+_OFFLINE: dict[str, Any] = {"inclusion_dates": _inclusion_dates(), "operator_table": lambda: None}
+
+
 def _import_by_hand(
     session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,
@@ -674,12 +680,7 @@ def _import_by_hand(
 
 
 def _check(session_factory: sessionmaker[Session]) -> EntityRfCheck:
-    return EntityRfCheck(
-        session_factory,
-        download=_page,
-        inclusion_dates=_inclusion_dates(),
-        operator_table=lambda: None,
-    )
+    return EntityRfCheck(session_factory, download=_page, **_OFFLINE)
 
 
 def test_a_snapshot_imported_by_hand_marks_the_entities_already_in_our_base(
@@ -737,6 +738,23 @@ def test_a_list_cut_short_is_not_imported_by_hand_and_keeps_the_matches(
 
     assert _snapshots(session_factory) == 1
     assert _levels(session_factory) == before
+
+
+def test_a_second_check_waits_for_the_first(session_factory: sessionmaker[Session]) -> None:
+    """The cycle and the import by hand rewrite the same matches: a check that read before
+    the other wrote would write what the other already replaced."""
+    _entities(session_factory, *PEOPLE)
+    EntityRfCheck(session_factory, download=_page, **_OFFLINE).run()
+
+    second = threading.Thread(
+        target=lambda: EntityRfCheck(session_factory, **_OFFLINE).match_latest()
+    )
+    with exclusive_check(session_factory):
+        second.start()
+        second.join(timeout=1.0)
+        assert second.is_alive()
+    second.join(timeout=30.0)
+    assert not second.is_alive()
 
 
 def test_a_changed_list_is_a_new_snapshot_and_the_check_uses_it(
