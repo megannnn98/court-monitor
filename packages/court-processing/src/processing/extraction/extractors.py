@@ -221,6 +221,17 @@ def _trim_second_person(text: str, start: int, end: int, morphology: NameMorphol
         and _NEXT_NAME.match(text[end:]) is not None
     ):
         return start + words[1].end()
+    # «хабаровского губернатора Сергея Фургала Чихунов анонсировал»: a man's given name in an
+    # oblique case cannot be followed by his own surname in the nominative. The surname in
+    # the nominative begins the next person; «Сергея Фургала Чихунова» is one name.
+    if (
+        len(words) == 3
+        and not any(morphology.is_patronymic(word.group(0)) for word in words)
+        and morphology.is_oblique(words[0].group(0))
+        and morphology.certain_gender(words[0].group(0)) == "masc"
+        and morphology.surname_gender(words[2].group(0)) == "masc"
+    ):
+        return start + words[1].end()
     return end
 
 
@@ -386,7 +397,10 @@ class RuleBasedEntityExtractor:
     # 1.5.0: an unfamiliar word before a patronymic, or before «given name, patronymic», is
     # part of the name («Мемет Решатович Белялов», «Ярош Сергей Васильевич»); a registry
     # card's person is its title.
-    extractor_version = "1.5.0"
+    # 1.6.0: «Сергея Фургала Чихунов» is two people (a masculine given name in an oblique
+    # case, then a masculine surname in the nominative); a rare given name is counted in a
+    # run of capitalized words («Дональда Трампа Джареда Кушнера»).
+    extractor_version = "1.6.0"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -472,11 +486,15 @@ class RuleBasedEntityExtractor:
     ) -> list[RawMention]:
         occupied_spans = list(occupied)
         spans: list[tuple[int, int]] = []
+        # Where a span was cut because another person starts there: no name crosses it.
+        boundaries: set[int] = set()
         for pattern in _PERSON_PATTERNS:
             for match in pattern.finditer(text):
                 match_end = match.end(1)
                 start = _trim_leading_non_name(text, match.start(1), match_end, self._morphology)
                 span_end = _trim_second_person(text, start, match_end, self._morphology)
+                if span_end < match_end:
+                    boundaries.add(span_end)
                 surface = text[start:span_end]
                 if len(surface.split()) < 2 and not re.search(_INITIALS, surface):
                     continue
@@ -493,6 +511,12 @@ class RuleBasedEntityExtractor:
                 if not self._is_plausible_full_name(text, start, span_end):
                     continue
                 spans.append((start, span_end))
+
+        spans = [
+            span
+            for span in spans
+            if not any(span[0] < boundary < span[1] for boundary in boundaries)
+        ]
 
         # Overlapping readings of one name («Ольга Иванова» and «Ольга Иванова Петровна»):
         # keep the one with the most name words, then the longest. By length alone
@@ -590,10 +614,12 @@ class RuleBasedEntityExtractor:
         if len(words) < 3 or any(self._morphology.is_patronymic(word) for word in words):
             return True
         # Only name words count: «Задержали Дон Виктор Кирман» is one name after a verb.
+        # A word the dictionary does not know («Джареда») may be a name: only a known
+        # non-name leaves the run.
         run = [
             word
             for word in _capitalized_run(text, start, end)
-            if self._morphology.is_name_word(word)
+            if not self._morphology.is_known_non_name(word)
         ]
         return len(run) < 4
 
