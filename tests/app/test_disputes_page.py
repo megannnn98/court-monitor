@@ -177,3 +177,24 @@ def test_a_pair_with_a_listed_side_left_to_a_person_says_why(
     assert "«Попов Денис» подходит сразу к нескольким людям" in page
     # The card's region, as the card wrote it, tells namesakes of one full name apart.
     assert "«Попов Денис Владимирович» (Курская область), «Попов Денис Александрович»" in page
+
+
+def test_a_name_and_a_patronymic_is_not_the_reason_a_clear_pair_waits(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«максим кисель» is clearly «максим павлович кисель»: the check merges it. The bare
+    «максим павлович» is a pair for a person, and is not said to hold the clear one back."""
+    _entities(
+        session_factory,
+        ("максим павлович", "Максим Павлович", 3),
+        ("максим павлович кисель", "Максим Павлович Кисель", 2),
+        ("максим кисель", "Максим Кисель", 1),
+    )
+
+    with _client(session_factory) as client:
+        page = client.get("/ui/disputes").text
+        own = client.get("/ui/pairs?kind=name_patronymic").text
+
+    assert "Нерешённых пар: 2." in page
+    assert "Не слито автоматически" not in page
+    assert "Нерешённых пар: 1." in own and "Максим Павлович" in own

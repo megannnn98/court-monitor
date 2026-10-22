@@ -19,6 +19,7 @@ from analysis.rosfinmonitoring.rf_check import FULL
 from application import build_identity_commands
 from processing.identity.service import (
     DIFFERENT,
+    NAME_PATRONYMIC,
     PATRONYMIC,
     REGION,
     SAME,
@@ -47,11 +48,13 @@ PAGE_SIZE = 50
 KINDS = {
     "all": "Все",
     PATRONYMIC: "С отчеством и без",
+    NAME_PATRONYMIC: "Имя и отчество",
     SIMILAR: "Похожее имя",
     REGION: "Регион у одной",
 }
 KIND_HINTS = {
     PATRONYMIC: "одно имя и фамилия, у одной сущности есть отчество, у другой нет",
+    NAME_PATRONYMIC: "имя и отчество без фамилии и то же с фамилией: решает человек, сами не сливаются",
     SIMILAR: "одна фамилия, имена отличаются окончанием («Лида» и «Лидия»)",
     REGION: "одно ФИО с отчеством; у одной сущности регион из карточки реестра, у другой нет",
 }
@@ -102,7 +105,8 @@ def read_pairs(db: Session, *, kind: str, page: int, key: str = "") -> PairPage:
     if key:
         pairs.sort(key=lambda pair: key not in pair.keys)
     counts = {
-        name: sum(pair.kind == name for pair in pairs) for name in (PATRONYMIC, SIMILAR, REGION)
+        name: sum(pair.kind == name for pair in pairs)
+        for name in (PATRONYMIC, NAME_PATRONYMIC, SIMILAR, REGION)
     }
     shown = [pair for pair in pairs if kind == "all" or pair.kind == kind]
     on_page = shown[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
@@ -138,7 +142,7 @@ def legacy_disputes(request: Request) -> RedirectResponse:
 
 @router.get("/ui/pairs", response_class=HTMLResponse)
 def ui_disputes(
-    kind: str = Query(default="all", pattern="^(all|patronymic|similar|region)$"),
+    kind: str = Query(default="all", pattern="^(all|patronymic|name_patronymic|similar|region)$"),
     page: int = Query(default=1, ge=1),
     reset: int | None = Query(default=None, ge=0),
     key: str = Query(default="", max_length=300),
@@ -218,6 +222,9 @@ def _why_not_merged(db: Session, pairs: list[Pair]) -> dict[tuple[str, str], str
     """Why a pair was left to a person: a side could be any of several people (the check
     merges a pair only when it is the one)."""
     listed = {group_id for group_id, levels in list_levels(db).items() if FULL in levels}
+    # The check leaves a name and a patronymic to a person and does not count it: nor do the
+    # notes, or a clear pair would be said to wait for a choice it does not need.
+    pairs = [pair for pair in pairs if pair.kind != NAME_PATRONYMIC]
     partners: dict[int, list[EntityRef]] = {}
     for pair in pairs:
         partners.setdefault(pair.left.id, []).append(pair.right)

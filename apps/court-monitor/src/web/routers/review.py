@@ -112,7 +112,7 @@ def _side(entity: Group, data: PairPage) -> PairSideResponse:
 
 @router.get("/review/pairs", response_model=PairListResponse)
 def list_pairs(
-    kind: str = Query(default="all", pattern="^(all|patronymic|similar|region)$"),
+    kind: str = Query(default="all", pattern="^(all|patronymic|name_patronymic|similar|region)$"),
     page: int = Query(default=1, ge=1),
     key: str = Query(default="", max_length=300),
     db: Session = Depends(get_db),  # noqa: B008

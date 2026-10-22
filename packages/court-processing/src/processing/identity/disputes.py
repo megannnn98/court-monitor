@@ -49,6 +49,10 @@ BY_RF = "rf"
 BY_REGION = "region"
 PATRONYMIC = "patronymic"
 SIMILAR = "similar"
+# «Максим Павлович» and «Максим Павлович Кисель»: the first has a patronymic where a
+# surname stands. A name and a patronymic alone are any number of people, so this pair is
+# only ever settled by a person.
+NAME_PATRONYMIC = "name_patronymic"
 # A given name this long, one letter apart from another, is a spelling of it.
 MIN_SPELLED = 7
 REGION = "region"
@@ -182,10 +186,27 @@ def find_pairs(
         by_name[words[0], words[-1]].append(entity)
         by_surname[words[-1]].append(entity)
     pairs: list[Pair] = []
+    by_first_two: dict[tuple[str, str], list[EntityRef]] = defaultdict(list)
+    for entity in entities:
+        words = _words(entity.key)
+        if len(words) >= 2:
+            by_first_two[words[0], words[1]].append(entity)
+    for group in by_first_two.values():
+        bare = [entity for entity in group if len(_words(entity.key)) == 2]
+        full = [entity for entity in group if len(_words(entity.key)) > 2]
+        pairs += [Pair(NAME_PATRONYMIC, left, right) for left in bare for right in full]
+    # «максим павлович» and «максим павлович павлович» are both: the pair for a person only
+    # takes the pair, or the older rule would merge it by itself.
+    for_a_person = {pair.keys for pair in pairs}
     for group in by_name.values():
         bare = [entity for entity in group if len(_words(entity.key)) == 2]
         full = [entity for entity in group if len(_words(entity.key)) > 2]
-        pairs += [Pair(PATRONYMIC, left, right) for left in bare for right in full]
+        pairs += [
+            pair
+            for left in bare
+            for right in full
+            if (pair := Pair(PATRONYMIC, left, right)).keys not in for_a_person
+        ]
         # One full name, a card's region on one side only: the news may name either card.
         pairs += [
             Pair(REGION, left, right)
@@ -451,6 +472,9 @@ def merge_clear_pairs(
         ).all()
     ]
     pairs = find_pairs(refs, decided_pairs(session))
+    # A name and a patronymic is a pair for a person only: it neither merges nor makes the
+    # pairs of its sides «not clear».
+    pairs = [pair for pair in pairs if pair.kind != NAME_PATRONYMIC]
     seen = Counter(ref.id for pair in pairs for ref in (pair.left, pair.right))
     merged: Counter[str] = Counter()
     for pair in pairs:

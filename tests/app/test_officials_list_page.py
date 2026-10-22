@@ -407,3 +407,32 @@ def test_a_name_with_a_patronymic_and_the_same_with_a_surname_are_named_to_each_
         "Василий Викторович": [],
     }
     assert [row["possible_duplicates"] for row in after] == [[], [], [], []]
+
+
+def test_a_decision_made_before_the_surname_was_cut_another_way_still_removes_the_mark(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«навальный» became «навальн»: the pair review reads the old decision in today's keys,
+    and so must the mark beside the suggestion."""
+    for key, name in (
+        ("максим павлович", "Максим Павлович"),
+        ("максим павлович навальн", "Максим Павлович Навальн"),
+    ):
+        _entity(session_factory, key, name)
+        _role(session_factory, key, "judge", "model")
+
+    with _client(session_factory) as client:
+        before = client.get("/api/v1/officials").json()["suggestions"]
+        with session_factory.begin() as session:
+            session.add(
+                EntityPairDecisionRecord(
+                    key_a="максим павлович",
+                    key_b="максим павлович навальный",
+                    decision="different",
+                    source="manual",
+                )
+            )
+        after = client.get("/api/v1/officials").json()["suggestions"]
+
+    assert [row["possible_duplicates"] for row in before] != [[], []]
+    assert [row["possible_duplicates"] for row in after] == [[], []]

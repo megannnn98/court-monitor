@@ -15,7 +15,13 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from processing.identity.disputes import EntityRef, decided_pairs, find_pairs, pair_keys
+from processing.identity.disputes import (
+    EntityRef,
+    decided_pairs,
+    find_pairs,
+    pair_keys,
+    resolve_keys,
+)
 from processing.identity.grouping import REGION_SEP
 from processing.roles.officials import OFFICIAL_KINDS, official_entity_ids, official_marks
 from processing.storage.models import EntityGroupRecord, EntityGroupRoleRecord, ExcludedPersonRecord
@@ -155,8 +161,12 @@ def _possible_duplicates(session: Session, keys: list[str]) -> dict[str, tuple[s
         for mine, other in ((pair.left, pair.right), (pair.right, pair.left)):
             if mine.key in asked:
                 found.setdefault(mine.key, []).append(other.name)
-    for key, names in _name_and_patronymic(session, keys, set(decided)).items():
-        found.setdefault(key, []).extend(names)
+    # Today's keys, as `find_pairs` reads them: a decision made before a surname was cut
+    # another way still holds.
+    today = set(resolve_keys(decided, session.scalars(select(EntityGroupRecord.key))))
+    for key, names in _name_and_patronymic(session, keys, today).items():
+        shown = found.setdefault(key, [])
+        shown.extend(name for name in names if name not in shown)
     return {key: tuple(names) for key, names in found.items()}
 
 

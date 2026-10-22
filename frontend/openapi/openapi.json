@@ -1704,7 +1704,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^(all|patronymic|similar|region)$",
+              "pattern": "^(all|patronymic|name_patronymic|similar|region)$",
               "default": "all",
               "title": "Kind"
             }
