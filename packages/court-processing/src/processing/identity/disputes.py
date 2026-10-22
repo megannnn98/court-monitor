@@ -195,10 +195,18 @@ def find_pairs(
         bare = [entity for entity in group if len(_words(entity.key)) == 2]
         full = [entity for entity in group if len(_words(entity.key)) > 2]
         pairs += [Pair(NAME_PATRONYMIC, left, right) for left in bare for right in full]
+    # «максим павлович» and «максим павлович павлович» are both: the pair for a person only
+    # takes the pair, or the older rule would merge it by itself.
+    for_a_person = {pair.keys for pair in pairs}
     for group in by_name.values():
         bare = [entity for entity in group if len(_words(entity.key)) == 2]
         full = [entity for entity in group if len(_words(entity.key)) > 2]
-        pairs += [Pair(PATRONYMIC, left, right) for left in bare for right in full]
+        pairs += [
+            pair
+            for left in bare
+            for right in full
+            if (pair := Pair(PATRONYMIC, left, right)).keys not in for_a_person
+        ]
         # One full name, a card's region on one side only: the news may name either card.
         pairs += [
             Pair(REGION, left, right)

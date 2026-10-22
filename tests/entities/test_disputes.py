@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
 
@@ -355,3 +355,26 @@ def test_a_name_and_a_patronymic_is_never_merged_and_does_not_hold_back_a_clear_
             NAME_PATRONYMIC
         ]
     assert full != short
+
+
+def test_one_pair_of_keys_is_a_pair_for_a_person_only_once_and_is_never_merged(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """«максим павлович» beside «максим павлович павлович» is found by the first two words
+    and by the first and the last: it is one pair, and the one a person settles."""
+    entities = [
+        ref(1, "максим павлович", "Максим Павлович"),
+        ref(2, "максим павлович павлович", "Максим Павлович Павлович"),
+    ]
+    assert [pair.kind for pair in find_pairs(entities)] == [NAME_PATRONYMIC]
+
+    with session_factory.begin() as session:
+        bare = _group(session, "максим павлович", "Максим Павлович")
+        _group(session, "максим павлович павлович", "Максим Павлович Павлович")
+    for listed in (set(), {bare}):
+        with session_factory.begin() as session:
+            assert (
+                merge_clear_pairs(session, listed=listed, downstream=GroupFollowers()) == Counter()
+            )
+    with session_factory() as session:
+        assert session.scalar(select(func.count(EntityGroupRecord.id))) == 2

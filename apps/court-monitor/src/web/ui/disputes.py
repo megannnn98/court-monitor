@@ -222,6 +222,9 @@ def _why_not_merged(db: Session, pairs: list[Pair]) -> dict[tuple[str, str], str
     """Why a pair was left to a person: a side could be any of several people (the check
     merges a pair only when it is the one)."""
     listed = {group_id for group_id, levels in list_levels(db).items() if FULL in levels}
+    # The check leaves a name and a patronymic to a person and does not count it: nor do the
+    # notes, or a clear pair would be said to wait for a choice it does not need.
+    pairs = [pair for pair in pairs if pair.kind != NAME_PATRONYMIC]
     partners: dict[int, list[EntityRef]] = {}
     for pair in pairs:
         partners.setdefault(pair.left.id, []).append(pair.right)
