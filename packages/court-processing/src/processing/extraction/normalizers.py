@@ -161,11 +161,7 @@ def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None
     if len(words) in (2, 3) and not _reads_as_given_name(words[0]):
         if len(words) == 2 and (match := _SURNAME_INITIALS.fullmatch(words[1])):
             return match.group(1), words[0], match.group(2)
-        if (
-            len(words) == 3
-            and _INITIAL.fullmatch(words[1])
-            and _INITIAL.fullmatch(words[2])
-        ):
+        if len(words) == 3 and _INITIAL.fullmatch(words[1]) and _INITIAL.fullmatch(words[2]):
             return words[1], words[0], words[2]
     if len(words) == 1:
         return None, words[0], None
