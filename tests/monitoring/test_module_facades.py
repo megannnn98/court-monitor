@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import (
+    IVANOV,
     PETROV,
     SIDOROV,
     FakeUpstream,
@@ -26,6 +27,8 @@ from application import build_ingestion_service, build_processing_service
 from ingestion.service import IngestionService, SkipReason
 from orchestrator.models import MonitoringRunStatus
 from processing.extraction.models import ExtractionRunStatus
+from processing.extraction.pending import SqlAlchemyPendingExtraction
+from processing.extraction.pipeline import ExtractionVersions
 from processing.storage.models import ArticleExtractionRunRecord
 
 SOURCE = "ovd-info"
@@ -189,3 +192,38 @@ def test_a_run_of_an_older_version_is_not_pending_extraction(
             run.normalizer_version = "0.0.1"
 
     assert processing.articles_pending_extraction(source_base_url=source.base_url) == []
+
+
+def test_a_failed_run_is_retried_by_a_new_version_but_not_by_the_same_one(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    upstream.publish("petrov", PETROV)
+    upstream.publish("ivanov", IVANOV)
+    source = fake_source(SOURCE, upstream)
+    ingestion = build_ingestion_service(
+        session_factory, sources={SOURCE: source}, create_fetcher=UnusedFetcher
+    )
+    processing = build_processing_service(session_factory)
+    old_failed, old_succeeded, current_failed = _ingest_everything(ingestion)
+    for article_id in (old_failed, old_succeeded, current_failed):
+        processing.extract_article(article_id)
+
+    with session_factory.begin() as session:
+        runs = {run.article_id: run for run in session.scalars(select(ArticleExtractionRunRecord))}
+        versions = ExtractionVersions(
+            runs[old_failed].extractor_name,
+            runs[old_failed].extractor_version,
+            runs[old_failed].normalizer_version,
+        )
+        for article_id in (old_failed, old_succeeded):
+            runs[article_id].extractor_version = "0.0.1"
+        runs[old_failed].status = ExtractionRunStatus.FAILED.value
+        runs[current_failed].status = ExtractionRunStatus.FAILED.value
+
+    pending = SqlAlchemyPendingExtraction(session_factory).articles_pending_extraction(
+        source_base_url=source.base_url, versions=versions
+    )
+
+    assert pending == [old_failed]
