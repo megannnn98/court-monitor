@@ -144,7 +144,9 @@ def plan_reprocessing(
         ),
     ]
     if without_text:
-        warnings.append(f"{without_text} selected articles have no text and will fail")
+        warnings.append(
+            f"{without_text} selected articles have no text: they get a run with no mentions"
+        )
     if article_ids is not None and len(chosen) < len(set(article_ids)):
         warnings.append("some of the article ids are unknown or already extracted")
     return ReprocessingPlan(

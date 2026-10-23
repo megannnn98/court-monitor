@@ -17,7 +17,7 @@ The running code behind the live database is older than main: the latest run of 
 
 ## 2. What changes
 
-PR 1 (`fix/person-extraction-and-safe-reprocessing`, two commits):
+PR 1 (`fix/person-extraction-and-safe-reprocessing`, three commits):
 
 - `processing/extraction/extractors.py`: extractor 1.7.1 reads «Фамилия И.О.» («Бастрыкин А.И.»,
   «Иванов-Петров А.Б.», «Виталия Л.») and skips streets and institutions («ул. Ленина В.И.»).
@@ -25,15 +25,17 @@ PR 1 (`fix/person-extraction-and-safe-reprocessing`, two commits):
   (at least two full tokens). A name that fails it goes to REVIEW with or without candidates and never
   creates a canonical person. Within-article coreference and AUTO_LINK are untouched. The AI reviewer
   uses the same test; a manual `CREATE_NEW_PERSON` stays a human decision.
-- `processing/extraction/pending.py`: the gate. Monitoring extracts an article only if no run of the
-  extractor exists in any version. A version bump no longer queues the stored corpus.
+- `processing/extraction/pending.py`: the gate. Monitoring skips an article that has a succeeded run of the
+  extractor in any version, or a run (any status) of the current versions. A version bump no longer queues
+  the stored corpus; an article whose only run failed under an older version is retried by the new one.
 
-PR 2 (separate branch from main, not yet cut):
+PR 2 (two commits on the same branch, on top of PR 1):
 
 - `processing/extraction/reprocessing.py`: stale-article selection and a read-only plan.
 - `extract-entities --stale [--article-ids ..] [--limit N] [--workers N] [--dry-run]` in the existing CLI.
 - `persons/read.py`: `_newest_linked_run()` in `event_evidence`, `person_stats`, `latest_events`.
-- Tests: `tests/test_reprocessing.py`, one test in `tests/monitoring/test_module_facades.py`.
+- `persons/resolution/pending.py`: monitoring does not resolve a re-extraction of unchanged text.
+- Tests: `tests/test_reprocessing.py`, two tests in `tests/monitoring/test_module_facades.py`.
 
 ## 3. The live database before the change (read-only)
 
@@ -55,13 +57,16 @@ Manual data is keyed by name keys, not by mention ids, so a new run does not orp
 
 ## 4. Consequences of a new run (from the code)
 
-1. Old runs, mentions and events are kept: `save` adds a run and never deletes.
+1. Old succeeded runs, mentions and events are kept: `save` adds a run for a new key and returns
+   `skipped_existing` for a succeeded one. It does delete the children of a FAILED run of the same key when
+   that run is retried (`_delete_children`), and it does so without a lock.
 2. `entity_group_mentions` point at the mentions of the latest run. After reprocessing an article, its
    group mentions sit on an older run until the entities are rebuilt. The rebuild (`collect`) asks a paid
    model for names, so it is not part of reprocessing.
 3. The monitoring `resolve` stage takes runs of the current versions with an undecided person mention,
-   except a re-extraction: a run is skipped when an earlier succeeded run of the same article has the same
-   `article_content_hash` (`persons/resolution/pending.py`). New articles and articles refetched with
+   except a re-extraction: a run is skipped when the nearest earlier succeeded run of the same article by the
+   same extractor has the same `article_content_hash` (`persons/resolution/pending.py`). Text that came back
+   after a different one, and the first run of an extractor, are resolved. New articles and articles refetched with
    changed text resolve as before. Resolving re-extracted runs is an explicit step (`resolve-people`,
    section 8) after a quality check.
 4. Person cards read events through every run. Without a filter, a person linked in both the old and the
@@ -119,43 +124,67 @@ human GOLD labelling.
 
 1. **ER v2 on reprocessed runs creates persons in bulk**: 651 new persons from 500 articles. The live
    database has 18 because ER v2 was never run over the corpus. Mitigated: monitoring skips re-extractions of
-   unchanged text (see section 4, item 3), so `extract-entities --stale` alone creates no persons. The risk
-   returns only if someone runs `resolve-people` over the reprocessed runs: do that after the check in step 5.
+   unchanged text (see section 4, item 3), so `extract-entities --stale` alone creates no persons for them. The
+   guarantee covers unchanged text only: an article first extracted by monitoring, or refetched with changed
+   text, is resolved by the `resolve` stage as before. The risk returns if someone runs `resolve-people` over
+   the reprocessed runs: do that after the check in step 5.
    Under the new policy none of them comes from an incomplete name (58 went to REVIEW instead).
 2. **Groups lag**: 1928 group mentions point at older runs after 500 articles. Group readers see old data
    until `collect`, which uses a paid model. Do not run `collect` without a budget decision.
-3. **Gate side effect**: after any later version bump, old articles are not re-extracted by monitoring.
-   Reprocessing is always an explicit command.
+3. **Gate side effect**: after any later version bump, articles with a succeeded run are not re-extracted by
+   monitoring. Reprocessing is always an explicit command. A FAILED run of the current versions is not
+   retried by monitoring either (deterministic for that content and version).
 4. **Shared test database**: `court_monitor_test` in `ebnv-pgvector-test` is migrated by another branch
    (`feat/criminal-case-resolution`, revision `r2e3d4f5a6b7`) and cannot be upgraded from here. Tests ran in
    a private container.
-5. **Deploy order**: the live code is older than main. Deploying main alone starts nothing on the old corpus
-   (gate), but it changes versions, so every new run is under `1.7.1+1.12.0 / 1.8.0`.
+5. **Deploy order**: the live code is older than main (runs `1.5.0+1.12.0 / 1.7.0`), and main (9f5eb70e,
+   extractor 1.6.0) has no gate: its pending query needs an exact version match, so deploying main alone queues
+   the whole stored corpus for extraction. Deploy this branch as a whole (gate and option C) before the first
+   monitoring run on the new code, and take monitoring off until then. Without option C, those new runs go to
+   ER v2 and create persons in bulk (risk 1).
+6. **`--stale` ignores the current text**: stale means no succeeded run of the current versions. If the stored
+   text changed after such a run, the article is not stale; monitoring handles a refetch.
+7. **Failed articles**: a failed run of the current versions stays stale, so the command exits with 1 after
+   its report. A persistent failure with a small id holds the front of every `--limit` batch; fix the cause or
+   go past it with `--article-ids`.
+8. **Concurrent runs**: `save` is SELECT then INSERT, and the unique key turns a race into `IntegrityError`.
+   That is an old property, not new here, but it aborts the chunk (the whole run with one worker). Do not run
+   monitoring and `--stale`, or two `--stale` runs, at the same time. Making `save` safe is a separate task.
+9. **`resolve-people --limit N`** takes the first N articles by id every time and does not advance through
+   the pending runs: for a stepwise resolve use `--article-id` in a loop over chosen ids.
 
 ## 7. Tests
 
-- `court-processing/tests`: 325 passed. With the database (`tests/persons`, `tests/extraction`,
-  `tests/monitoring`, `tests/test_cli_batches.py`, `court-processing/tests`): 816 passed.
-- New: `tests/test_reprocessing.py` (6), `test_module_facades.py` (+1), `test_incomplete_person_names.py`,
-  `test_surname_with_initials.py`.
-- Mutations caught: removing `_newest_linked_run()` fails the double-count test; restoring the version
-  query in `pending.py` fails the gate test.
-- ruff clean; mypy clean on `court-processing/src`; on `apps/` and tests the same six pre-existing
-  stub errors (`observability`, `application`, `cli_batches`) as on main.
-- The full suite was not run (it has crashed the workstation before).
+Run on 2026-10-23 in a private container with the migrated schema (`reprocess-pg`):
+
+- `tests/test_reprocessing.py` (12), `tests/test_cli_batches.py`, `tests/persons`, `tests/monitoring`,
+  `tests/extraction`, `tests/app`, `packages/court-processing/tests`: 1536 passed on the final branch.
+- Mutations caught: removing `_newest_linked_run()` (double count); restoring the exact-version query in
+  `processing/extraction/pending.py`; removing the failed/older-version rule there; comparing with any
+  earlier hash instead of the nearest earlier run; dropping `status = 'succeeded'` in the stale query;
+  dropping the exit code 1. The `latest_events` test only guards that a single old link stays visible: it
+  cannot tell the filter from no filter.
+- ruff clean. mypy on `packages/court-processing/src` and `apps/court-monitor/src/cli`: 3 `import-untyped`
+  errors (libraries without stubs), none in changed code.
+- Not run: the full suite (it has crashed the workstation before), `tests/entities`, `tests/evaluation`,
+  the other test directories, and any test against the live schema. The race in `save` has no test.
 
 ## 8. Safe run (runbook)
 
+0. Deploy this branch as a whole before anything else (risk 5). Stop monitoring and do not start a second
+   `extract-entities` while a batch runs (risk 8).
 1. Back up: `scripts/backup_db.sh` (the daily timer also does it) and check the file restores.
 2. `uv run python -m main extract-entities --stale --dry-run --limit 100` and read `stale_articles_total`,
-   `selected_without_text`, `warnings`. It writes nothing.
-3. Nothing to stop: monitoring does not resolve re-extractions of unchanged text (risk 1). Resolving them
-   is a separate decision after step 5 (`resolve-people --limit N`, one worker).
-4. `uv run python -m main extract-entities --stale --limit 20`, then 100, then 500. One worker. Watch
+   `selected_without_text` (such articles get a run with no mentions), `warnings`. It writes nothing.
+3. `uv run python -m main extract-entities --stale --limit 20`, then 100, then 500. One worker. Watch
    `event=reprocess_batch_done` in the log and `stale articles left`. A failed chunk stops the run; run again
-   to continue.
-5. Check: `group_mentions_on_older_runs` rose as expected, person cards show one publication once, manual
-   tables unchanged.
+   to continue. If the command exits with 1, an article failed: read `failures`, fix the cause, or go past
+   it with `--article-ids` (risk 7). Keep monitoring off until the check in step 4 is done.
+4. Check: `group_mentions_on_older_runs` rose as expected, person cards show one publication once, manual
+   tables unchanged, no persons were created by the batch.
+5. Resolving the reprocessed runs is a separate decision after step 4: `resolve-people --article-id N`
+   per chosen article, or `--limit N` knowing it always starts from the lowest ids (risk 9). Then switch
+   monitoring on.
 6. Do not run `collect`, the AI reviewer or any paid stage without separate approval.
 
 ## 9. Rollback
