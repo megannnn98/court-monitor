@@ -155,6 +155,14 @@ def test_surname_initials_matching_key_ignores_spaces() -> None:
     assert data_compact.matching_key == data_spaced.matching_key == "бастрыкинаи"
 
 
-def test_given_name_followed_by_initial_is_not_assumed_surname() -> None:
-    _, data = NORMALIZER.normalize_person("Виталия Л.")
-    assert data.last_name != "Виталия"
+@pytest.mark.parametrize(
+    "words",
+    [
+        ["Виталия", "Л."],
+        ["Мартин", "А.И."],
+    ],
+)
+def test_known_given_name_before_initial_remains_ambiguous(words: list[str]) -> None:
+    # A single initial is insufficient evidence to reinterpret a known given name
+    # as a surname. This deliberately leaves some ambiguous surnames unresolved.
+    assert name_parts(words) == (words[0], words[1], None)
