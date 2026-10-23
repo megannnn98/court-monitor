@@ -22,8 +22,9 @@ PR 1 (`fix/person-extraction-and-safe-reprocessing`, three commits):
 - `processing/extraction/extractors.py`: extractor 1.7.1 reads «Фамилия И.О.» («Бастрыкин А.И.»,
   «Иванов-Петров А.Б.», «Виталия Л.») and skips streets and institutions («ул. Ленина В.И.»).
 - `persons/resolution/{decision,models,normalizer,ai_context}.py`: one test, `has_full_identity`
-  (at least two full tokens). A name that fails it goes to REVIEW with or without candidates and never
-  creates a canonical person. Within-article coreference and AUTO_LINK are untouched. The AI reviewer
+  (at least two full tokens). A name that fails it never automatically creates a canonical person;
+  without a permitted link it goes to REVIEW, with or without candidates. Within-article coreference
+  (including AUTO_LINK for a bare surname) is untouched. The AI reviewer
   uses the same test; a manual `CREATE_NEW_PERSON` stays a human decision.
 - `processing/extraction/pending.py`: the gate. Monitoring skips an article that has a succeeded run of the
   extractor in any version, or a run (any status) of the current versions. A version bump no longer queues
@@ -127,7 +128,7 @@ human GOLD labelling.
    unchanged text (see section 4, item 3), so `extract-entities --stale` alone creates no persons for them. The
    guarantee covers unchanged text only: an article first extracted by monitoring, or refetched with changed
    text, is resolved by the `resolve` stage as before. The risk returns if someone runs `resolve-people` over
-   the reprocessed runs: do that after the check in step 5.
+   the reprocessed runs: do that only as a separate decision after the check in section 8, step 4.
    Under the new policy none of them comes from an incomplete name (58 went to REVIEW instead).
 2. **Groups lag**: 1928 group mentions point at older runs after 500 articles. Group readers see old data
    until `collect`, which uses a paid model. Do not run `collect` without a budget decision.
@@ -143,22 +144,28 @@ human GOLD labelling.
    monitoring run on the new code, and take monitoring off until then. Without option C, those new runs go to
    ER v2 and create persons in bulk (risk 1).
 6. **`--stale` ignores the current text**: stale means no succeeded run of the current versions. If the stored
-   text changed after such a run, the article is not stale; monitoring handles a refetch.
+   text changed after such a run, the article is not stale. Monitoring extracts ids handed over by a
+   refetch in that same monitoring run; merely changing the stored text does not queue extraction. If
+   ingestion committed but extraction was interrupted, neither this version-only selector nor the
+   monitoring gate guarantees recovery of the changed text. Select it explicitly with `--article-id`.
 7. **Failed articles**: a failed run of the current versions stays stale, so the command exits with 1 after
    its report. A persistent failure with a small id holds the front of every `--limit` batch; fix the cause or
    go past it with `--article-ids`.
 8. **Concurrent runs**: `save` is SELECT then INSERT, and the unique key turns a race into `IntegrityError`.
    That is an old property, not new here, but it aborts the chunk (the whole run with one worker). Do not run
-   monitoring and `--stale`, or two `--stale` runs, at the same time. Making `save` safe is a separate task.
+   monitoring and `extract-entities`, or two `extract-entities` commands, at the same time, including
+   commands without `--stale`. Making `save` safe is a separate task; concurrent retries of an existing
+   FAILED run and their child deletion are also untested.
 9. **`resolve-people --limit N`** takes the first N articles by id every time and does not advance through
    the pending runs: for a stepwise resolve use `--article-id` in a loop over chosen ids.
 
 ## 7. Tests
 
-Run on 2026-10-23 in a private container with the migrated schema (`reprocess-pg`):
+Implementation author's reported checks on 2026-10-23 at `bc4657cd`, in a private container with the
+migrated schema (`reprocess-pg`); not rerun during this documentation update:
 
 - `tests/test_reprocessing.py` (12), `tests/test_cli_batches.py`, `tests/persons`, `tests/monitoring`,
-  `tests/extraction`, `tests/app`, `packages/court-processing/tests`: 1536 passed on the final branch.
+  `tests/extraction`, `tests/app`, `packages/court-processing/tests`: 1536 passed.
 - Mutations caught: removing `_newest_linked_run()` (double count); restoring the exact-version query in
   `processing/extraction/pending.py`; removing the failed/older-version rule there; comparing with any
   earlier hash instead of the nearest earlier run; dropping `status = 'succeeded'` in the stale query;
@@ -171,28 +178,46 @@ Run on 2026-10-23 in a private container with the migrated schema (`reprocess-pg
 
 ## 8. Safe run (runbook)
 
-0. Deploy this branch as a whole before anything else (risk 5). Stop monitoring and do not start a second
-   `extract-entities` while a batch runs (risk 8).
+0. Stop monitoring and wait for any in-flight extraction to finish before deploying or reprocessing.
+   Exclude all other `extract-entities` commands, including ones without `--stale`, throughout the batches
+   and their checks (risk 8).
 1. Back up: `scripts/backup_db.sh` (the daily timer also does it) and check the file restores.
-2. `uv run python -m main extract-entities --stale --dry-run --limit 100` and read `stale_articles_total`,
+   Record the backup boundary and the ids and versions of the runs added by the batches for rollback.
+2. Deploy this branch as a whole, including the gate and option C fixes through `bc4657cd` (risk 5),
+   keeping monitoring stopped. Run `uv run python -m main extract-entities --stale --dry-run --limit 100`
+   and read `stale_articles_total`,
    `selected_without_text` (such articles get a run with no mentions), `warnings`. It writes nothing.
 3. `uv run python -m main extract-entities --stale --limit 20`, then 100, then 500. One worker. Watch
    `event=reprocess_batch_done` in the log and `stale articles left`. A failed chunk stops the run; run again
-   to continue. If the command exits with 1, an article failed: read `failures`, fix the cause, or go past
-   it with `--article-ids` (risk 7). Keep monitoring off until the check in step 4 is done.
+   to continue: committed articles remain saved, and the next selection skips successful current runs.
+   A report with `articles_failed > 0` is followed by exit code 1: read `failures`, fix the cause, or go
+   past it with explicit `--article-ids` (risk 7), then retry the failed ids after fixing them. An exception
+   may also terminate the command without a batch report; inspect the error before continuing. Keep
+   monitoring off until the check in step 4 is done.
 4. Check: `group_mentions_on_older_runs` rose as expected, person cards show one publication once, manual
-   tables unchanged, no persons were created by the batch.
-5. Resolving the reprocessed runs is a separate decision after step 4: `resolve-people --article-id N`
-   per chosen article, or `--limit N` knowing it always starts from the lowest ids (risk 9). Then switch
-   monitoring on.
+   tables unchanged, no persons were created by the batch. Account for every selected failure separately:
+   `stale articles left` is not a current-text freshness check (risk 6).
+5. After the batches and checks, monitoring may be restarted without resolving the reprocessed corpus.
+   Resolving those runs is a separate decision: while monitoring remains stopped, use
+   `resolve-people --article-id N` per chosen article after the quality check. Each command takes the latest
+   succeeded run of that article and can create persons. Do not use repeated `--limit N` commands to
+   advance through the corpus: they always start from the lowest ids (risk 9).
 6. Do not run `collect`, the AI reviewer or any paid stage without separate approval.
 
 ## 9. Rollback
 
-Runs are only added, so the data of the old state stays. To undo a batch: delete the runs of the new version
-(`DELETE FROM article_extraction_runs WHERE extractor_version = '1.7.1+1.12.0' AND normalizer_version =
-'1.8.0' AND id > <last id of the dump>`; mentions and events cascade), and the decisions and persons created
-from them. The simplest rollback is restoring the backup from step 1. Neither was needed on the copy.
+For a new extraction key, the batch adds a run and keeps old succeeded runs and their children. Retrying
+an existing FAILED key replaces that run's children in place (section 4); deleting newly added runs alone
+does not restore the prior state of such a retry.
+
+Keep monitoring and other extraction commands stopped during rollback. If no ER pass was performed,
+remove only the exact new run ids recorded for the batch, after verifying their article ids, extractor name
+and versions; mentions and events cascade. A version filter and a lower id boundary alone can also match
+unrelated runs and are not a sufficient batch identifier. If ER was performed, deleting runs does not by
+itself undo all person and alias changes; do not blanket-delete persons, which may have other evidence.
+Restoring the verified backup is the full-state rollback, but also discards any writes made since that
+backup. No rollback was executed or validated during this documentation update; neither was needed on
+the experiment copy.
 
 ## 10. Needs separate approval
 
