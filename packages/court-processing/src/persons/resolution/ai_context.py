@@ -23,6 +23,7 @@ from persons.resolution.ai_review import (
     MentionReviewContext,
 )
 from persons.resolution.models import PersonResolutionReason
+from persons.resolution.normalizer import name_is_complete
 from persons.storage.models import PersonRecord, PersonResolutionDecisionRecord
 from processing.storage.models import (
     ArticleExtractionRunRecord,
@@ -234,7 +235,5 @@ def _matched_features(features: dict[str, Any]) -> tuple[str, ...]:
 
 
 def _name_is_complete(name: str) -> bool:
-    """A full given name and surname: not a single token, not initials only."""
-    tokens = [token for token in name.split() if token]
-    full = [token for token in tokens if len(token.rstrip(".")) > 1]
-    return len(full) >= 2
+    """A full given name and surname: not a single token, not initials («А.И.» included)."""
+    return name_is_complete(name)

@@ -54,6 +54,15 @@ class PersonNameNormalizer:
         )
 
 
+def name_is_complete(name: str) -> bool:
+    """True when the name has a given name and a surname in full (`has_full_identity`).
+
+    A name that is not complete is never enough to create a canonical person, whoever
+    produced the mention (rule-based extractor, LLM, import).
+    """
+    return PersonNameNormalizer().normalize(name).has_full_identity
+
+
 def _tokenize(name: str) -> tuple[NameToken, ...]:
     text = unicodedata.normalize("NFKC", name).lower().replace("ё", "е")
     # "И.И.Иванов" → "И. И. Иванов"; any other punctuation separates words.
