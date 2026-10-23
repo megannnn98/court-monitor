@@ -113,7 +113,7 @@ def test_common_name_normalization_includes_article_context(
     result = RuleBasedMentionNormalizer().normalize(mention, document)
     assert result.normalized_text == expected
     assert result.normalized_data.model_dump()["full_name"] == expected
-    assert result.normalizer_version == "1.7.0"
+    assert result.normalizer_version == "1.8.0"
 
 
 def test_extracts_events_with_links() -> None:
