@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import cast
 
+import pytest
 from sqlalchemy import Engine, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import IVANOV, PETROV, SIDOROV
 
+import cli.extraction as cli_extraction
+from cli.app import build_parser
+from cli.context import CliContext
 from cli_batches import current_extraction_versions, extract_articles
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from ingestion.storage.models import ParsedArticleRecord
 from monitor_core.model import ParsedArticle, RawDocument
-from persons.read import event_evidence, person_stats
+from persons.read import event_evidence, latest_events, person_stats
 from persons.resolution.pending import SqlAlchemyPendingResolution
 from persons.testing import add_person, link_event
+from processing.extraction.models import BatchExtractionResult
 from processing.extraction.pipeline import ExtractionVersions
 from processing.extraction.reprocessing import plan_reprocessing, stale_articles
 from processing.storage.models import (
@@ -213,6 +221,7 @@ def _run_with_person(
     *,
     content_hash: str,
     extractor_version: str,
+    extractor_name: str = "rule-based",
 ) -> int:
     """A succeeded run of the article with one unlinked person mention; the run id."""
     at = datetime(2026, 9, 16, tzinfo=UTC)
@@ -220,7 +229,7 @@ def _run_with_person(
         run = ArticleExtractionRunRecord(
             article_id=article_id,
             article_content_hash=content_hash,
-            extractor_name="rule-based",
+            extractor_name=extractor_name,
             extractor_version=extractor_version,
             normalizer_version="1",
             status="succeeded",
@@ -239,7 +248,7 @@ def _run_with_person(
                 end_offset=11,
                 confidence=1.0,
                 normalized_data={},
-                extractor_name="rule-based",
+                extractor_name=extractor_name,
                 extractor_version=extractor_version,
                 normalizer_version="1",
             )
@@ -265,3 +274,114 @@ def test_a_reextraction_of_the_same_text_is_not_resolved_by_monitoring(
     )
 
     assert pending == [new_run, refetched]
+
+
+def test_only_a_reextraction_of_unchanged_text_by_the_same_extractor_is_held_back(
+    session_factory: sessionmaker[Session],
+) -> None:
+    text_back, other_extractor, unchanged = _save_articles(session_factory)
+    versions = ExtractionVersions("rule-based", "2", "1")
+    _run_with_person(session_factory, text_back, content_hash="a", extractor_version="1")
+    _run_with_person(session_factory, text_back, content_hash="b", extractor_version="1")
+    # The text is back to the one of an older run, but the run before it read another text.
+    changed_back = _run_with_person(
+        session_factory, text_back, content_hash="a", extractor_version="2"
+    )
+    _run_with_person(
+        session_factory,
+        other_extractor,
+        content_hash="x",
+        extractor_version="1",
+        extractor_name="other",
+    )
+    first_of_extractor = _run_with_person(
+        session_factory, other_extractor, content_hash="x", extractor_version="2"
+    )
+    _run_with_person(session_factory, unchanged, content_hash="u", extractor_version="1")
+    _run_with_person(session_factory, unchanged, content_hash="u", extractor_version="2")
+
+    pending = SqlAlchemyPendingResolution(session_factory).extraction_runs_pending_resolution(
+        source_base_url="https://ovd.info", versions=versions
+    )
+
+    assert pending == [changed_back, first_of_extractor]
+
+
+def test_an_article_whose_run_of_the_current_versions_failed_is_still_stale(
+    session_factory: sessionmaker[Session], test_engine: Engine
+) -> None:
+    ids = _save_articles(session_factory)
+    extract_articles(_database_url(test_engine), ids)
+    versions = current_extraction_versions(session_factory)
+    with session_factory.begin() as session:
+        for run in session.scalars(
+            select(ArticleExtractionRunRecord).where(
+                ArticleExtractionRunRecord.article_id.in_(ids[:2])
+            )
+        ):
+            run.status = "failed"
+
+    assert [a.article_id for a in stale_articles(session_factory, versions)] == ids[:2]
+    # A persistent failure holds the front of every batch; --article-ids is the way past it.
+    assert plan_reprocessing(session_factory, versions, limit=1).selected == (ids[0],)
+    assert plan_reprocessing(session_factory, versions, article_ids=[ids[1]], limit=1).selected == (
+        ids[1],
+    )
+
+
+def _context(session_factory: sessionmaker[Session], test_engine: Engine) -> CliContext:
+    return cast(
+        CliContext,
+        SimpleNamespace(
+            session_factory=session_factory,
+            engine=test_engine,
+            settings=SimpleNamespace(database_url=_database_url(test_engine)),
+        ),
+    )
+
+
+def test_the_dry_run_command_reports_and_writes_nothing(
+    session_factory: sessionmaker[Session],
+    test_engine: Engine,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ids = _save_articles(session_factory)
+    args = build_parser().parse_args(["extract-entities", "--stale", "--dry-run", "--limit", "2"])
+
+    with pytest.raises(SystemExit) as stopped:
+        cli_extraction.run_extract_entities(args, _context(session_factory, test_engine))
+
+    assert stopped.value.code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["dry_run"] is True
+    assert (report["stale_articles_total"], report["selected_count"]) == (len(ids), 2)
+    assert _count(session_factory, ArticleExtractionRunRecord) == 0
+
+
+def test_a_failed_article_ends_the_command_with_an_error_after_the_report(
+    session_factory: sessionmaker[Session],
+    test_engine: Engine,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _save_articles(session_factory)
+    failed = BatchExtractionResult(articles_failed=1, failures=["article_id=1: boom"])
+    monkeypatch.setattr(cli_extraction, "run_chunks", lambda *a, **k: [failed])
+    args = build_parser().parse_args(["extract-entities", "--stale", "--limit", "1"])
+
+    with pytest.raises(SystemExit) as stopped:
+        cli_extraction.run_extract_entities(args, _context(session_factory, test_engine))
+
+    assert stopped.value.code == 1
+    assert "stale articles left" in capsys.readouterr().out
+
+
+def test_the_latest_event_of_a_person_linked_to_the_older_run_alone_is_visible(
+    session_factory: sessionmaker[Session], test_engine: Engine
+) -> None:
+    person_id, (old_event, _) = _person_with_two_runs(session_factory, test_engine)
+    with session_factory.begin() as session:
+        link_event(session, person_id, old_event, role="defendant")
+
+    with session_factory() as session:
+        assert person_id in latest_events(session, [person_id])

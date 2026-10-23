@@ -178,6 +178,9 @@ def run_extract_entities(args: argparse.Namespace, context: CliContext) -> None:
             left,
         )
         print(f"stale articles left: {left}")
+        if batch_result.articles_failed:
+            # After the report: a failed article stays stale, so a rerun is not a finished job.
+            raise SystemExit(1)
 
 
 def run_evaluate_extraction(args: argparse.Namespace, context: CliContext) -> None:

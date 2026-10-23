@@ -26,6 +26,7 @@ _STALE = text(
           AND r.extractor_name = :extractor_name
           AND r.extractor_version = :extractor_version
           AND r.normalizer_version = :normalizer_version
+          AND r.status = 'succeeded'
     )
     ORDER BY a.id
     """
@@ -41,6 +42,7 @@ _STALE_OF = text(
           AND r.extractor_name = :extractor_name
           AND r.extractor_version = :extractor_version
           AND r.normalizer_version = :normalizer_version
+          AND r.status = 'succeeded'
     )
     ORDER BY a.id
     """
