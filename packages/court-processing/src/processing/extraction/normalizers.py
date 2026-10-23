@@ -37,8 +37,12 @@ from processing.extraction.name_morphology import NameMorphology
 # 1.7.0: the parts of a name (`first_name`, `last_name`, `patronymic`) are told by where
 # the patronymic stands and, for two words, by which one is a given name. `full_name`
 # and `matching_key` are as before.
-NORMALIZER_VERSION = "1.7.0"
+# 1.8.0: surname-first initials are stored in their correct fields
+# («Бастрыкин А.И.» → surname=Бастрыкин, given initial=А., patronymic initial=И.).
+NORMALIZER_VERSION = "1.8.0"
 _PATRONYMIC = re.compile(r"(вич|вна|ична|ьич|оглы|кызы)$")
+_INITIAL = re.compile(r"[А-ЯЁ]\\.")
+_SURNAME_INITIALS = re.compile(r"([А-ЯЁ]\\.)([А-ЯЁ]\\.)?")
 # Endings only a Russian surname has, also in an oblique case; «-ин» and «-ич» are left
 # out, foreign given names end so too («Мартин», «Колин»).
 _NEIGHBOUR_SURNAME = re.compile(
@@ -133,6 +137,8 @@ def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None
     it keeps two people of one given name and surname apart as a patronymic does.
 
     - One word is a surname.
+    - A surname followed by one or two initials keeps the surname in `last_name`
+      and the initials in `first_name` and `patronymic`.
     - Two are «Имя Фамилия»; they are read as «Фамилия Имя» only when the first ends
       as a Russian surname does and the second alone is a known given name.
     - Three with a patronymic in the middle are «Имя Отчество Фамилия». Three ending
@@ -149,6 +155,18 @@ def name_parts(words: Sequence[str]) -> tuple[str | None, str | None, str | None
     """
     if not words:
         return None, None, None
+    # «Бастрыкин А.И.» and «Бастрыкин А. И.» are surname-first, but a
+    # known given name followed by an initial («Виталия Л.») is ambiguous.
+    # Do not reinterpret the latter as a surname without evidence.
+    if len(words) in (2, 3) and not _reads_as_given_name(words[0]):
+        if len(words) == 2 and (match := _SURNAME_INITIALS.fullmatch(words[1])):
+            return match.group(1), words[0], match.group(2)
+        if (
+            len(words) == 3
+            and _INITIAL.fullmatch(words[1])
+            and _INITIAL.fullmatch(words[2])
+        ):
+            return words[1], words[0], words[2]
     if len(words) == 1:
         return None, words[0], None
     if len(words) == 2:
