@@ -126,3 +126,35 @@ def test_what_the_words_alone_do_not_tell() -> None:
 
 def test_parts_of_edge_inputs() -> None:
     assert name_parts([]) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    ("surface", "parts"),
+    [
+        ("Бастрыкин А.И.", ("А.", "Бастрыкин", "И.")),
+        ("Бастрыкин А. И.", ("А.", "Бастрыкин", "И.")),
+        ("Иванов И.И.", ("И.", "Иванов", "И.")),
+        ("Иванов И. И.", ("И.", "Иванов", "И.")),
+        ("Иванов-Петров А.Б.", ("А.", "Иванов-Петров", "Б.")),
+        ("Бастрыкин А.", ("А.", "Бастрыкин", None)),
+    ],
+)
+def test_surname_followed_by_initials(
+    surface: str, parts: tuple[str | None, str | None, str | None]
+) -> None:
+    _, data = NORMALIZER.normalize_person(surface)
+    assert (data.first_name, data.last_name, data.patronymic) == parts
+
+
+def test_surname_initials_matching_key_ignores_spaces() -> None:
+    compact, data_compact = NORMALIZER.normalize_person("Бастрыкин А.И.")
+    spaced, data_spaced = NORMALIZER.normalize_person("Бастрыкин А. И.")
+
+    assert compact == "Бастрыкин А.И."
+    assert spaced == "Бастрыкин А. И."
+    assert data_compact.matching_key == data_spaced.matching_key == "бастрыкинаи"
+
+
+def test_given_name_followed_by_initial_is_not_assumed_surname() -> None:
+    _, data = NORMALIZER.normalize_person("Виталия Л.")
+    assert data.last_name != "Виталия"
