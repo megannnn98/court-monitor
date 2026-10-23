@@ -156,31 +156,46 @@ human GOLD labelling.
    monitoring and `extract-entities`, or two `extract-entities` commands, at the same time, including
    commands without `--stale`. Making `save` safe is a separate task; concurrent retries of an existing
    FAILED run and their child deletion are also untested.
+10. **Purge during planning**: the stale selection reads the article ids and their text lengths in two
+   queries. An article purged between them (`JunkPurge`, `ingestion.commands.discard_articles`) is left out
+   of the result instead of failing the command, but an article purged after planning still fails its
+   extraction. Do not run a purge while reprocessing.
+11. **Planning cost**: the selection loads all article ids, the done set and the lengths of the stale texts
+    into memory before `--limit` applies, and runs again for `stale articles left`. Fine for ~5000 articles;
+    not measured for 100 000.
 9. **`resolve-people --limit N`** takes the first N articles by id every time and does not advance through
    the pending runs: for a stepwise resolve use `--article-id` in a loop over chosen ids.
 
 ## 7. Tests
 
-Implementation author's reported checks on 2026-10-23 at `bc4657cd`, in a private container with the
-migrated schema (`reprocess-pg`); not rerun during this documentation update:
+Run on 2026-10-23 in a private container with the migrated schema (`reprocess-pg`), at the head with the
+review fixes (`--limit` check, purge during planning, `--workers 0`):
 
-- `tests/test_reprocessing.py` (12), `tests/test_cli_batches.py`, `tests/persons`, `tests/monitoring`,
-  `tests/extraction`, `tests/app`, `packages/court-processing/tests`: 1536 passed.
+- `tests/test_reprocessing.py` (22 with the ingestion read tests), `tests/ingestion/test_read_all_articles.py`,
+  `tests/test_cli_batches.py`, `tests/persons`, `tests/monitoring`, `tests/extraction`, `tests/app`,
+  `tests/ingestion`, `tests/test_data_ownership.py`, `packages/court-processing/tests`: 1562 passed, 1 failed.
+  The failure, `tests/app/test_operation_runs.py::test_the_real_process_runner_streams_output_and_interrupts_on_stop`
+  (`-9` instead of `130` from a real child process), passed 3 times alone and on the branch without these
+  changes: a signal race under load, not caused by this PR.
 - Mutations caught: removing `_newest_linked_run()` (double count); restoring the exact-version query in
   `processing/extraction/pending.py`; removing the failed/older-version rule there; comparing with any
   earlier hash instead of the nearest earlier run; dropping `status = 'succeeded'` in the stale query;
-  dropping the exit code 1. The `latest_events` test only guards that a single old link stays visible: it
-  cannot tell the filter from no filter.
-- ruff clean. mypy on `packages/court-processing/src` and `apps/court-monitor/src/cli`: 3 `import-untyped`
-  errors (libraries without stubs), none in changed code.
+  dropping the exit code 1; dropping the negative `--limit` checks (plan and argument type); dropping the
+  filter of articles purged between the two reads; `args.workers or ...` instead of the `is None` check.
+  The `latest_events` test compares the event date picked for a person linked to both runs, so it tells the
+  filter from no filter.
+- ruff clean. mypy on `court-processing/src`, `court-ingestion/src` and `apps/court-monitor/src/cli`: 3
+  `import-untyped` errors (`observability` has no stubs), none in changed code.
 - Not run: the full suite (it has crashed the workstation before), `tests/entities`, `tests/evaluation`,
-  the other test directories, and any test against the live schema. The race in `save` has no test.
+  the other test directories, any test against the live schema, `tests/test_package_graph.py` and
+  `tests/test_module_boundaries.py` (they fail in this local environment with or without the branch; CI runs
+  them). The race in `save` has no test; planning cost on 100 000 articles is not measured.
 
 ## 8. Safe run (runbook)
 
 0. Stop monitoring and wait for any in-flight extraction to finish before deploying or reprocessing.
-   Exclude all other `extract-entities` commands, including ones without `--stale`, throughout the batches
-   and their checks (risk 8).
+   Exclude all other `extract-entities` commands, including ones without `--stale`, and any purge of
+   articles, throughout the batches and their checks (risks 8 and 10).
 1. Back up: `scripts/backup_db.sh` (the daily timer also does it) and check the file restores.
    Record the backup boundary and the ids and versions of the runs added by the batches for rollback.
 2. Deploy this branch as a whole, including the gate and option C fixes through `bc4657cd` (risk 5),

@@ -16,6 +16,7 @@ import cli.extraction as cli_extraction
 from cli.app import build_parser
 from cli.context import CliContext
 from cli_batches import current_extraction_versions, extract_articles
+from ingestion import read
 from ingestion.sources.sqlalchemy_persistence import SqlAlchemyIngestionPersistence
 from ingestion.storage.models import ParsedArticleRecord
 from monitor_core.model import ParsedArticle, RawDocument
@@ -385,3 +386,101 @@ def test_the_latest_event_of_a_person_linked_to_the_older_run_alone_is_visible(
 
     with session_factory() as session:
         assert person_id in latest_events(session, [person_id])
+
+
+@pytest.mark.parametrize("limit", [-1, -100])
+def test_a_negative_limit_is_refused_before_anything_is_selected(
+    session_factory: sessionmaker[Session], limit: int
+) -> None:
+    _save_articles(session_factory)
+    versions = current_extraction_versions(session_factory)
+
+    with pytest.raises(ValueError, match="limit"):
+        plan_reprocessing(session_factory, versions, limit=limit)
+
+
+def test_a_limit_of_zero_selects_nothing_and_one_selects_one(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _save_articles(session_factory)
+    versions = current_extraction_versions(session_factory)
+
+    assert plan_reprocessing(session_factory, versions, limit=0).selected == ()
+    assert plan_reprocessing(session_factory, versions, limit=1).selected == (ids[0],)
+
+
+def test_the_command_refuses_a_negative_limit(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as stopped:
+        build_parser().parse_args(["extract-entities", "--stale", "--limit", "-1"])
+
+    assert stopped.value.code == 2
+    assert "--limit" in capsys.readouterr().err
+
+
+def test_an_article_deleted_between_the_two_reads_is_left_out(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ids = _save_articles(session_factory)
+    versions = current_extraction_versions(session_factory)
+    original = read.text_lengths
+    monkeypatch.setattr(
+        read,
+        "text_lengths",
+        lambda session, wanted: {
+            key: value for key, value in original(session, wanted).items() if key != ids[1]
+        },
+    )
+
+    assert [a.article_id for a in stale_articles(session_factory, versions)] == [ids[0], ids[2]]
+
+
+def test_stale_articles_asked_by_id_come_in_id_order_without_unknown_or_repeated_ids(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ids = _save_articles(session_factory)
+    versions = current_extraction_versions(session_factory)
+
+    asked = [ids[2], 999_999, ids[0], ids[0]]
+
+    assert [a.article_id for a in stale_articles(session_factory, versions, article_ids=asked)] == [
+        ids[0],
+        ids[2],
+    ]
+    assert stale_articles(session_factory, versions, article_ids=[]) == []
+
+
+def test_zero_workers_is_refused_as_before(
+    session_factory: sessionmaker[Session], test_engine: Engine
+) -> None:
+    _save_articles(session_factory)
+    args = build_parser().parse_args(["extract-entities", "--stale", "--workers", "0"])
+
+    with pytest.raises(ValueError, match="workers"):
+        cli_extraction.run_extract_entities(args, _context(session_factory, test_engine))
+
+
+def test_the_latest_event_follows_the_newest_run_with_a_link_of_the_person(
+    session_factory: sessionmaker[Session], test_engine: Engine
+) -> None:
+    person_id, (old_event, new_event) = _person_with_two_runs(session_factory, test_engine)
+    old_day, new_day = datetime(2026, 9, 10, tzinfo=UTC), datetime(2026, 9, 1, tzinfo=UTC)
+    with session_factory.begin() as session:
+        other_id = add_person(
+            session, canonical_name="Пётр Петров", normalized_name="пётр петров", matching_key="o"
+        )
+        for event_id, day in ((old_event, old_day), (new_event, new_day)):
+            session.execute(
+                update(ExtractedEventRecord)
+                .where(ExtractedEventRecord.id == event_id)
+                .values(event_date=day)
+            )
+        link_event(session, person_id, old_event, role="defendant")
+        link_event(session, person_id, new_event, role="defendant")
+        link_event(session, other_id, old_event, role="defendant")
+
+    with session_factory() as session:
+        latest = latest_events(session, [person_id, other_id])
+
+    # Without the filter the older run's later day would win for the first person.
+    assert latest[person_id].event_date == new_day
+    assert latest[other_id].event_date == old_day

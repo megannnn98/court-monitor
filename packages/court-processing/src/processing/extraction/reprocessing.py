@@ -92,7 +92,12 @@ def stale_articles(
         done = set(session.scalars(_DONE, params))
         stale = [article_id for article_id in stored if article_id not in done]
         lengths = read.text_lengths(session, stale)
-    return [StaleArticle(article_id, lengths[article_id]) for article_id in stale]
+    # An article purged between the two reads has no length: it is no longer there to read.
+    return [
+        StaleArticle(article_id, lengths[article_id])
+        for article_id in stale
+        if article_id in lengths
+    ]
 
 
 def plan_reprocessing(
@@ -110,6 +115,8 @@ def plan_reprocessing(
     else:
         chosen = stale
     if limit is not None:
+        if limit < 0:
+            raise ValueError(f"limit must not be negative: {limit}")
         chosen = chosen[:limit]
     with session_factory() as session:
         several_runs = session.scalar(_ARTICLES_WITH_SEVERAL_RUNS) or 0

@@ -37,7 +37,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     )
     extract_entities_parser.add_argument("--article-id", type=int, default=None)
     extract_entities_parser.add_argument("--source", choices=sorted(SOURCES), default=None)
-    extract_entities_parser.add_argument("--limit", type=int, default=100)
+    extract_entities_parser.add_argument("--limit", type=_non_negative, default=100)
     extract_entities_parser.add_argument(
         "--workers",
         type=int,
@@ -78,6 +78,13 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         default=None,
     )
     evaluate_extraction_parser.set_defaults(handler=run_evaluate_extraction)
+
+
+def _non_negative(value: str) -> int:
+    number = int(value)
+    if number < 0:
+        raise argparse.ArgumentTypeError(f"must not be negative: {value}")
+    return number
 
 
 def _article_ids(value: str) -> list[int]:
@@ -153,7 +160,9 @@ def run_extract_entities(args: argparse.Namespace, context: CliContext) -> None:
             )
         ]
 
-    requested_workers = args.workers or (1 if args.stale else DEFAULT_WORKERS)
+    requested_workers = (
+        args.workers if args.workers is not None else (1 if args.stale else DEFAULT_WORKERS)
+    )
     extract_workers = worker_count(requested_workers, len(article_ids))
     if extract_workers > 1:
         database_engine.dispose()
