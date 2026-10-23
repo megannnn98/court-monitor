@@ -41,8 +41,8 @@ from processing.extraction.name_morphology import NameMorphology
 # («Бастрыкин А.И.» → surname=Бастрыкин, given initial=А., patronymic initial=И.).
 NORMALIZER_VERSION = "1.8.0"
 _PATRONYMIC = re.compile(r"(вич|вна|ична|ьич|оглы|кызы)$")
-_INITIAL = re.compile(r"[А-ЯЁ]\\.")
-_SURNAME_INITIALS = re.compile(r"([А-ЯЁ]\\.)([А-ЯЁ]\\.)?")
+_INITIAL = re.compile(r"[А-ЯЁ]\.")
+_SURNAME_INITIALS = re.compile(r"([А-ЯЁ]\.)([А-ЯЁ]\.)?")
 # Endings only a Russian surname has, also in an oblique case; «-ин» and «-ич» are left
 # out, foreign given names end so too («Мартин», «Колин»).
 _NEIGHBOUR_SURNAME = re.compile(
