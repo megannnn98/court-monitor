@@ -10,6 +10,7 @@ import asyncio
 from datetime import UTC, date, datetime
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import (
     PETROV,
@@ -25,6 +26,7 @@ from application import build_ingestion_service, build_processing_service
 from ingestion.service import IngestionService, SkipReason
 from orchestrator.models import MonitoringRunStatus
 from processing.extraction.models import ExtractionRunStatus
+from processing.storage.models import ArticleExtractionRunRecord
 
 SOURCE = "ovd-info"
 EXTRACTION_TABLES = (
@@ -165,3 +167,25 @@ def test_a_skipped_document_is_never_stored(session_factory: sessionmaker[Sessio
     with pytest.raises(ValueError, match="skipped document"):
         asyncio.run(run())
     assert ingestion.known_external_ids(SOURCE, ["undated"]) == set()
+
+
+def test_a_run_of_an_older_version_is_not_pending_extraction(
+    session_factory: sessionmaker[Session],
+) -> None:
+    upstream = FakeUpstream()
+    upstream.publish("sidorov", SIDOROV)
+    source = fake_source(SOURCE, upstream)
+    ingestion = build_ingestion_service(
+        session_factory, sources={SOURCE: source}, create_fetcher=UnusedFetcher
+    )
+    processing = build_processing_service(session_factory)
+    article_ids = _ingest_everything(ingestion)
+    for article_id in article_ids:
+        processing.extract_article(article_id)
+
+    with session_factory.begin() as session:
+        for run in session.scalars(select(ArticleExtractionRunRecord)):
+            run.extractor_version = "0.0.1"
+            run.normalizer_version = "0.0.1"
+
+    assert processing.articles_pending_extraction(source_base_url=source.base_url) == []

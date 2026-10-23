@@ -22,9 +22,11 @@ class SqlAlchemyPendingExtraction:
     def articles_pending_extraction(
         self, *, source_base_url: str, versions: ExtractionVersions
     ) -> list[int]:
-        """Articles of the source without any extraction run for these versions.
+        """Articles of the source never extracted by this extractor, in any version.
 
-        A FAILED run counts as processed: its failure is deterministic for this
+        A run of an older version is not pending: a version bump must not queue the whole
+        stored corpus behind a monitoring run. Re-extracting it is a separate, explicit
+        operation. A FAILED run counts as processed: its failure is deterministic for this
         content and extractor version, so it is not retried every run.
         """
         with self._session_factory() as session:
@@ -36,9 +38,6 @@ class SqlAlchemyPendingExtraction:
                     select(ArticleExtractionRunRecord.article_id).where(
                         any_of(ArticleExtractionRunRecord.article_id, articles),
                         ArticleExtractionRunRecord.extractor_name == versions.extractor_name,
-                        ArticleExtractionRunRecord.extractor_version == versions.extractor_version,
-                        ArticleExtractionRunRecord.normalizer_version
-                        == versions.normalizer_version,
                     )
                 )
             )
