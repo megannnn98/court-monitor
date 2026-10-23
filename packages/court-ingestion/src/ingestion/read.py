@@ -140,6 +140,23 @@ def list_stored_articles(
     return [StoredArticle(*row) for row in session.execute(statement).all()]
 
 
+def all_article_ids(session: Session) -> list[int]:
+    """Every stored article, of every source, in id order."""
+    return list(session.scalars(select(ParsedArticleRecord.id).order_by(ParsedArticleRecord.id)))
+
+
+def text_lengths(session: Session, ids: Collection[int]) -> dict[int, int]:
+    """The length of each article's text (0: none); an id that is not stored is left out."""
+    if not ids:
+        return {}
+    rows = session.execute(
+        select(
+            ParsedArticleRecord.id, func.length(func.coalesce(ParsedArticleRecord.text, ""))
+        ).where(any_of(ParsedArticleRecord.id, ids))
+    ).all()
+    return {row[0]: row[1] for row in rows}
+
+
 def article_ids(session: Session, *, source_base_url: str) -> list[int]:
     """Every stored article of one source, by its base URL, in id order."""
     return list(

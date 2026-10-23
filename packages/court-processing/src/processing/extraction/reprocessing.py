@@ -11,42 +11,21 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from ingestion import read
 from processing.extraction.pipeline import ExtractionVersions
 
-_STALE = text(
+_DONE = text(
     """
-    SELECT a.id, length(coalesce(a.text, '')) AS text_length
-    FROM parsed_articles a
-    WHERE NOT EXISTS (
-        SELECT 1 FROM article_extraction_runs r
-        WHERE r.article_id = a.id
-          AND r.extractor_name = :extractor_name
-          AND r.extractor_version = :extractor_version
-          AND r.normalizer_version = :normalizer_version
-          AND r.status = 'succeeded'
-    )
-    ORDER BY a.id
+    SELECT DISTINCT article_id FROM article_extraction_runs
+    WHERE extractor_name = :extractor_name
+      AND extractor_version = :extractor_version
+      AND normalizer_version = :normalizer_version
+      AND status = 'succeeded'
     """
 )
-_STALE_OF = text(
-    """
-    SELECT a.id, length(coalesce(a.text, '')) AS text_length
-    FROM parsed_articles a
-    WHERE a.id IN :ids
-      AND NOT EXISTS (
-        SELECT 1 FROM article_extraction_runs r
-        WHERE r.article_id = a.id
-          AND r.extractor_name = :extractor_name
-          AND r.extractor_version = :extractor_version
-          AND r.normalizer_version = :normalizer_version
-          AND r.status = 'succeeded'
-    )
-    ORDER BY a.id
-    """
-).bindparams(bindparam("ids", expanding=True))
 
 # Entity groups point at the mentions of the article's latest run; a new run moves "latest"
 # and the groups wait for the next rebuild of the entities.
@@ -96,7 +75,7 @@ def stale_articles(
     *,
     article_ids: Sequence[int] | None = None,
 ) -> list[StaleArticle]:
-    """Stored articles with no run under exactly these versions, in id order.
+    """Stored articles with no succeeded run under exactly these versions, in id order.
 
     A restart selects the rest by itself: an article done is no longer stale.
     """
@@ -106,13 +85,14 @@ def stale_articles(
         "normalizer_version": versions.normalizer_version,
     }
     with session_factory() as session:
-        if article_ids is None:
-            rows = session.execute(_STALE, params).all()
-        elif not article_ids:
-            rows = []
-        else:
-            rows = session.execute(_STALE_OF, {**params, "ids": list(article_ids)}).all()
-    return [StaleArticle(row.id, row.text_length) for row in rows]
+        stored = read.all_article_ids(session)
+        if article_ids is not None:
+            wanted = set(article_ids)
+            stored = [article_id for article_id in stored if article_id in wanted]
+        done = set(session.scalars(_DONE, params))
+        stale = [article_id for article_id in stored if article_id not in done]
+        lengths = read.text_lengths(session, stale)
+    return [StaleArticle(article_id, lengths[article_id]) for article_id in stale]
 
 
 def plan_reprocessing(
