@@ -279,6 +279,10 @@ _SURNAME_ENDING = re.compile(
 )
 
 
+# The dictionary reads these given names as places only: «София Чепик» is a person.
+_GEOGRAPHIC_GIVEN_NAMES = frozenset({"виктория", "софия", "милана", "яна", "каролина", "венера"})
+
+
 def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorphology) -> int:
     """Skip leading words that are not part of the name.
 
@@ -317,6 +321,17 @@ def _trim_leading_non_name(text: str, start: int, end: int, morphology: NameMorp
             )
         ):
             return start
+        # «Узбекистан Бектурдиев», «Хакасия Еремину»: a country or a region before a lone
+        # surname is not a given name. A place that is also a given name («Питер») stays.
+        if (
+            len(rest) == 1
+            and morphology.is_geographic(surface)
+            and not morphology.is_name_word(surface)
+            and surface.lower() not in _GEOGRAPHIC_GIVEN_NAMES
+            and (morphology.is_name_word(rest[0]) or _SURNAME_ENDING.search(rest[0].lower()))
+        ):
+            start += word.end()
+            continue
         # A name does not start with a word that has no nominative reading: «Калуги Ивана
         # Любшина», «Задержали Ивана». «София Чепик» keeps its first word — it is nominative.
         unknown_before_full_name = (
@@ -420,7 +435,9 @@ class RuleBasedEntityExtractor:
     # or an abbreviation before it («ул. Ленина В.И.») is not.
     # 1.7.1: «г. Москве Ярошу С.М.»: a city or a settlement abbreviation («г.», «с.», «п.») is not a
     # street marker; the first guard swallowed the city name and dropped the person.
-    extractor_version = "1.7.1"
+    # 1.7.2: «Узбекистан Бектурдиев», «Хакасия Еремину»: a country or a region before a lone
+    # surname is not part of the name (it was taken for the given name).
+    extractor_version = "1.7.2"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()

@@ -986,3 +986,18 @@ def test_an_enumeration_does_not_reach_across_another_code() -> None:
     assert _normalized_legal(text) == ["КоАП РФ ст. 20.3.3", "УК РФ ст. 280.3 ч. 1"]
     text = "Дело возбудили по п. «а» ч. 2 ст. 282 и ст. 280 УК РФ."
     assert _normalized_legal(text) == ["УК РФ ст. 282 ч. 2 п. а", "УК РФ ст. 280"]
+
+
+def test_a_country_or_region_before_a_lone_surname_is_not_a_given_name() -> None:
+    """Real cases: «Узбекистан Бектурдиев», «Хакасия Еремину» (the place opened the phrase)."""
+    assert _people("Суд приговорил Узбекистан Бектурдиева к двум годам.") == []
+    assert _people("Дело Хакасия Еремину передали в суд.") == []
+
+
+def test_a_place_that_is_also_a_given_name_stays_in_the_name() -> None:
+    assert _people("Задержан Питер Иванов.") == ["Питер Иванов"]
+    assert _people("Задержана Виктория Иванова.") == ["Виктория Иванова"]
+
+
+def test_a_place_before_a_full_name_is_still_trimmed() -> None:
+    assert _people("Задержали Калуги Ивана Любшина.") == ["Ивана Любшина"]
