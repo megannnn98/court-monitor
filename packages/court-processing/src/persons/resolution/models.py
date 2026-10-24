@@ -82,6 +82,17 @@ class NormalizedPersonName(BaseModel):
         """A single full token: surname or given name alone."""
         return len(self.full_tokens) <= 1 and not self.has_initials
 
+    @property
+    def has_full_identity(self) -> bool:
+        """At least two full (non-initial) tokens: a given name and a surname.
+
+        The one test of a name that may found a canonical person. An initial is never a given
+        name or a patronymic, so «Иванов И.И.», «Иванов И.», «Виталия Л.», «И. Иванов» and a bare
+        «Иванов» or «Ольга» all fail it. Unlike `is_incomplete` (a feature for scoring) it counts
+        names with initials as lacking an identity.
+        """
+        return len(self.full_tokens) >= 2
+
 
 class PersonIdentityInput(BaseModel):
     """What ER v2 knows about an incoming person mention.

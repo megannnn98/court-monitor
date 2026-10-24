@@ -49,7 +49,7 @@ OnStage = Callable[[str], None]
 
 
 class PendingExtraction(Protocol):
-    """Which stored articles of a source have no extraction run for these versions."""
+    """Which stored articles of a source have no extraction run of this extractor yet."""
 
     def articles_pending_extraction(
         self, *, source_base_url: str, versions: ExtractionVersions

@@ -1,7 +1,9 @@
 """Decision policy: AUTO_LINK / REVIEW / CREATE_NEW from scored candidates.
 
 Rules (ADR 0012), in order:
-1. no candidates → CREATE_NEW (NO_CANDIDATE);
+1. no candidates → CREATE_NEW (NO_CANDIDATE) for a complete name; an incomplete one (no given
+   name and surname in full: «Иванов», «Ольга», «Иванов И.И.», «Виталия Л.») never creates a
+   person, with or without candidates → REVIEW (INCOMPLETE_NAME, INITIALS_ONLY with initials);
 2. plausible = no identity conflict and score ≥ review minimum;
 3. top plausible ≥ auto-link minimum, margin over the second plausible above
    the minimum, a single strong candidate (no possible duplicate persons), a
@@ -32,6 +34,7 @@ from persons.resolution.models import (
     PersonResolutionReason,
     ScoredPersonCandidate,
 )
+from persons.resolution.normalizer import PersonNameNormalizer
 
 R = PersonResolutionReason
 
@@ -76,8 +79,13 @@ def rank_candidates(candidates: Sequence[ScoredPersonCandidate]) -> list[ScoredP
 
 
 class PersonResolutionDecisionPolicy:
-    def __init__(self, thresholds: ResolutionThresholds | None = None) -> None:
+    def __init__(
+        self,
+        thresholds: ResolutionThresholds | None = None,
+        normalizer: PersonNameNormalizer | None = None,
+    ) -> None:
         self.thresholds = thresholds or ResolutionThresholds()
+        self._normalizer = normalizer or PersonNameNormalizer()
 
     def decide(
         self,
@@ -104,13 +112,21 @@ class PersonResolutionDecisionPolicy:
                 decision_margin=margin,
             )
 
-        # A single name token (a surname repeated in the text) is a reference, not an
-        # identity: it may link through the same-article rule below, but never creates a
-        # canonical person of its own.
-        single_token = len(identity.name.split()) < 2
+        # An incomplete name (a surname or a given name alone, or a name with initials:
+        # «Иванов», «Ольга», «Иванов И.И.», «Виталия Л.») is a reference, not an identity: it
+        # may link through the rules below, but never creates a canonical person of its own,
+        # whether or not any candidate exists. One test (`has_full_identity`) for every source.
+        parsed = self._normalizer.normalize(identity.name)
+        single_token = not parsed.has_full_identity
+        incomplete_reasons = [
+            R.INCOMPLETE_NAME,
+            *([R.INITIALS_ONLY] if parsed.has_initials else []),
+        ]
         if not ranked:
             if single_token:
-                return decision(PersonResolutionAction.REVIEW, [R.NO_CANDIDATE, R.INCOMPLETE_NAME])
+                return decision(
+                    PersonResolutionAction.REVIEW, [R.NO_CANDIDATE, *incomplete_reasons]
+                )
             return decision(PersonResolutionAction.CREATE_NEW, [R.NO_CANDIDATE])
 
         # Within-article coreference: «Зареме Мусаевой… Мусаеву признали виновной».
@@ -148,7 +164,7 @@ class PersonResolutionDecisionPolicy:
             if any(c.is_conflicting for c in ranked):
                 reasons.append(R.CONFLICTING_IDENTITY_DATA)
             if single_token:
-                return decision(PersonResolutionAction.REVIEW, [*reasons, R.INCOMPLETE_NAME])
+                return decision(PersonResolutionAction.REVIEW, [*reasons, *incomplete_reasons])
             return decision(PersonResolutionAction.CREATE_NEW, reasons)
 
         top = plausible[0]

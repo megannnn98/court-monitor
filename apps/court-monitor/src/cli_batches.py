@@ -31,7 +31,7 @@ from processing.extraction.extractors import RuleBasedEntityExtractor
 from processing.extraction.models import BatchExtractionResult, ExtractionRunStatus
 from processing.extraction.normalizers import RuleBasedMentionNormalizer
 from processing.extraction.persistence import SqlAlchemyExtractionPersistence
-from processing.extraction.pipeline import ExtractionPipeline
+from processing.extraction.pipeline import ExtractionPipeline, ExtractionVersions
 
 logger = logging.getLogger("cli_batches")
 
@@ -120,6 +120,16 @@ def _extraction_pipeline(database_url: str) -> ExtractionPipeline:
         event_extractor=RuleBasedEventExtractor(),
         persistence=SqlAlchemyExtractionPersistence(_session_factory(database_url)),
     )
+
+
+def current_extraction_versions(session_factory: sessionmaker[Session]) -> ExtractionVersions:
+    """The versions a run of this code is stored under, without a database round trip."""
+    return ExtractionPipeline(
+        extractors=[RuleBasedEntityExtractor()],
+        normalizers=[RuleBasedMentionNormalizer()],
+        event_extractor=RuleBasedEventExtractor(),
+        persistence=SqlAlchemyExtractionPersistence(session_factory),
+    ).versions
 
 
 def extract_articles(database_url: str, article_ids: list[int]) -> BatchExtractionResult:

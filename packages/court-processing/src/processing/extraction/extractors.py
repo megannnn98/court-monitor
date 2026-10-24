@@ -67,7 +67,23 @@ _PERSON_PATTERNS = [
     re.compile(rf"(?=(\b{_INITIALS}{_CAPITALIZED_WORD}\b))"),
     # «Виталия Л.»: a given name with the surname reduced to an initial (OVD-Info style).
     re.compile(rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}[А-ЯЁ]\.(?![А-Яа-яЁё])))"),
+    # «Бастрыкин А.И.», «Иванов И. И.»: a surname followed by one or two initials. The surname is
+    # a single capitalized word (a hyphenated double surname counts as one); the initials end
+    # at a non-letter, so «Иванов А.Иванович» is not a match.
+    re.compile(rf"(?=(\b{_CAPITALIZED_WORD}{_SPACE}[А-ЯЁ]\.(?:[^\S\n]*[А-ЯЁ]\.)?(?![А-Яа-яЁё])))"),
 ]
+# What stands before a surname with initials when it is not a person: «ул. Ленина В.И.», «пр. Мира А.»,
+# «им. Пушкина А.С.», a house or flat number.
+_STREET_OR_ABBREVIATION_BEFORE = re.compile(
+    r"(?:"
+    # a street, a square, an institution «имени…», possibly followed by the rest of its name
+    r"(?:\b(?:ул|пр|пер|пл|бул|наб|ш|им)\.|\b(?:улиц[аеыу]|проспект\w*|переул\w+|площад\w+|набережн\w+|шосс?е|имени))"
+    r"[^\S\n]*(?:[А-ЯЁ][а-яё]+[^\S\n]+)?"
+    # a house or flat number
+    r"|\b(?:д|кв|корп|стр)\.[^\S\n]*"
+    r")$",
+    re.IGNORECASE,
+)
 # Words that may start a capitalized two-word match without being part of the name:
 # sentence adverbs/conjunctions and role or occupation descriptors (by stem).
 _LEADING_NON_NAME_WORDS = frozenset(
@@ -400,7 +416,11 @@ class RuleBasedEntityExtractor:
     # 1.6.0: «Сергея Фургала Чихунов» is two people (a masculine given name in an oblique
     # case, then a masculine surname in the nominative); a rare given name is counted in a
     # run of capitalized words («Дональда Трампа Джареда Кушнера»).
-    extractor_version = "1.6.0"
+    # 1.7.0: a surname followed by initials («Бастрыкин А.И.», «Иванов И. И.») is a person; a street
+    # or an abbreviation before it («ул. Ленина В.И.») is not.
+    # 1.7.1: «г. Москве Ярошу С.М.»: a city or a settlement abbreviation («г.», «с.», «п.») is not a
+    # street marker; the first guard swallowed the city name and dropped the person.
+    extractor_version = "1.7.1"
 
     def __init__(self, morphology: NameMorphology | None = None) -> None:
         self._morphology = morphology or NameMorphology()
@@ -507,6 +527,12 @@ class RuleBasedEntityExtractor:
                 ):
                     continue
                 if self._overlaps(start, span_end, occupied_spans):
+                    continue
+                # A surname with initials after «ул.», «им.», a house number…: a street or an
+                # institution named after a person, not a person.
+                if re.search(r"[А-ЯЁ]\.$", surface) and _STREET_OR_ABBREVIATION_BEFORE.search(
+                    text[max(0, start - 40) : start]
+                ):
                     continue
                 if not self._is_plausible_full_name(text, start, span_end):
                     continue

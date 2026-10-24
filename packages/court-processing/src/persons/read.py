@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Select, func, or_, select, union_all
-from sqlalchemy.orm import Session
+from sqlalchemy import ColumnElement, Select, func, or_, select, union_all
+from sqlalchemy.orm import Session, aliased
 
 from db.arrays import any_of
 from ingestion.read import published_at, stored_articles
@@ -28,6 +28,31 @@ from processing.storage.models import (
     EntityMentionRecord,
     ExtractedEventRecord,
 )
+
+
+def _newest_linked_run() -> ColumnElement[bool]:
+    """Keeps, per person and article, the events of the newest extraction run that has a link
+    of the person.
+
+    Re-extracting an article adds a run and keeps the older ones, and resolution links the
+    person to the new run's events too. Counting both would show one publication twice; the
+    newest run alone would hide the person's events until resolution has read it. The query
+    must join `ArticleExtractionRunRecord` on the event's run.
+    """
+    newer = aliased(ArticleExtractionRunRecord)
+    newer_event = aliased(ExtractedEventRecord)
+    newer_link = aliased(PersonEventLinkRecord)
+    newest = (
+        select(func.max(newer.id))
+        .join(newer_event, newer_event.extraction_run_id == newer.id)
+        .join(newer_link, newer_link.event_id == newer_event.id)
+        .where(
+            newer_link.person_id == PersonEventLinkRecord.person_id,
+            newer.article_id == ArticleExtractionRunRecord.article_id,
+        )
+        .scalar_subquery()
+    )
+    return ArticleExtractionRunRecord.id == newest
 
 
 @dataclass(frozen=True)
@@ -156,7 +181,7 @@ def event_evidence(session: Session, person_id: int) -> list[EventEvidence]:
             ArticleExtractionRunRecord,
             ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
         )
-        .where(PersonEventLinkRecord.person_id == person_id)
+        .where(PersonEventLinkRecord.person_id == person_id, _newest_linked_run())
     ).all()
     articles = stored_articles(session, {row.article_id for row in rows})
     days = published_at(session, {row.article_id for row in rows})
@@ -271,7 +296,11 @@ def person_stats(session: Session, ids: Collection[int]) -> dict[int, PersonStat
                 func.max(ExtractedEventRecord.event_date),
             )
             .join(ExtractedEventRecord, PersonEventLinkRecord.event_id == ExtractedEventRecord.id)
-            .where(any_of(PersonEventLinkRecord.person_id, ids))
+            .join(
+                ArticleExtractionRunRecord,
+                ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
+            )
+            .where(any_of(PersonEventLinkRecord.person_id, ids), _newest_linked_run())
             .group_by(PersonEventLinkRecord.person_id)
         ).all()
     }
@@ -484,7 +513,7 @@ def latest_events(session: Session, ids: Collection[int]) -> dict[int, LatestEve
             ArticleExtractionRunRecord,
             ArticleExtractionRunRecord.id == ExtractedEventRecord.extraction_run_id,
         )
-        .where(any_of(PersonEventLinkRecord.person_id, ordered))
+        .where(any_of(PersonEventLinkRecord.person_id, ordered), _newest_linked_run())
     ).all()
     days = published_at(session, {row.article_id for row in rows})
     latest: dict[int, tuple[tuple[Any, ...], LatestEvent]] = {}
