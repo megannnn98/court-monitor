@@ -70,6 +70,9 @@ def strip_numbers(db: Session) -> StripNumbers:
 
 
 def _status_counts(db: Session, work: Workload | None = None) -> dict[str, object]:
+    # Imported here: at module level it is a cycle, layout → political_rows → entities → layout.
+    from web.ui.political_rows import open_result_count
+
     work = work or workload(db)
     numbers = strip_numbers(db)
     return {
@@ -79,6 +82,8 @@ def _status_counts(db: Session, work: Workload | None = None) -> dict[str, objec
         "work": work,
         "latest_run": _run_status_label(numbers.latest_monitoring_status),
         "result": numbers.result,
+        # The menu's «Результаты»: people not yet «обработано»; the strip keeps «result».
+        "result_open": open_result_count(db),
     }
 
 
@@ -205,7 +210,7 @@ def _nav(active: str, counts: dict[str, object]) -> str:
     # On a phone these three stand in the bar at the bottom, so the opened menu hides them.
     daily = (
         link("cycle", "Работа", HOME, counts["queue"], "nav-daily")
-        + link("political", "Результаты", "/ui/political", counts["result"], "nav-daily")
+        + link("political", "Результаты", "/ui/political", counts["result_open"], "nav-daily")
         + link("investigations", "Найти человека", "/ui/investigations", css="nav-daily")
         # Not in the phone's bottom bar, so not hidden from its opened menu.
         + link("ask", "Спросить", "/ui/ask")
@@ -224,7 +229,7 @@ def _nav(active: str, counts: dict[str, object]) -> str:
 # The pages of the phone's bottom bar; every other page is under «Ещё».
 _TABS = (
     ("cycle", "Работа", HOME, "queue"),
-    ("political", "Результаты", "/ui/political", "result"),
+    ("political", "Результаты", "/ui/political", "result_open"),
     ("investigations", "Найти", "/ui/investigations", None),
 )
 

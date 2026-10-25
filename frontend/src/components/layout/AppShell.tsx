@@ -60,7 +60,7 @@ function Count({ item }: { item: NavItem }) {
   if (!item.count || !status.data) {
     return null;
   }
-  const value = item.count === "queue" ? status.data.queue.total : status.data.result;
+  const value = item.count === "queue" ? status.data.queue.total : status.data.result_open;
   return <span className="ml-auto rounded-full bg-white/10 px-1.5 text-xs text-sidebar-foreground">{formatNumber(value)}</span>;
 }
 

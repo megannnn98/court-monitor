@@ -10514,6 +10514,10 @@
             "type": "integer",
             "title": "Result"
           },
+          "result_open": {
+            "type": "integer",
+            "title": "Result Open"
+          },
           "queue": {
             "$ref": "#/components/schemas/QueueResponse"
           },
@@ -10566,6 +10570,7 @@
           "articles",
           "people",
           "result",
+          "result_open",
           "queue",
           "latest_monitoring_status",
           "live_operation",

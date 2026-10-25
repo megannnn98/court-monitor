@@ -16,6 +16,7 @@ from web.response_models import (
 )
 from web.ui import spend
 from web.ui.layout import strip_numbers
+from web.ui.political_rows import open_result_count
 from web.ui.run_cards import MODE_TITLES
 from web.ui.work_cycle import live_next_action
 from web.ui.workload import workload
@@ -38,6 +39,7 @@ def read_status(db: Session) -> StatusResponse:
         articles=numbers.articles,
         people=numbers.people,
         result=numbers.result,
+        result_open=open_result_count(db),
         queue=QueueResponse(
             total=work.total,
             pairs=work.pairs,

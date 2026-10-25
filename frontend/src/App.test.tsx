@@ -14,6 +14,7 @@ vi.mock("@/api/generated", () => ({
         articles: 128450,
         people: 13765,
         result: 412,
+        result_open: 380,
         queue: { total: 37, pairs: 5, unclear_roles: 10, unclear_verdicts: 12, unnamed: 8, junk_holds: 2 },
         latest_monitoring_status: "completed_with_errors",
         live_operation: { mode: "entities", title: "Сборка сущностей" },
@@ -130,5 +131,5 @@ it("shows the legacy strip, the menu's counters and the step running now", async
   expect(within(strip).getByText(/^128\s450$/)).toBeTruthy();
   const menu = screen.getByRole("navigation", { name: "Главное меню" });
   expect(within(within(menu).getByRole("link", { name: /^Работа/ })).getByText("37")).toBeTruthy();
-  expect(within(within(menu).getByRole("link", { name: /^Результаты/ })).getByText("412")).toBeTruthy();
+  expect(within(within(menu).getByRole("link", { name: /^Результаты/ })).getByText("380")).toBeTruthy();
 });
