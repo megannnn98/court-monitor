@@ -293,6 +293,12 @@ def result_rows(db: Session, chosen: Filters, now: datetime | None = None) -> Re
     )
 
 
+def open_result_count(db: Session) -> int:
+    """People of the result nobody has marked «обработано» yet, in every period: the work
+    left, as the «Все» queue shows it for «за всё время»."""
+    return sum(not row.done for row in _everyone(db, done_marks(db)))
+
+
 def queue_counts(db: Session, chosen: Filters, now: datetime | None = None) -> dict[str, int]:
     """How many people each queue holds in the period of `chosen`, whatever queue is open:
     one reading of the period, with everybody, «обработано» included."""

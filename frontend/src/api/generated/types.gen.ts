@@ -4424,6 +4424,10 @@ export type StatusResponse = {
      * Result
      */
     result: number;
+    /**
+     * Result Open
+     */
+    result_open: number;
     queue: QueueResponse;
     /**
      * Latest Monitoring Status

@@ -7,7 +7,7 @@ export type NavItem = {
   label: string;
   legacy: string | null;
   path?: string;
-  /** A counter from `/api/v1/status` beside the label, as in the legacy menu. */
+  /** A counter from `/api/v1/status` beside the label: «result» counts the people not yet «обработано». */
   count?: "queue" | "result";
 };
 

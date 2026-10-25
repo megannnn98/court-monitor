@@ -46,6 +46,7 @@ def test_an_empty_database_says_nothing_runs(session_factory: sessionmaker[Sessi
     assert status.status_code == 200
     body = status.json()
     assert (body["articles"], body["people"], body["result"]) == (0, 0, 0)
+    assert body["result_open"] == 0
     assert body["queue"]["total"] == 0
     assert body["latest_monitoring_status"] is None
     assert body["live_operation"] is None

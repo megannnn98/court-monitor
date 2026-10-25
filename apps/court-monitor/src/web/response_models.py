@@ -268,6 +268,8 @@ class StatusResponse(BaseModel):
     articles: int
     people: int
     result: int
+    # People of the result not yet «обработано»: the volume of work left.
+    result_open: int
     queue: QueueResponse
     latest_monitoring_status: str | None
     live_operation: LiveOperationResponse | None
