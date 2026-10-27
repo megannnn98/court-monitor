@@ -80,7 +80,7 @@ def test_the_route_says_what_the_strip_says(session_factory: sessionmaker[Sessio
 
     with _client(session_factory) as client:
         status = client.get("/api/v1/status").json()
-        page = client.get("/ui/about").text
+        page = client.get("/ui/sentences").text
 
     assert str(status["articles"]) == _strip(page, "Публикации")
     assert str(status["people"]) == _strip(page, "Люди")

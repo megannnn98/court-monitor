@@ -312,7 +312,6 @@ def test_the_evidence_quotes_mark_the_mention_and_link_the_text(
 
     with _client(session_factory) as client:
         page = client.get(f"/ui/investigations/{quote(MOOR)}").text
-        source = client.get(f"/ui/articles/{article}?start={start}&end={end}").text
 
     evidence = page[page.index('id="evidence"') :]
     assert (
@@ -321,9 +320,8 @@ def test_the_evidence_quotes_mark_the_mention_and_link_the_text(
     assert "<mark>Александра Моора</mark>" in evidence
     assert "ОВД-Инфо · 01.09.2026" in evidence
     assert 'href="https://example.test/arrest" rel="noopener noreferrer"' in evidence
-    # The other person of a publication, and the text the link opens, marked.
+    # The other person of a publication.
     assert "Иванов Иван</a>" in evidence
-    assert "<mark>Александра Моора</mark>" in source
 
 
 def test_the_decision_panel_shows_the_verdict_its_reason_and_its_source(
@@ -658,7 +656,6 @@ def test_loaded_and_typed_text_is_escaped(session_factory: sessionmaker[Session]
                 "WHERE external_id = 'arrest'"
             )
         )
-        article = session.scalar(text("SELECT id FROM parsed_articles WHERE title LIKE '<img%'"))
 
     with _client(session_factory) as client:
         pages = [
@@ -666,7 +663,6 @@ def test_loaded_and_typed_text_is_escaped(session_factory: sessionmaker[Session]
             client.get("/ui/publications").text,
             client.get("/ui/entities", params={"figurants": "all", "q": "<script>"}).text,
             client.get("/ui/investigations", params={"q": "<script>x</script>"}).text,
-            client.get(f"/ui/articles/{article}").text,
         ]
 
     for page in pages:

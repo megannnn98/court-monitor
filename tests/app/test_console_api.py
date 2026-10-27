@@ -143,10 +143,7 @@ def test_an_article_s_people_and_events(session_factory: sessionmaker[Session]) 
     with _client(session_factory) as client:
         mentions = client.get(f"/api/v1/articles/{arrest}/mentions").json()
         missing = client.get("/api/v1/articles/999999/mentions")
-        page = client.get(f"/ui/articles/{arrest}").text
 
-    for person in mentions["people"]:
-        assert person["name"] in page
     assert {person["name"] for person in mentions["people"]} == {"Моор Александр", "Иванов Иван"}
     assert mentions["events"] == [{"kind": "arrest", "label": "Арест", "count": 1}]
     assert missing.status_code == 404 and missing.json() == {"detail": "Article not found"}

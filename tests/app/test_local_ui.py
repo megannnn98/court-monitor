@@ -56,7 +56,6 @@ def test_person_detail_and_article_routes_expose_evidence_span(
 
     with _client(session_factory) as client:
         detail = client.get(f"/persons/{person_id}/detail")
-        ui_person = client.get(f"/ui/persons/{person_id}")
         article = client.get(f"/articles/{article_id}")
         # The seeded news is dated 2024: no period filter.
         # The seeded news is a fine without a criminal-code charge: an administrative case,
@@ -70,10 +69,6 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     assert body["persecution"]["status"] == "political"
     assert body["rosfinmonitoring"]["status"] == "not_matched"
     assert body["events"][0]["evidence"]["text"] == "Суд назначил штраф Ивану Иванову"
-    assert ui_person.status_code == 200
-    assert "Суд назначил штраф Ивану Иванову" in ui_person.text
-    # The card's heading writes the name surname first, as the tables do.
-    assert "<title>Иванов Иван</title>" in ui_person.text
     assert article.json()["text"].startswith("Иван Иванов участвовал")
     assert candidates_page.status_code == 200
     assert "<th>№</th>" in candidates_page.text

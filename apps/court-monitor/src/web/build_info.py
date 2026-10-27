@@ -2,7 +2,7 @@
 
 An operator looking at a number in the console has no way to tell whether it came from
 the code in the repository. So the build stamps itself, and the console says so in one
-place: `/ui/about`.
+place: «О системе», read from `/api/v1/about`.
 
 The commit comes from the build, not from git at runtime: the image carries no `.git`
 (only `src`, `migrations` and `docs/wiki` are copied in), and adding one to a private
@@ -33,14 +33,6 @@ class BuildInfo:
     # `git describe --tags --always` at build time: «0.36.0» on a release, «0.36.0-3-g495d9e9»
     # three commits after one.
     tag: str = UNKNOWN
-
-    def rows(self) -> list[tuple[str, str]]:
-        return [
-            ("Версия приложения", self.version),
-            ("Тег", self.tag),
-            ("Коммит", self.commit),
-            ("Собран", self.built_at),
-        ]
 
 
 def version_of(tag: str) -> str:
