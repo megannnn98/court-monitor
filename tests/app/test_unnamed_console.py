@@ -1,13 +1,14 @@
-"""«Безымянные»: the unnamed figurants, their candidates from the list, a person's word."""
+"""«Безымянные»: the unnamed figurants, their candidates from the list, a person's word.
+
+Read and taken through `/api/v1/unnamed`, as the React page does; the legacy overview and
+cycle pages still show what this work leaves."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
-from html import escape
-from urllib.parse import quote
+from datetime import UTC, date, datetime
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -30,6 +31,8 @@ from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_regis
 from web.views.workload import workload
 
 QUOTE = "В Тюмени задержан 17-летний житель города по делу о теракте <b>на железной дороге</b>."
+API = "/api/v1/unnamed"
+FIGURANT = "k" * 64
 
 
 @contextmanager
@@ -51,6 +54,24 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_operation_registry, None)
 
 
+def _list(client: TestClient, **params: str) -> dict[str, Any]:
+    listed: dict[str, Any] = client.get(API, params=params).json()
+    return listed
+
+
+def _counts(listed: dict[str, Any]) -> dict[str, int]:
+    return {option["value"]: option["count"] for option in listed["statuses"]}
+
+
+def _keys(listed: dict[str, Any]) -> list[str]:
+    return [item["key"] for item in listed["items"]]
+
+
+def _card(listed: dict[str, Any], key: str = FIGURANT) -> dict[str, Any]:
+    card: dict[str, Any] = next(item for item in listed["items"] if item["key"] == key)
+    return card
+
+
 def _seed(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
         seed = DatabaseSeeder(session)
@@ -64,7 +85,7 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
         )
         session.add(
             UnnamedFigurantRecord(
-                key="k" * 64,
+                key=FIGURANT,
                 article_id=article,
                 start_offset=0,
                 end_offset=len(QUOTE),
@@ -103,19 +124,15 @@ def _seed(session_factory: sessionmaker[Session]) -> None:
 
 def test_nobody_yet_says_where_they_come_from(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
+        listed = _list(client)
 
-    assert "<title>Безымянные</title>" in page
-    assert "Безымянных фигурантов пока нет: их находит шаг 5" in page
-    assert '<span>Безымянные</span><span class="nav-count">' not in page
-    assert 'href="/ui/unnamed" aria-current="page"' not in page
+    assert listed["none_yet"] is True and listed["items"] == []
+    assert _counts(listed)["open"] == 0
 
 
 def test_a_candidate_removed_from_the_list_is_shown_as_removed(
     session_factory: sessionmaker[Session],
 ) -> None:
-    from datetime import date
-
     from analysis.rosfinmonitoring.operator_table import OperatorRow, store
 
     _seed(session_factory)
@@ -136,15 +153,17 @@ def test_a_candidate_removed_from_the_list_is_shown_as_removed(
         )
 
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
+        listed = _list(client)
 
-    row = page[page.index("УШЕДШИЙ ИВАН ПЕТРОВИЧ") :]
-    row = row[: row.index("</tr>")]
-    assert "родился: Г. ТЮМЕНЬ; исключён из перечня" in row
+    gone = next(
+        candidate
+        for candidate in _card(listed)["rf_candidates"]
+        if candidate["full_name"] == "УШЕДШИЙ ИВАН ПЕТРОВИЧ"
+    )
+    assert "родился: Г. ТЮМЕНЬ; исключён из перечня" in "; ".join(gone["reasons"])
     # The day is the table's and the list no longer holds him: neither is said as the list's.
-    assert "включён 20.11.2024, позже исключён — по таблице оператора" in row
-    assert "в перечне с" not in row
-    assert ">Это он<" in row
+    assert gone["seen"] == "включён 20.11.2024, позже исключён — по таблице оператора"
+    assert gone["decision"] is None
 
 
 def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
@@ -153,18 +172,23 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
+        listed = _list(client)
         cycle = client.get("/ui/cycle").text
 
-    assert "17 лет · мужчина · Тюмень · задержание · ст. 205" in page
-    # Scraped text is escaped; the sentence leads to its publication.
-    assert "&lt;b&gt;на железной дороге&lt;/b&gt;" in page and "<b>на железной" not in page
-    assert '<a href="/ui/articles/' in page and "?start=0&amp;end=" in page
-    assert "ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ" in page and "17.02.2007" in page
-    assert "17 лет на 25.11.2024; мужчина; родился: Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ" in page
-    assert "в перечне с 01.12.2024 или раньше" in page
-    assert "Не разобраны (1)" in page and '<span class="badge pending">не разобран</span>' in page
-    # The dashboard counts it and leads here.
+    card = _card(listed)
+    assert card["facts"] == "17 лет · мужчина · Тюмень · задержание · ст. 205"
+    # The text as written: escaping it is the page's business.
+    assert card["quote"] == QUOTE
+    assert (card["start_offset"], card["end_offset"]) == (0, len(QUOTE))
+    (candidate,) = card["rf_candidates"]
+    assert candidate["full_name"] == "ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ"
+    assert candidate["birth_date"] == "2007-02-17"
+    assert "; ".join(candidate["reasons"]) == (
+        "17 лет на 25.11.2024; мужчина; родился: Г. ТЮМЕНЬ ТЮМЕНСКОЙ ОБЛАСТИ"
+    )
+    assert candidate["seen"] == "в перечне с 01.12.2024 или раньше"
+    assert _counts(listed)["open"] == 1 and card["resolution"] == ""
+    # The dashboard counts it and leads there.
     assert 'data-primary-task="unnamed"' in cycle
     assert "Безымянные фигуранты: 1" in cycle
 
@@ -175,19 +199,14 @@ def test_an_rf_entry_finds_its_unnamed_candidate_without_deciding(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        search = client.get("/ui/unnamed", params={"rf_q": "пуртов"}).text
-        reverse = client.get(
-            "/ui/unnamed",
-            params={
-                "rf_q": "пуртов",
-                "rf_key": "пуртов егор владимирович|2007-02-17",
-            },
-        ).text
+        search = _list(client, rf_q="пуртов")
+        reverse = _list(client, rf_q="пуртов", rf_key="пуртов егор владимирович|2007-02-17")
 
-    assert "ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ" in search
-    assert "Подходящие безымянные публикации (1)" in reverse
-    assert "В Тюмени задержан 17-летний житель" in reverse
-    assert "опознан:" not in reverse
+    assert [entry["full_name"] for entry in search["rf_entries"]] == ["ПУРТОВ ЕГОР ВЛАДИМИРОВИЧ"]
+    assert search["reverse"] == []
+    assert [item["key"] for item in reverse["reverse"]] == [FIGURANT]
+    assert reverse["reverse"][0]["quote"].startswith("В Тюмени задержан 17-летний житель")
+    assert _card(reverse)["resolution"] == ""
 
 
 def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Session]) -> None:
@@ -195,31 +214,27 @@ def test_a_person_s_word_identifies_and_closes(session_factory: sessionmaker[Ses
 
     with _client(session_factory) as client:
         same = client.post(
-            "/ui/unnamed/resolve",
-            data={
-                "figurant": "k" * 64,
+            f"{API}/resolve",
+            json={
+                "figurant": FIGURANT,
                 "resolution": "rf_entry",
                 "normalized_name": "Пуртов Егор Владимирович",
                 "rf_name": "пуртов егор владимирович",
                 "rf_birth_date": "2007-02-17",
-                "back": "status=open&page=1",
             },
-            follow_redirects=False,
         )
-        found = client.get("/ui/unnamed", params={"status": "found"}).text
-        still_open = client.get("/ui/unnamed").text
+        found = _list(client, status="found")
+        still_open = _list(client)
         incomplete = client.post(
-            "/ui/unnamed/resolve", data={"figurant": "k" * 64, "resolution": "rf_entry"}
+            f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "rf_entry"}
         )
-        unknown = client.post(
-            "/ui/unnamed/resolve", data={"figurant": "x", "resolution": "no_rf_match"}
-        )
+        unknown = client.post(f"{API}/resolve", json={"figurant": "x", "resolution": "no_rf_match"})
 
-    assert same.status_code == 303
-    assert same.headers["location"] == f"/ui/unnamed?status=open&page=1&person_q=#u-{'k' * 64}"
-    assert "Опознаны (1)" in found and "опознан: Пуртов Егор Владимирович" in found
-    assert '<span class="badge succeeded">это он</span>' in found
-    assert "В этом разделе никого." in still_open
+    assert same.status_code == 200
+    assert _counts(found)["found"] == 1 and _keys(found) == [FIGURANT]
+    assert _card(found)["identified_as"] == "Пуртов Егор Владимирович"
+    assert _card(found)["rf_candidates"][0]["decision"] == "same"
+    assert still_open["items"] == [] and still_open["none_yet"] is False
     assert incomplete.status_code == 400 and unknown.status_code == 400
     with session_factory() as session:
         rows = session.execute(
@@ -244,22 +259,15 @@ def test_no_rf_match_stays_open_and_insufficient_closes(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        client.post(
-            "/ui/unnamed/resolve",
-            data={"figurant": "k" * 64, "resolution": "no_rf_match"},
-        )
-        no_rf = client.get("/ui/unnamed", params={"status": "no_rf"}).text
-        still_open = client.get("/ui/unnamed").text
+        client.post(f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "no_rf_match"})
+        no_rf = _list(client, status="no_rf")
+        still_open = _list(client)
         cycle = client.get("/ui/cycle").text
-        client.post(
-            "/ui/unnamed/resolve",
-            data={"figurant": "k" * 64, "resolution": "insufficient"},
-        )
+        client.post(f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "insufficient"})
         closed = client.get("/ui/cycle").text
 
-    assert "Нет записи РФМ (1)" in no_rf
-    assert '<span class="badge">подходящей записи РФМ нет</span>' in no_rf
-    assert "Не разобраны (1)" in still_open
+    assert _counts(no_rf)["no_rf"] == 1 and _card(no_rf)["resolution"] == "no_rf_match"
+    assert _keys(still_open) == [FIGURANT]
     assert 'data-primary-task="unnamed"' in cycle
     assert "Сейчас ничего проверять не нужно" in closed
 
@@ -271,11 +279,7 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
 
     with _client(session_factory) as client:
         page = client.get("/ui/overview").text
-        client.post(
-            "/ui/unnamed/resolve",
-            data={"figurant": "k" * 64, "resolution": "insufficient", "back": "status=open"},
-            follow_redirects=False,
-        )
+        client.post(f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "insufficient"})
         closed = client.get("/ui/overview").text
 
     unnamed = page[page.index('id="unnamed-title"') :]
@@ -324,57 +328,44 @@ def test_a_card_shows_the_people_of_the_base_and_takes_a_word_on_them(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        without = client.get("/ui/unnamed").text
+        without = _card(_list(client))
         _seed_base(session_factory)
-        page = client.get("/ui/unnamed").text
+        with_base = _card(_list(client))
         rejected = client.post(
-            "/ui/unnamed/reject",
-            data={
-                "figurant": "k" * 64,
-                "candidate": "base:тюменцев иван ильич|2007-05-01",
-                "back": "status=open&page=1",
-            },
-            follow_redirects=False,
+            f"{API}/reject",
+            json={"figurant": FIGURANT, "candidate": "base:тюменцев иван ильич|2007-05-01"},
         )
-        after_reject = client.get("/ui/unnamed").text
+        after_reject = _card(_list(client))
         same = client.post(
-            "/ui/unnamed/resolve",
-            data={
-                "figurant": "k" * 64,
+            f"{API}/resolve",
+            json={
+                "figurant": FIGURANT,
                 "resolution": "supplied_name",
                 "normalized_name": "Тюменцев <Иван> Ильич",
                 "rf_birth_date": "2007-05-01",
-                "back": "status=open&page=1",
             },
-            follow_redirects=False,
         )
-        found = client.get("/ui/unnamed", params={"status": "found"}).text
-        too_long = client.post(
-            "/ui/unnamed/reject", data={"figurant": "k" * 64, "candidate": "x" * 256}
-        )
+        found = _card(_list(client, status="found"))
+        too_long = client.post(f"{API}/reject", json={"figurant": FIGURANT, "candidate": "x" * 256})
 
-    assert "Кандидаты из базы Airtable</caption>" not in without
-    assert "В базе Airtable" not in without.split("</article>")[0].split("<article")[1]
-    assert "Кандидаты из базы Airtable</caption>" in page
-    # The base is a person's typing: escaped like everything else.
-    assert "Тюменцев &lt;Иван&gt; Ильич</th>" in page and "<Иван>" not in page
-    assert (
-        "<td>01.05.2007</td><td>Тюменская область, Тюмень</td><td>ст. 205 УК РФ ч. 1</td>" in page
+    assert without["base_candidates"] == [] and without["base_total"] == 0
+    (person,) = with_base["base_candidates"]
+    # The base is a person's typing, kept as typed.
+    assert person["name"] == "Тюменцев <Иван> Ильич"
+    assert (person["birth_date"], person["place"], person["articles"]) == (
+        "2007-05-01",
+        "Тюменская область, Тюмень",
+        "ст. 205 УК РФ ч. 1",
     )
-    assert "17 лет на 25.11.2024; место: Тюменская область, Тюмень; та же статья: 205" in page
-    assert (
-        'name="resolution" value="supplied_name"><input type="hidden" name="normalized_name" '
-        'value="Тюменцев &lt;Иван&gt; Ильич"><input type="hidden" name="rf_birth_date" '
-        'value="2007-05-01">'
-    ) in page
-    assert 'name="candidate" value="base:тюменцев иван ильич|2007-05-01"' in page
-    assert rejected.status_code == 303
-    assert 'Ильич <span class="badge">не он</span></th>' in after_reject
-    assert same.status_code == 303
-    assert "опознан: Тюменцев &lt;Иван&gt; Ильич" in found
-    assert 'Ильич <span class="badge succeeded">это он</span></th>' in found
-    # A confirmed person is taken back with «Отменить решение»: no «Не он» beside them.
-    assert 'name="candidate" value="base:' not in found
+    assert "; ".join(person["reasons"]) == (
+        "17 лет на 25.11.2024; место: Тюменская область, Тюмень; та же статья: 205"
+    )
+    assert person["key"] == "base:тюменцев иван ильич|2007-05-01" and person["decision"] is None
+    assert rejected.status_code == 200
+    assert after_reject["base_candidates"][0]["decision"] == "different"
+    assert same.status_code == 200
+    assert found["identified_as"] == "Тюменцев <Иван> Ильич"
+    assert found["base_candidates"][0]["decision"] == "same"
     assert too_long.status_code == 400
 
 
@@ -387,10 +378,9 @@ def test_the_base_only_counts_where_the_place_does_not_fit(
         session.execute(text("UPDATE airtable_known_persons SET region = 'Омск', city = NULL"))
 
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
+        card = _card(_list(client))
 
-    assert "Кандидаты из базы Airtable</caption>" not in page
-    assert "В базе Airtable 1 человек этого возраста и пола; по месту из них никто" in page
+    assert card["base_candidates"] == [] and card["base_total"] == 1
 
 
 def test_a_card_says_where_the_article_is_tried_from_the_place(
@@ -398,7 +388,7 @@ def test_a_card_says_where_the_article_is_tried_from_the_place(
 ) -> None:
     _seed(session_factory)
     with _client(session_factory) as client:
-        without = client.get("/ui/unnamed").text
+        without = _card(_list(client))
     with session_factory.begin() as session:
         session.add(
             AirtableKnownPersonRecord(
@@ -413,13 +403,13 @@ def test_a_card_says_where_the_article_is_tried_from_the_place(
         )
 
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
+        card = _card(_list(client))
 
-    assert "Где судят" not in without
-    assert (
-        "Где судят по этой статье из этого места (приговоры в базе Airtable, всего 1): "
-        "Центральный окружной военный суд — 1.</p>"
-    ) in page
+    assert without["courts"] == [] and without["courts_total"] == 0
+    assert [(hint["court"], hint["cases"]) for hint in card["courts"]] == [
+        ("Центральный окружной военный суд", 1)
+    ]
+    assert card["courts_total"] == 1
 
 
 def test_a_card_shows_who_another_publication_names_and_takes_a_word(
@@ -427,7 +417,7 @@ def test_a_card_shows_who_another_publication_names_and_takes_a_word(
 ) -> None:
     _seed(session_factory)
     with _client(session_factory) as client:
-        without = client.get("/ui/unnamed").text
+        without = _card(_list(client))
     with session_factory() as session:
         seed = DatabaseSeeder(session)
         source = seed.source("Прокуратура", "https://proc.example.test")
@@ -465,64 +455,43 @@ def test_a_card_shows_who_another_publication_names_and_takes_a_word(
         )
 
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
+        named = _card(_list(client))["named_candidates"]
+        candidate_key = named[0]["candidate_key"]
         rejected = client.post(
-            "/ui/unnamed/reject",
-            data={"figurant": "k" * 64, "candidate": f"person:{key}", "back": "status=open&page=1"},
-            follow_redirects=False,
+            f"{API}/reject", json={"figurant": FIGURANT, "candidate": candidate_key}
         )
-        after_reject = client.get("/ui/unnamed").text
+        after_reject = _card(_list(client))["named_candidates"]
         undone = client.post(
-            "/ui/unnamed/reject",
-            data={"figurant": "k" * 64, "candidate": f"person:{key}", "undo": "1"},
-            follow_redirects=False,
+            f"{API}/reject", json={"figurant": FIGURANT, "candidate": candidate_key, "undo": True}
         )
-        returned = client.get("/ui/unnamed").text
+        returned = _card(_list(client))["named_candidates"]
         same = client.post(
-            "/ui/unnamed/resolve",
-            data={
-                "figurant": "k" * 64,
+            f"{API}/resolve",
+            json={
+                "figurant": FIGURANT,
                 "resolution": "existing_person",
                 "existing_person_key": key,
-                "back": "status=open&page=1",
             },
-            follow_redirects=False,
         )
-        found = client.get("/ui/unnamed", params={"status": "found"}).text
+        found = _card(_list(client, status="found"))
 
-    caption = "Названные в других публикациях</caption>"
-    assert caption not in without and caption in page
-    table = page[page.index(caption) :]
-    table = table[: table.index("</table>")]
-    # The person leads to the dossier, the publication to the name in its text; escaped.
-    assert f'<a href="/ui/investigations/{quote(key)}">' in table
-    assert "Задержание &lt;в Тюмени&gt;</a>" in table and "<в Тюмени>" not in table
-    assert re.search(r'href="/ui/articles/\d+\?start=18&amp;end=31"', table)
-    assert (
+    assert without["named_candidates"] == []
+    (person,) = named
+    # The person leads to the dossier, the publication to the name in its text.
+    assert person["key"] == key and candidate_key == f"person:{key}"
+    assert person["title"] == "Задержание <в Тюмени>"
+    assert (person["start"], person["end"]) == (18, 31)
+    assert "; ".join(person["reasons"]) == (
         "Прокуратура, 26.11.2024: то же место, та же стадия дела; возраст 17 назван в тексте около имени"
-        in table
     )
-    # The key holds what the text wrote: escaped in the form as everywhere.
-    assert f'name="existing_person_key" value="{escape(key, quote=True)}"' in table
-    assert f'name="candidate" value="person:{escape(key, quote=True)}"' in table
-    assert "<пуртов>" not in table and "<Пуртов>" not in table
-    assert rejected.status_code == 303 and undone.status_code == 303 and same.status_code == 303
-    assert '<span class="badge">не он</span>' in after_reject
-    # «Не он» said: «Это он» stays, and «Вернуть» takes the word back.
-    rejected_table = after_reject[after_reject.index(caption) :].split("</table>")[0]
-    assert 'name="resolution" value="existing_person"' in rejected_table
-    assert (
-        'name="undo" value="1"><button type="submit" class="secondary">Вернуть<' in rejected_table
-    )
-    assert ">Не он<" not in rejected_table
-    table_again = returned[returned.index(caption) :].split("</table>")[0]
-    assert "не он</span>" not in table_again and ">Не он<" in table_again
-    # «Это он» said: no button beside the person — «Отменить решение» is below the card.
-    confirmed_table = found[found.index(caption) :].split("</table>")[0]
-    assert 'name="resolution" value="existing_person"' not in confirmed_table
-    assert 'name="candidate" value="person:' not in confirmed_table
-    assert 'name="undo"' not in confirmed_table
-    assert '<span class="badge succeeded">это он</span>' in found[found.index(caption) :]
+    assert person["decision"] is None
+    assert (rejected.status_code, undone.status_code, same.status_code) == (200, 200, 200)
+    # «Не он» said, then taken back.
+    assert after_reject[0]["decision"] == "different"
+    assert returned[0]["decision"] is None
+    # «Это он» said: the person is the one identified.
+    assert found["resolution"] == "existing_person"
+    assert found["named_candidates"][0]["decision"] == "same"
 
 
 def _facts(key: str, article: int, quote_: str, age: int | None) -> dict[str, object]:
@@ -565,15 +534,15 @@ def test_a_card_without_an_age_waits_apart_from_the_queue(
     _aside(session_factory)
 
     with _client(session_factory) as client:
-        queue = client.get("/ui/unnamed").text
-        apart = client.get("/ui/unnamed", params={"status": "no_age"}).text
+        queue = _list(client)
+        apart = _list(client, status="no_age")
     with session_factory() as session:
         counted = workload(session).unnamed
 
     # Nobody of the list is offered without an age: not work to do, still there to read.
-    assert "Не разобраны (1)" in queue and "Без возраста (1)" in queue
-    assert f'id="u-{"n" * 64}"' not in queue and f'id="u-{"k" * 64}"' in queue
-    assert f'id="u-{"n" * 64}"' in apart and f'id="u-{"k" * 64}"' not in apart
+    assert _counts(queue)["open"] == 1 and _counts(queue)["no_age"] == 1
+    assert _keys(queue) == [FIGURANT]
+    assert _keys(apart) == ["n" * 64] and _card(apart, "n" * 64)["has_age"] is False
     assert counted == 1
 
 
@@ -583,34 +552,29 @@ def test_whom_the_search_set_aside_is_listed_and_taken_back_by_a_press(
     _aside(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/unnamed").text
-        folded = page[page.index('<details class="band" id="screened">') :]
-        taken = client.post(
-            "/ui/unnamed/keep", data={"figurant": "s" * 64, "back": "status=open&page=1"}
-        )
-        after = client.get("/ui/unnamed").text
-        twice = client.post("/ui/unnamed/keep", data={"figurant": "s" * 64}, follow_redirects=False)
+        listed = _list(client)
+        taken = client.post(f"{API}/keep", json={"figurant": "s" * 64})
+        after = _list(client)
+        twice = client.post(f"{API}/keep", json={"figurant": "s" * 64})
 
-    assert "<summary>Отсеяно автоматически (1)</summary>" in folded
-    assert "Подросток осуждён за угон." in folded and "обычное уголовное дело" in folded
-    assert "осуждён за угон</span>" in folded and "Вернуть на разбор</button>" in folded
+    (aside,) = listed["screened"]
+    assert aside["key"] == "s" * 64 and aside["quote"] == "Подросток осуждён за угон."
+    assert "обычное уголовное дело" in aside["reason"]
+    assert aside["explanation"] == "осуждён за угон"
     # Not a card until taken back.
-    assert f'id="u-{"s" * 64}"' not in page
-    assert taken.history[0].status_code == 303
-    assert taken.history[0].headers["location"].endswith(f"#u-{'s' * 64}")
-    assert f'id="u-{"s" * 64}"' in after and "Отсеяно автоматически" not in after
-    assert "Не разобраны (2)" in after
+    assert "s" * 64 not in _keys(listed)
+    assert taken.status_code == 200 and taken.json() == {"figurant": "s" * 64}
+    assert "s" * 64 in _keys(after) and after["screened"] == []
+    assert _counts(after)["open"] == 2
     assert twice.status_code == 400
 
 
-def test_the_api_reads_the_cards_and_takes_the_words_the_page_does(
+def test_the_api_reads_the_cards_and_refuses_what_it_should(
     session_factory: sessionmaker[Session],
 ) -> None:
-    """`/api/v1/unnamed` for the React page: the same cards, counts and words."""
     _seed(session_factory)
-    figurant = "k" * 64
     word = {
-        "figurant": figurant,
+        "figurant": FIGURANT,
         "resolution": "rf_entry",
         "normalized_name": "Пуртов Егор Владимирович",
         "rf_name": "пуртов егор владимирович",
@@ -618,36 +582,33 @@ def test_the_api_reads_the_cards_and_takes_the_words_the_page_does(
     }
 
     with _client(session_factory) as client:
-        opened = client.get("/api/v1/unnamed").json()
-        searched = client.get("/api/v1/unnamed", params={"rf_q": "пуртов"}).json()
+        opened = _list(client)
+        searched = _list(client, rf_q="пуртов")
         rejected = client.post(
-            "/api/v1/unnamed/reject",
-            json={"figurant": figurant, "candidate": "пуртов егор владимирович|2007-02-17"},
+            f"{API}/reject",
+            json={"figurant": FIGURANT, "candidate": "пуртов егор владимирович|2007-02-17"},
         )
-        after_reject = client.get("/api/v1/unnamed").json()
+        after_reject = _list(client)
         client.post(
-            "/api/v1/unnamed/reject",
+            f"{API}/reject",
             json={
-                "figurant": figurant,
+                "figurant": FIGURANT,
                 "candidate": "пуртов егор владимирович|2007-02-17",
                 "undo": True,
             },
         )
-        resolved = client.post("/api/v1/unnamed/resolve", json=word)
-        found = client.get("/api/v1/unnamed", params={"status": "found"}).json()
-        legacy = client.get("/ui/unnamed", params={"status": "found"}).text
+        resolved = client.post(f"{API}/resolve", json=word)
+        found = _list(client, status="found")
         incomplete = client.post(
-            "/api/v1/unnamed/resolve", json={"figurant": figurant, "resolution": "rf_entry"}
+            f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "rf_entry"}
         )
         foreign = client.post(
-            "/api/v1/unnamed/clear",
-            json={"figurant": figurant},
-            headers={"Origin": "https://evil.example"},
+            f"{API}/clear", json={"figurant": FIGURANT}, headers={"Origin": "https://evil.example"}
         )
-        cleared = client.post("/api/v1/unnamed/clear", json={"figurant": figurant})
-        back = client.get("/api/v1/unnamed").json()
+        cleared = client.post(f"{API}/clear", json={"figurant": FIGURANT})
+        back = _list(client)
 
-    counts = {option["value"]: option["count"] for option in opened["statuses"]}
+    counts = _counts(opened)
     assert counts["open"] == 1 and counts["found"] == 0 and counts["all"] == 1
     card = opened["items"][0]
     assert card["facts"] == "17 лет · мужчина · Тюмень · задержание · ст. 205"
@@ -659,12 +620,11 @@ def test_the_api_reads_the_cards_and_takes_the_words_the_page_does(
     assert searched["rf_entries"][0]["key"] == "пуртов егор владимирович|2007-02-17"
     assert rejected.status_code == 200
     assert after_reject["items"][0]["rf_candidates"][0]["decision"] == "different"
-    assert resolved.json() == {"figurant": figurant}
+    assert resolved.json() == {"figurant": FIGURANT}
     assert found["items"][0]["identified_as"] == "Пуртов Егор Владимирович"
     assert found["items"][0]["note"].startswith(
         "Опознан оператором: запись РФМ пуртов егор владимирович, 17.02.2007"
     )
-    assert "опознан: Пуртов Егор Владимирович" in legacy
     assert incomplete.status_code == 400 and incomplete.json()["detail"] == "Неполное решение"
     assert foreign.status_code == 403
     assert cleared.status_code == 200 and back["items"][0]["resolution"] == ""
@@ -679,7 +639,7 @@ def test_the_api_overview_shows_what_the_page_does(session_factory: sessionmaker
 
     assert overview["unnamed"] == 1
     item = overview["latest_unnamed"][0]
-    assert item["key"] == "k" * 64 and item["quote"] == QUOTE
+    assert item["key"] == FIGURANT and item["quote"] == QUOTE
     assert item["facts"] == "17 лет · мужчина · Тюмень · задержание · ст. 205"
     assert item["found"] == "вероятных в перечне: 1"
     assert overview["new_cases"] == 0 and overview["latest_sentences"] == []

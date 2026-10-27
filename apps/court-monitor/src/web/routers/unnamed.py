@@ -1,6 +1,6 @@
 """«Безымянные» for the React console: the figurants a publication does not name, their
-candidates, and the operator's words on them, read and written as the legacy page does
-(`web.ui.unnamed`). The words are actions, refused from other origins (`web.csrf`)."""
+candidates, and the operator's words on them (`web.views.unnamed`). The words are
+actions, refused from other origins (`web.csrf`)."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session

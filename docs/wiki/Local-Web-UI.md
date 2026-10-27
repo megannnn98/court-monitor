@@ -134,7 +134,7 @@
 | обзор | `apps/court-monitor/src/web/ui/overview.py` |
 | досье и поиск человека | `apps/court-monitor/src/web/ui/dossier.py` |
 | люди | `apps/court-monitor/src/web/ui/entities.py` |
-| безымянные | `apps/court-monitor/src/web/ui/unnamed.py` |
+| безымянные | `frontend/src/pages/UnnamedPage.tsx` (API `apps/court-monitor/src/web/routers/unnamed.py`) |
 | публикации, полный текст | `apps/court-monitor/src/web/ui/publications.py`, `apps/court-monitor/src/web/ui/persons.py` |
 | пары, роль, политичность | `apps/court-monitor/src/web/ui/disputes.py`, `apps/court-monitor/src/web/ui/queue.py` |
 | результат, Excel | `apps/court-monitor/src/web/ui/political.py` |

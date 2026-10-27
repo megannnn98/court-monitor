@@ -46,7 +46,6 @@
  "GET /ui/roles",
  "GET /ui/runs",
  "GET /ui/sentences",
- "GET /ui/unnamed",
  "GET /ui/wiki",
  "GET /ui/wiki/export.pdf",
  "GET /ui/wiki/{slug}",
@@ -67,9 +66,5 @@
  "POST /ui/queue/reset-decisions",
  "POST /ui/roles/decide",
  "POST /ui/sentences/hide",
- "POST /ui/sentences/show",
- "POST /ui/unnamed/clear",
- "POST /ui/unnamed/keep",
- "POST /ui/unnamed/reject",
- "POST /ui/unnamed/resolve"
+ "POST /ui/sentences/show"
 ]

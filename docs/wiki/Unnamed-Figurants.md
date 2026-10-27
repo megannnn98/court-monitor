@@ -244,7 +244,7 @@ stop
   (`person_evidence_cte`). Она объединяет обычные `entity_group_mentions` и
   ручные `entity_group_unnamed_mentions`.
 - Запуск: `find-political` и `find-unnamed` в `apps/court-monitor/src/cli/monitoring.py`.
-- Страница: `apps/court-monitor/src/web/ui/unnamed.py`; счётчик в «Очереди»: `apps/court-monitor/src/web/ui/workload.py`.
+- Страница: `frontend/src/pages/UnnamedPage.tsx`, её API — `apps/court-monitor/src/web/routers/unnamed.py`; счётчик в «Очереди»: `apps/court-monitor/src/web/views/workload.py`.
 
 ## Данные и артефакты
 

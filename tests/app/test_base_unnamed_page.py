@@ -112,7 +112,6 @@ def test_a_card_shows_the_record_and_takes_a_word(session_factory: sessionmaker[
 
     with _client(session_factory) as client:
         page = client.get("/ui/base-unnamed").text
-        linked = client.get("/ui/unnamed").text
         same = client.post(
             "/ui/base-unnamed/decide",
             data={
@@ -154,7 +153,6 @@ def test_a_card_shows_the_record_and_takes_a_word(session_factory: sessionmaker[
     assert "включён в перечень 14.10.2025, после возбуждения дела" in page
     assert "Не разобраны (1)" in page and "Опознаны (0)" in page
     assert 'name="candidate" value="будников &lt;евгений&gt;|1975-10-09"' in page
-    assert 'href="/ui/base-unnamed"' in linked
     assert same.status_code == 303
     assert same.headers["location"] == "/ui/base-unnamed?status=open&page=1#b-share%3Aknown%3A1"
     assert "В этом разделе никого." in still_open
