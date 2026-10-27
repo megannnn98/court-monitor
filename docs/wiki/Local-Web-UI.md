@@ -137,7 +137,7 @@
 | безымянные | `frontend/src/pages/UnnamedPage.tsx` (API `apps/court-monitor/src/web/routers/unnamed.py`) |
 | публикации, полный текст | `apps/court-monitor/src/web/ui/publications.py`, `apps/court-monitor/src/web/ui/persons.py` |
 | пары, роль, политичность | `apps/court-monitor/src/web/ui/disputes.py`, `apps/court-monitor/src/web/ui/queue.py` |
-| результат, Excel | `apps/court-monitor/src/web/ui/political.py` |
+| результат, Excel | `frontend/src/pages/PoliticalPage.tsx` (API `apps/court-monitor/src/web/routers/political.py`), Excel `apps/court-monitor/src/web/ui/political_export.py` |
 | журнал запусков, шаги, воронка | `apps/court-monitor/src/web/ui/management.py`, `apps/court-monitor/src/web/ui/pipeline.py`, `apps/court-monitor/src/web/ui/funnel.py` |
 | вики | `apps/court-monitor/src/web/ui/wiki.py`, `apps/court-monitor/src/web/wiki.py` |
 | стили | `apps/court-monitor/src/web/static/local-ui.css` |

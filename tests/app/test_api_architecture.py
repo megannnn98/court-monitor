@@ -46,7 +46,6 @@ ROUTES_AFTER_SPLIT = [
     # The whole base of the people as one Excel file, whatever the filters say.
     "GET /ui/people/export.xlsx",
     # The operator's «обработано» on a person of the result.
-    "POST /ui/political/done",
     # «Мусор» for every held article of one story at once.
     # The nameless records of the operator's base against the list.
     # The graph of an investigation: the first answer and what a node adds.

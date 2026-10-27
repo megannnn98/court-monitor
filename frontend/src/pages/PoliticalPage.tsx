@@ -22,6 +22,10 @@ import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
+/** Where the days of inclusion come from: ОВД-Инфо's list is CC BY 3.0, so wherever a day of
+ * theirs is shown its source goes with it (`analysis.rosfinmonitoring.inclusion_dates.ATTRIBUTION`). */
+const INCLUSION_SOURCE = "https://repression.net/rosfinmonitoring";
+
 /** «Обработано»: the person leaves the list until a later news brings them back. */
 function DoneBox({ row }: { row: PoliticalRowResponse }) {
   const client = useQueryClient();
@@ -148,6 +152,14 @@ function Panel({ row }: { row: PoliticalRowResponse }) {
           <h3 className="mb-1 font-medium">Перечень РФМ</h3>
           {row.rf_entry ? <p className="text-muted-foreground">{row.rf_entry}</p> : null}
           {row.rf_included ? <p className="text-muted-foreground">{row.rf_included}</p> : null}
+          {row.rf_included ? (
+            <p className="text-muted-foreground">
+              Дата включения — по списку ОВД-Инфо (CC BY 3.0):{" "}
+              <a className="underline" href={INCLUSION_SOURCE} rel="noopener noreferrer" target="_blank">
+                repression.net/rosfinmonitoring
+              </a>
+            </p>
+          ) : null}
           {row.listing ? <p className={row.awaited ? "font-medium text-amber-700" : "text-muted-foreground"}>{row.listing}</p> : null}
         </section>
       ) : null}

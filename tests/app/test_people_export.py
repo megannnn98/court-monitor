@@ -275,8 +275,8 @@ def test_the_file_holds_what_the_pages_hide(session_factory: sessionmaker[Sessio
     """Иванов is «обработано» and «уголовное»: not on the result, and in the file."""
     _seed(session_factory)
     with _client(session_factory) as client:
-        page = client.get("/ui/political?months=0&who=named").text
-    assert "Иванов Иван" not in page
+        listed = client.get("/api/v1/political", params={"months": 0, "who": "named"}).json()
+    assert "Иванов Иван" not in [row["name"] for row in listed["items"]]
 
     names = [
         row[1] for row in _book(session_factory)["Люди"].iter_rows(min_row=2, values_only=True)

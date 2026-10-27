@@ -97,15 +97,15 @@ def test_a_manual_verdict_is_not_attributed_to_the_model(
         _seed(session, "мария резова")
 
     with _client(session_factory) as client:
-        page = client.get("/ui/political").text
+        (row,) = client.get("/api/v1/political").json()["items"]
 
-    assert f"модель: {MANUAL_REASON}" not in page, (
-        "a decision no model made is attributed to the model on /ui/political"
+    assert row["basis"] != f"модель: {MANUAL_REASON}", (
+        "a decision no model made is attributed to the model on «Результат»"
     )
-    assert "решено вручную" in page, "the label must say whose word it is"
+    assert "решено вручную" in row["basis"], "the label must say whose word it is"
     # The reason is the same words as the label: printing it after a colon reads as
     # «решено вручную: решено оператором вручную».
-    assert f"решено вручную: {MANUAL_REASON}" not in page, (
+    assert row["basis"] != f"решено вручную: {MANUAL_REASON}", (
         "the label and the reason say the same thing twice"
     )
 

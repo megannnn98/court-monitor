@@ -93,5 +93,5 @@ def test_the_app_lets_its_own_pages_and_reads_through() -> None:
     # A read is never refused; an own-origin POST reaches the route (which answers as it
     # does, here without a database or a form — anything but the refusal).
     assert client.get("/health/live", headers={"Origin": "https://evil.example"}).status_code == 200
-    own = client.post("/ui/political/done", data={}, headers={"Origin": "http://testserver"})
+    own = client.post("/ui/sentences/hide", data={}, headers={"Origin": "http://testserver"})
     assert own.status_code != 403 or own.json().get("error", {}).get("code") != "csrf_refused"

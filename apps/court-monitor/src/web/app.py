@@ -62,7 +62,7 @@ from web.ui import officials as ui_officials
 from web.ui import officials_list as ui_officials_list
 from web.ui import overview as ui_overview
 from web.ui import people_export as ui_people_export
-from web.ui import political as ui_political
+from web.ui import political_export as ui_political_export
 from web.ui import publications as ui_publications
 from web.ui import queue as ui_queue
 from web.ui import rfm_list as ui_rfm_list
@@ -141,7 +141,7 @@ for module in (
     ui_publications,
     ui_ask,
     ui_sentences,
-    ui_political,
+    ui_political_export,
     ui_rfm_list,
     ui_officials,
     ui_airtable,
