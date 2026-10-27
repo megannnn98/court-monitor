@@ -1,7 +1,8 @@
-"""The sync endpoint and the button: `POST /api/admin/airtable/sync` and `/ui/airtable`."""
+"""The sync endpoint and «База Airtable»: `POST /api/admin/airtable/sync` and `/api/v1/airtable`."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -140,16 +141,17 @@ class TestEndpoint:
         assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in str(body)
 
 
+API_PAGE = "/api/v1/airtable"
+
+
 class TestPage:
+    """«База Airtable» as the React page reads it, and its button through the API."""
+
     def test_the_page_offers_the_button(self, client: TestClient, airtable: FakeAirtable) -> None:
-        page = client.get("/ui/airtable")
+        page = client.get(API_PAGE)
 
         assert page.status_code == 200
-        assert "Синхронизировать Airtable" in page.text
-        assert 'id="sync-button"' in page.text
-        # The script paints the result in place, so the page is never reloaded.
-        assert "/static/airtable-sync.js" in page.text
-        assert SYNC_URL in page.text
+        assert page.json()["configured"] is True and page.json()["reason"] == ""
 
     def test_the_button_is_absent_and_the_reason_shown_when_unconfigured(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -158,53 +160,23 @@ class TestPage:
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("AIRTABLE_IMPORT_DIR", str(tmp_path))
 
-        page = client.get("/ui/airtable")
+        page = client.get(API_PAGE).json()
 
-        assert "Синхронизировать Airtable" in page.text
-        assert 'id="sync-button"' not in page.text
-        assert "Синхронизация недоступна" in page.text
-        assert "AIRTABLE_TOKEN" in page.text
-
-    def test_the_config_the_script_reads_is_valid_json(
-        self, client: TestClient, airtable: FakeAirtable
-    ) -> None:
-        """A `application/json` block is not HTML-escaped: escaping it here would hand
-        the script `&quot;` and every click would fail silently."""
-        import json
-        import re
-
-        page = client.get("/ui/airtable").text
-        block = re.search(
-            r'<script type="application/json" id="airtable-sync-config">(.*?)</script>',
-            page,
-            re.DOTALL,
-        )
-        assert block is not None
-        config = json.loads(block.group(1))
-        assert config["url"] == SYNC_URL
-        assert list(config["labels"].values()) == [
-            "Источники",
-            "Найденные люди",
-            "Должностные лица",
-            "Статьи",
-        ]
-        assert config["order"] == [
-            "sources",
-            "known_persons",
-            "officials",
-            "articles",
-        ]
-        # The token is not on the page in any form.
-        assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in page
+        assert page["configured"] is False and page["reason"]
+        # The reason names what to set.
+        assert "AIRTABLE_TOKEN" in json.dumps(page, ensure_ascii=False)
+        # The token is in no answer, configured or not.
+        assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in json.dumps(page)
 
     def test_the_page_names_the_configured_airtable_tables(
         self, client: TestClient, airtable: FakeAirtable
     ) -> None:
-        page = client.get("/ui/airtable")
+        page = json.dumps(client.get(API_PAGE).json(), ensure_ascii=False)
         for table in CONFIGURED_ENV.values():
             if table.startswith("app") or table == "secret-token":
                 continue
-            assert table in page.text
+            assert table in page
+        assert CONFIGURED_ENV["AIRTABLE_TOKEN"] not in page
 
     def test_the_page_lists_every_reference_list(
         self, client: TestClient, airtable: FakeAirtable
@@ -212,33 +184,24 @@ class TestPage:
         airtable.tables["Known"] = [AirtableRecord("recK1", {"full_name": "Иван Иванов"})]
         client.post(SYNC_URL)
 
-        page = client.get("/ui/airtable")
+        lists = client.get(API_PAGE).json()["lists"]
 
-        for label in (
+        # The four lists of the sync; the Rosfinmonitoring list is the page's own section.
+        assert [item["label"] for item in lists] == [
             "Источники",
-            "Росфинмониторинг",
             "Найденные люди",
             "Должностные лица",
             "Статьи",
-        ):
-            assert label in page.text
+        ]
 
-    def test_the_button_is_in_the_navigation(
-        self, client: TestClient, airtable: FakeAirtable
-    ) -> None:
-        assert "/ui/airtable" in client.get("/ui/airtable").text
-
-    def test_the_no_javascript_form_syncs_and_comes_back(
-        self, client: TestClient, airtable: FakeAirtable
-    ) -> None:
+    def test_the_button_syncs(self, client: TestClient, airtable: FakeAirtable) -> None:
         airtable.tables["Known"] = [AirtableRecord("recK1", {"full_name": "Иван Иванов"})]
 
-        response = client.post("/ui/airtable/sync", follow_redirects=False)
+        response = client.post("/api/v1/airtable/sync")
 
-        assert response.status_code == 303
-        assert response.headers["Location"] == "/ui/airtable?status=success"
+        assert response.status_code == 200 and response.json()["status"] == "success"
 
-    def test_the_no_javascript_form_refuses_a_running_sync(
+    def test_the_button_refuses_a_running_sync(
         self, client: TestClient, airtable: FakeAirtable, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         @contextmanager
@@ -247,15 +210,15 @@ class TestPage:
 
         monkeypatch.setattr(AirtableSyncService, "_guard", lambda _self: held())
 
-        assert client.post("/ui/airtable/sync", follow_redirects=False).status_code == 409
+        assert client.post("/api/v1/airtable/sync").status_code == 409
 
-    def test_the_no_javascript_form_says_so_when_unconfigured(
+    def test_the_button_says_so_when_unconfigured(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         for name in CONFIGURED_ENV:
             monkeypatch.delenv(name, raising=False)
 
-        assert client.post("/ui/airtable/sync", follow_redirects=False).status_code == 503
+        assert client.post("/api/v1/airtable/sync").status_code == 503
 
 
 def test_the_lists_are_readable_afterwards(
@@ -286,10 +249,10 @@ class TestShareLinksMode:
         monkeypatch.setenv("AIRTABLE_TOKEN", "")
         monkeypatch.setenv("AIRTABLE_SHARE_URL_RFM", "https://airtable.com/appA/shrB")
 
-        page = client.get("/ui/airtable")
+        page = client.get(API_PAGE)
 
         assert page.status_code == 200
-        assert "Публичная ссылка" in page.text
+        assert "Публичная ссылка" in json.dumps(page.json(), ensure_ascii=False)
 
     def test_the_page_says_how_the_lists_are_read(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -297,7 +260,7 @@ class TestShareLinksMode:
         monkeypatch.setenv("AIRTABLE_TOKEN", "")
         monkeypatch.setenv("AIRTABLE_SHARE_URL_RFM", "https://airtable.com/appA/shrB")
 
-        page = client.get("/ui/airtable").text
+        page = json.dumps(client.get(API_PAGE).json(), ensure_ascii=False)
 
         assert "без токена и без выгрузки вручную" in page
         assert "https://airtable.com/appA/shrB" in page

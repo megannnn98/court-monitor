@@ -63,6 +63,12 @@ def _rows(listed: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {row["name"]: row for row in listed["items"]}
 
 
+def _dossier(client: TestClient, key: str) -> dict[str, Any]:
+    """The dossier as the React page reads it."""
+    dossier: dict[str, Any] = client.get(f"/api/v1/investigations/{quote(key)}").json()
+    return dossier
+
+
 def _seed(session_factory: sessionmaker[Session], *, namesake: bool = True) -> None:
     """Анна Смирнова on the list with her patronymic, and Иван Иванов on it without one."""
     now = datetime.now(UTC)
@@ -240,10 +246,12 @@ def test_the_dossier_shows_the_date_of_the_entry(
     _seed(session_factory, namesake=False)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
+        dossier = _dossier(client, "анна смирнова")
 
-    assert "запись перечня включена 14.03.2024" in page
-    assert "ОВД-Инфо" in page
+    assert any(
+        "запись перечня включена 14.03.2024" in entry["text"] for entry in dossier["rf_entries"]
+    )
+    assert "ОВД-Инфо" in dossier["inclusion_attribution"]
 
 
 def test_the_dossier_shows_a_namesake_no_date(
@@ -255,10 +263,10 @@ def test_the_dossier_shows_a_namesake_no_date(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote('иван иванов')}").text
+        dossier = _dossier(client, "иван иванов")
 
-    assert "возможно в перечне" in page
-    assert "02.05.2019" not in page
+    assert [entry["level_label"] for entry in dossier["rf_entries"]] == ["имя и фамилия"]
+    assert "02.05.2019" not in json.dumps(dossier, ensure_ascii=False)
 
 
 def test_the_dossier_does_not_say_the_person_has_been_on_the_list_since(
@@ -269,9 +277,9 @@ def test_the_dossier_does_not_say_the_person_has_been_on_the_list_since(
     _seed(session_factory, namesake=False)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
+        dossier = json.dumps(_dossier(client, "анна смирнова"), ensure_ascii=False)
 
-    assert not re.search(r"в перечне[^<]{0,20}\bс\s+14\.03\.2024", page), (
+    assert not re.search(r"в перечне[^\"]{0,20}\bс\s+14\.03\.2024", dossier), (
         "«в перечне с …» says the person entered the list that day; the date is the entry's"
     )
 
@@ -380,7 +388,9 @@ def test_a_day_of_the_operator_s_table_says_so_wherever_it_is_shown(
 
     with _client(session_factory) as client:
         result = _rows(_result(client, known="all"))["Смирнова Анна"]["rf_included"]
-        dossier = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
+        dossier = " ".join(
+            entry["text"] for entry in _dossier(client, "анна смирнова")["rf_entries"]
+        )
         book = client.get("/ui/political/export.xlsx?known=all").content
 
     marked = "запись перечня включена 14.03.2024 (по таблице оператора)"
@@ -482,8 +492,8 @@ def test_a_person_charged_under_an_article_of_the_list_is_marked_and_can_be_chos
         everyone = _result(client, known="all", months="0")
         awaited = _result(client, known="all", months="0", rfm="awaited")
         book = client.get("/ui/political/export.xlsx?known=all&months=0").content
-        dossier = client.get(f"/ui/investigations/{quote('пётр новый')}").text
-        listed_dossier = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
+        dossier = _dossier(client, "пётр новый")
+        listed_dossier = _dossier(client, "анна смирнова")
 
     rows = _rows(everyone)
     assert (rows["Смирнова Анна"]["listing"], rows["Смирнова Анна"]["awaited"]) == (
@@ -512,5 +522,5 @@ def test_a_person_charged_under_an_article_of_the_list_is_marked_and_can_be_chos
     assert by_name["Новый Пётр"] == "статья перечня: 205.5 — в перечне пока нет"
     assert by_name["Смирнова Анна"] == "статья перечня: 205.2 — в перечне"
     assert by_name["Простой Глеб"] is None and by_name["Безстатьи Яков"] is None
-    assert "<p>статья перечня: 205.5 — в перечне пока нет.</p>" in dossier
-    assert "<p>статья перечня: 205.2 — в перечне.</p>" in listed_dossier
+    assert dossier["rf_expected"] == "статья перечня: 205.5 — в перечне пока нет"
+    assert listed_dossier["rf_expected"] == "статья перечня: 205.2 — в перечне"

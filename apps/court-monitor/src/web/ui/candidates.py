@@ -1,24 +1,16 @@
 """Operator console: candidates page and its CSV, Excel and PDF exports."""
 
-from html import escape
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from web.candidate_rows import (
-    CANDIDATE_CATEGORIES,
-    candidate_filters,
-    latest_snapshot_id,
-    news_day,
     news_period_start,
     read_candidate_rows,
-    surname_first,
 )
 from web.dependencies import get_db
 from web.exports import XLSX, candidates_xlsx
-from web.routers.rosfinmonitoring import list_rosfinmonitoring_snapshots
-from web.ui.layout import HOME, _page
+from web.ui.layout import HOME
 
 router = APIRouter()
 
@@ -28,98 +20,6 @@ router = APIRouter()
 def ui_root() -> RedirectResponse:
     """The site opens on its home page, «Управление»."""
     return RedirectResponse(HOME, status_code=303)
-
-
-@router.get("/ui/candidates")
-def ui_candidates(
-    snapshot_id: int | None = Query(default=None, ge=1),
-    min_confidence: float = Query(default=0.7, ge=0.0, le=1.0),
-    limit: int = Query(default=100, ge=1, le=1000),
-    date_from: str | None = Query(default=None),
-    include_administrative: bool = Query(default=False),
-    criminal_only: bool = Query(default=False),
-    event_date_filter: bool = Query(default=True),
-    db: Session = Depends(get_db),  # noqa: B008
-) -> HTMLResponse:
-    snapshots = list_rosfinmonitoring_snapshots(limit=20, db=db)
-    # Open on the newest official snapshot unless the user selected another one.
-    selected_snapshot_id = snapshot_id or latest_snapshot_id(db)
-    if selected_snapshot_id is None:
-        return _page(
-            "Кандидаты",
-            '<p class="muted">Snapshot Росфинмониторинга ещё не загружен.</p>',
-            active="candidates",
-            instruction="Здесь люди с политической классификацией и подтверждённым отсутствием в выбранном snapshot РФМ.",
-            db=db,
-            warning="Без snapshot нельзя отличить подтверждённое отсутствие от отсутствия проверки.",
-        )
-
-    period_start = news_period_start(date_from)
-    try:
-        candidate_rows = read_candidate_rows(
-            db,
-            snapshot_id=selected_snapshot_id,
-            min_confidence=min_confidence,
-            period_start=period_start,
-            include_administrative=include_administrative,
-            criminal_only=criminal_only,
-            event_date_filter=event_date_filter,
-        )
-    except HTTPException as exc:
-        if exc.status_code != 404:
-            raise
-        candidate_rows = []
-
-    snapshot_options = "".join(
-        f'<option value="{item.id}" {"selected" if item.id == selected_snapshot_id else ""}>'
-        f"{item.id} — {escape(item.snapshot_date)} ({item.entry_count:,})</option>"
-        for item in snapshots
-    )
-    rows = "".join(
-        f"""<tr>
-  <td>{position}</td>
-  <td><a href="/ui/persons/{candidate.person_id}">{candidate.person_id}</a></td>
-  <td><a href="/ui/persons/{candidate.person_id}">{escape(surname_first(candidate.canonical_name))}</a></td>
-  <td>{news_day(news.published_at).strftime("%d.%m.%Y") if news and news.published_at else ""}</td>
-  <td>{escape(CANDIDATE_CATEGORIES.get(news.event_type, news.event_type)) if news and news.event_type else ""}</td>
-  <td>{candidate.persecution_confidence:.2f}</td>
-  <td>{candidate.event_count}</td>
-  <td>{escape(candidate.rosfinmonitoring_status)}</td>
-  <td>{escape(", ".join(candidate.persecution_reasons))}</td>
-</tr>"""
-        for position, (candidate, news) in enumerate(candidate_rows[:limit], start=1)
-    )
-    filters = candidate_filters(
-        selected_snapshot_id,
-        min_confidence,
-        period_start,
-        include_administrative,
-        criminal_only,
-        event_date_filter,
-    )
-    period_value = period_start.isoformat() if period_start is not None else ""
-    administrative_checked = "checked" if include_administrative else ""
-    criminal_only_checked = "checked" if criminal_only else ""
-    event_date_filter_checked = "checked" if event_date_filter else ""
-    return _page(
-        "Кандидаты",
-        f"""<form method="get" class="toolbar">
-  <label>Snapshot РФМ <select name="snapshot_id">{snapshot_options}</select></label>
-  <label>Min confidence <input type="number" name="min_confidence" min="0" max="1" step="0.05" value="{min_confidence}"></label>
-  <label>Limit <input type="number" name="limit" min="1" max="1000" value="{limit}"></label>
-  <label>Новости с <input type="date" name="date_from" value="{period_value}"></label>
-  <label><input type="checkbox" name="include_administrative" value="1" {administrative_checked}> Включая административные</label>
-  <label><input type="checkbox" name="criminal_only" value="1" {criminal_only_checked}> Только уголовные (УК)</label>
-  <label><input type="checkbox" name="event_date_filter" value="1" {event_date_filter_checked}> Фильтр по дате события</label>
-  <button>Обновить</button>
-  <a class="secondary" href="/ui/candidates/export.xlsx?{filters}">Export to Excel</a>
-</form>
-<p class="muted">Найдено: {len(candidate_rows)}, показано: {min(len(candidate_rows), limit)}. Статус РФМ: <code>not_matched</code>. Сортировка по категории события и дате новости. Эта таблица людей не определяет давность дела.</p>
-<table><thead><tr><th>№</th><th>Person ID</th><th>Персона</th><th>Дата новости</th><th>Категория</th><th>Political confidence</th><th>Events</th><th>RF status</th><th>Причины</th></tr></thead><tbody>{rows}</tbody></table>""",
-        active="candidates",
-        instruction="Кандидаты — политически классифицированные люди с подтверждённым статусом РФМ not_matched.",
-        db=db,
-    )
 
 
 @router.get("/ui/candidates/export.xlsx")

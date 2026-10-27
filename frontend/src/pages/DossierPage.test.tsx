@@ -131,6 +131,43 @@ it("says what the system has not decided", async () => {
   expect(screen.queryByText("База Airtable")).toBeNull();
 });
 
+it("links a publication's source only when it is a web address", async () => {
+  // The address is the scraped one: a script address is shown as no link at all.
+  const [publication] = DOSSIER.publications;
+  dossier.mockReturnValue(
+    ok({
+      ...DOSSIER,
+      publications: [
+        { ...publication, url: "javascript:alert(1)" },
+        { ...publication, article_id: 78, url: "https://ovd.example/2" }
+      ]
+    }) as never
+  );
+
+  const { container } = renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/x" });
+
+  await screen.findAllByText("Арест Моора");
+  const sources = Array.from(container.querySelectorAll("a")).filter((link) => link.textContent === "источник");
+  expect(sources.map((link) => link.getAttribute("href"))).toEqual(["https://ovd.example/2"]);
+  expect(container.innerHTML).not.toContain("javascript:");
+});
+
+it("says a full list of people is cut, and a shorter one is not", async () => {
+  const people = (count: number) => Array.from({ length: count }, (_, i) => ({ key: `p${i}`, name: `Человек ${i}`, shared: 1 }));
+  dossier.mockReturnValue(ok({ ...DOSSIER, related: people(30) }) as never);
+
+  const full = renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/x" });
+
+  expect(await screen.findByText("Показаны первые 30 человек.")).toBeTruthy();
+  full.unmount();
+
+  dossier.mockReturnValue(ok({ ...DOSSIER, related: people(29) }) as never);
+  renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/y" });
+
+  expect(await screen.findByText("Человек 28")).toBeTruthy();
+  expect(screen.queryByText(/Показаны первые/)).toBeNull();
+});
+
 it("shows the API's own error", async () => {
   dossier.mockReturnValue(failed(404, "Человек не найден") as never);
 

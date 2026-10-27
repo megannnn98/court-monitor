@@ -63,7 +63,7 @@ snapshot = `not_matched`, она может попасть в `/ui/candidates`.
 | queries/latest ids | `packages/court-analysis/src/analysis/persecution/queries.py` |
 | CLI | `apps/court-monitor/src/cli/persecution.py` |
 | candidates | `packages/court-results/src/results/candidates/service.py` |
-| UI candidates | `apps/court-monitor/src/web/ui/candidates.py`, `apps/court-monitor/src/web/candidate_rows.py` |
+| UI candidates | `frontend/src/pages/CandidatesPage.tsx` (API `apps/court-monitor/src/web/routers/candidate_table.py`, Excel `apps/court-monitor/src/web/ui/candidates.py`), `apps/court-monitor/src/web/candidate_rows.py` |
 
 ## Данные и артефакты
 

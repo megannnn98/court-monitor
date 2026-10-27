@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import quote
 
 import pytest
@@ -13,12 +13,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 from support.db_fixtures import DatabaseSeeder
-from support.pipeline_runs import finish_steps
 
 from analysis.rosfinmonitoring.rf_check import EntityRfCheck
 from analysis.service import GroupFollowers
 from analysis.storage.models import EntityGroupPoliticsRecord
-from orchestrator.operations import OperationRegistry, OperationRunStatus
+from orchestrator.operations import OperationRegistry
 from processing.identity.collector import EntityCollector
 from processing.roles.roles import FigurantFinder, Kind, RoleAnswer, RoleItem
 from processing.storage.models import EntityMentionRecord
@@ -43,6 +42,27 @@ def _client(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_operation_registry, None)
+
+
+def _people(client: TestClient, **params: str | int) -> dict[str, Any]:
+    """«Все люди» as the React page reads it."""
+    listed: dict[str, Any] = client.get("/api/v1/entities", params=params).json()
+    return listed
+
+
+def _dossier(client: TestClient, key: str) -> dict[str, Any]:
+    """A person's card as the React dossier reads it."""
+    card: dict[str, Any] = client.get(f"/api/v1/investigations/{quote(key)}").json()
+    return card
+
+
+def _names(listed: dict[str, Any]) -> list[str]:
+    return [row["name"] for row in listed["items"]]
+
+
+def _row(listed: dict[str, Any], name: str) -> dict[str, Any]:
+    row: dict[str, Any] = next(item for item in listed["items"] if item["name"].startswith(name))
+    return row
 
 
 def _person(
@@ -100,16 +120,15 @@ def test_the_list_shows_entities_with_their_forms_and_finds_by_any_form(
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-        by_declined_form = client.get("/ui/entities", params={"q": "Моору"}).text
-        nobody = client.get("/ui/entities", params={"q": "Петров"}).text
+        listed = _people(client)
+        by_declined_form = _people(client, q="Моору")
+        nobody = _people(client, q="Петров")
 
-    assert "<span>Все люди</span></a>" in page
     # Surname first, as the candidates are; the name opens the dossier.
-    assert f'<a href="/ui/investigations/{MOOR}">Моор Александр</a>' in page
-    assert "Найдено: 2." in page
-    assert "Найдено: 1." in by_declined_form and "Моор Александр" in by_declined_form
-    assert "Найдено: 0." in nobody
+    assert _row(listed, "Моор Александр")["dossier_url"] == f"/ui/investigations/{MOOR}"
+    assert listed["total"] == 2
+    assert by_declined_form["total"] == 1 and _names(by_declined_form) == ["Моор Александр"]
+    assert nobody["total"] == 0
 
 
 def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
@@ -121,57 +140,17 @@ def test_a_card_marks_each_mention_and_lists_the_people_named_beside(
     )
 
     with _client(session_factory, registry) as client:
-        card = client.get(f"/ui/entities/{MOOR}")
-        missing = client.get("/ui/entities/" + quote("никто никакой"))
+        card = _dossier(client, "александр моор")
+        missing = client.get("/api/v1/investigations/" + quote("никто никакой"))
 
-    assert card.status_code == 200
-    assert "<mark>Александра Моора</mark>" in card.text
-    assert "<mark>Александру Моору</mark>" in card.text
-    assert re.search(
-        r'href="/ui/investigations/[^"]+">Иванов Иван</a></td><td class="num">1</td>',
-        card.text,
-    )
-    assert "Арест: 1" in card.text
+    # Each mention is marked in its publication's quote.
+    marked = {item["quote"][item["start"] : item["end"]] for item in card["publications"]}
+    assert marked == {"Александра Моора", "Александру Моору"}
+    assert [(person["name"], person["shared"]) for person in card["related"]] == [
+        ("Иванов Иван", 1)
+    ]
+    assert {"kind": "arrest", "label": "Арест", "count": 1} in card["events"]
     assert missing.status_code == 404
-
-
-def test_the_button_rebuilds_in_the_background_and_can_be_stopped(
-    session_factory: sessionmaker[Session],
-) -> None:
-    registry = OperationRegistry(
-        session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
-    )
-
-    with _client(session_factory, registry) as client:
-        early = client.get("/ui/entities").text
-        refused = client.post("/ui/entities/collect", follow_redirects=False)
-        finish_steps(session_factory, registry, "load", "purge")
-        idle = client.get("/ui/entities").text
-        started = client.post("/ui/entities/collect", follow_redirects=False)
-        busy = client.get("/ui/entities").text
-        run = registry.runs_of("monitor")[0]
-        stopped = client.post(
-            f"/ui/management/runs/{run.id}/stop", data={"back": "entities"}, follow_redirects=False
-        )
-
-    # Out of turn the button is grey and says which step is due; the server agrees.
-    assert 'id="collect-button"' not in early and "Сейчас шаг 1" in early
-    assert refused.status_code == 303
-    assert 'id="collect-button"' in idle
-    assert started.status_code == 303
-    assert (run.parameters.mode, run.command[2:]) == (
-        "entities",
-        [
-            "collect-entities",
-            "--entity-model",
-            "deepseek/deepseek-v4.1-flash",
-            "--decision-model",
-            "deepseek/deepseek-v4.1-flash",
-        ],
-    )
-    assert f"Остановить сборку #{run.id}" in busy
-    assert stopped.headers["location"] == f"/ui/entities?run_id={run.id}"
-    assert registry.get(run.id).status is OperationRunStatus.INTERRUPTED
 
 
 def test_a_name_a_model_gave_is_marked(session_factory: sessionmaker[Session]) -> None:
@@ -188,13 +167,14 @@ def test_a_name_a_model_gave_is_marked(session_factory: sessionmaker[Session]) -
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-        card = client.get(f"/ui/entities/{MOOR}").text
-        other = client.get("/ui/entities/" + quote("иван иванов")).text
+        listed = _people(client)
+        card = _dossier(client, "александр моор")
+        other = _dossier(client, "иван иванов")
 
-    assert re.search(r">Моор Александр</a> <span class=\"badge\"[^>]*>ИИ</span>", page)
-    assert "<dt>Имя</dt><dd>дала модель · мужчина</dd>" in card
-    assert "<dt>Имя</dt><dd>по правилам склейки</dd>" in other
+    assert _row(listed, "Моор Александр")["name_source_label"] == "ИИ"
+    assert _row(listed, "Иванов Иван")["name_source_label"] is None
+    assert (card["name_source_label"], card["gender_label"]) == ("дала модель", "мужчина")
+    assert other["name_source_label"] == "по правилам склейки"
 
 
 def test_names_read_surname_first_and_sort_by_surname(
@@ -218,15 +198,11 @@ def test_names_read_surname_first_and_sort_by_surname(
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities", params={"sort": "name"}).text
-        card = client.get("/ui/entities/" + quote("борис абрамов")).text
+        listed = _people(client, sort="name")
+        card = _dossier(client, "борис абрамов")
 
-    assert re.findall(r'<a href="/ui/investigations/[^"]+">([^<]+)</a>', page) == [
-        "Абрамов Борис Петрович",
-        "Моор Вера",
-        "Яковлева Анна",
-    ]
-    assert "<title>Абрамов Борис Петрович</title>" in card
+    assert _names(listed) == ["Абрамов Борис Петрович", "Моор Вера", "Яковлева Анна"]
+    assert card["name"] == "Абрамов Борис Петрович"
 
 
 @pytest.mark.parametrize(
@@ -264,13 +240,9 @@ def test_initials_sort_by_the_name_as_shown(session_factory: sessionmaker[Sessio
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities", params={"sort": "name"}).text
+        listed = _people(client, sort="name")
 
-    assert re.findall(r'<a href="/ui/investigations/[^"]+">([^<]+)</a>', page) == [
-        "С. Дмитрий",
-        "Соломатин П.",
-        "Яковлева Анна",
-    ]
+    assert _names(listed) == ["С. Дмитрий", "Соломатин П.", "Яковлева Анна"]
 
 
 def _law(session: Session, seed: DatabaseSeeder, run: int, surface: str, article: str) -> int:
@@ -328,20 +300,18 @@ def test_a_card_lists_the_criminal_code_articles_with_their_publications(
     )
 
     with _client(session_factory, registry) as client:
-        moor = client.get(f"/ui/entities/{MOOR}").text
-        ivanov = client.get("/ui/entities/" + quote("иван иванов")).text
+        moor = _dossier(client, "александр моор")
+        ivanov = _dossier(client, "иван иванов")
 
-    assert '<h2 id="charges-title">Статьи УК</h2>' in moor
-    assert re.search(
-        r">ст\. 205\.2</a> <span class=\"badge\">политическая</span> \(ч\. 2\) "
-        r'<span class="muted">публикаций: 1</span>',
-        moor,
-    )
-    assert "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ." in moor
+    assert moor["charges"] == [
+        {"article": "205.2", "parts": ["2"], "shared": False, "political": True, "publications": 1}
+    ]
+    (item,) = moor["timeline"]
+    assert item["sources"][0]["quote"] == "Суд арестовал Александра Моора по ч. 2 ст. 205.2 УК РФ."
     # Named beside another target: shown, but marked shared; the only target is not.
-    shared = 'title="Во всех событиях обвиняемыми названы и другие люди">общая</span>'
-    assert re.search(r">ст\. 207\.3</a>.*?" + re.escape(shared), ivanov)
-    assert shared not in moor
+    assert [(charge["article"], charge["shared"]) for charge in ivanov["charges"]] == [
+        ("207.3", True)
+    ]
 
 
 def test_the_list_shows_the_articles_and_filters_by_one(
@@ -353,21 +323,15 @@ def test_the_list_shows_the_articles_and_filters_by_one(
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-        by_article = client.get("/ui/entities", params={"article": "207.3"}).text
+        listed = _people(client)
+        by_article = _people(client, article="207.3")
 
-    assert (
-        '<a href="/ui/entities?article=205.2&rf=all&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions">205.2</a>'
-        in page
-    )
-    assert (
-        '<a href="/ui/entities?article=207.3&rf=all&rf_possible=all&role=figurant&verdict=all&region=&sort=mentions" class="muted" title="общая">'
-        "207.3</a>" in page
-    )
-    assert "Найдено: 3" in page
-    assert "Найдено: 2 по статье УК 207.3" in by_article
-    assert "Иванов Иван" in by_article and "Петров Петр" in by_article
-    assert "Моор Александр" not in by_article
+    # Charged alone: the article is his; named beside another target: shared.
+    assert _row(listed, "Моор Александр")["articles"] == [{"article": "205.2", "shared": False}]
+    assert _row(listed, "Иванов Иван")["articles"] == [{"article": "207.3", "shared": True}]
+    assert listed["total"] == 3
+    assert by_article["total"] == 2
+    assert sorted(_names(by_article)) == ["Иванов Иван", "Петров Петр"]
 
 
 RF_PAGE = """<!doctype html><html>
@@ -395,33 +359,28 @@ def test_entities_on_the_rosfinmonitoring_list_are_shown_marked_and_can_be_hidde
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-        everyone = client.get("/ui/entities", params={"rf": "all"}).text
-        # The form sends the hidden «all» first, then the ticked box's «hide».
-        ticked = client.get("/ui/entities?rf=all&rf=hide").text
-        both = client.get("/ui/entities?rf=all&rf=hide&rf_possible=all&rf_possible=hide").text
-        card = client.get(f"/ui/entities/{MOOR}").text
+        listed = _people(client)
+        hidden = _people(client, rf="hide")
+        both = _people(client, rf="hide", rf_possible="hide")
+        card = _dossier(client, "александр моор")
 
     # The list confirms who a person is: shown by default, hidden only on request.
-    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", page)
-    assert "Найдено: 2." in page
-    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in page
-    assert "Скрыть тех, кто в перечне РФМ (1)" in page
+    assert listed["total"] == 2
+    moor = _row(listed, "Моор Александр Петрович")
+    assert (moor["rf_level"], moor["rf_label"]) == ("full", "в перечне")
     # A name without a patronymic may be a namesake: shown, marked.
-    assert re.search(r"Иванов Иван</a>.*?возможно в перечне", page)
-    assert "Найдено: 2." in everyone
-    assert re.search(r"Моор Александр Петрович</a>.*?>в перечне</span>", everyone)
-    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" onchange' in everyone
-    # The second box, off by default, hides the maybe-namesakes too; Моор is on the list
+    assert _row(listed, "Иванов Иван")["rf_label"] == "возможно в перечне"
+    assert listed["hidden_in_list"] == 1
+    # The second choice, off by default, hides the maybe-namesakes too; Моор is on the list
     # for certain, so his patronymic-less namesake entry does not count him again.
-    assert "Скрыть возможных — тёзки без отчества (1)" in page
-    assert 'name="rf_possible" value="hide" onchange' in page
-    assert 'name="rf_possible" value="hide" checked' in both
-    assert "Найдено: 0." in both
-    assert "Моор Александр" not in ticked and "Найдено: 1." in ticked
-    assert '<input id="box-rf" type="checkbox" name="rf" value="hide" checked' in ticked
-    assert "<h3>Росфинмониторинг</h3>" in card and "в перечне Росфинмониторинга" in card
-    assert "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in card
+    assert listed["hidden_maybe_listed"] == 1
+    assert hidden["total"] == 1 and _names(hidden) == ["Иванов Иван"]
+    assert both["total"] == 0
+    assert card["rf_label"] == "в перечне Росфинмониторинга"
+    assert any(
+        "МООР АЛЕКСАНДР ПЕТРОВИЧ, 01.02.1980 г.р., Г. МОСКВА" in entry["text"]
+        for entry in card["rf_entries"]
+    )
 
 
 class _Roles:
@@ -445,24 +404,24 @@ def test_only_the_figurants_are_listed_by_default(
         session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
     )
     with _client(session_factory, registry) as client:
-        before = client.get("/ui/entities").text
+        before = _people(client)
     FigurantFinder(session_factory, classifier=_Roles(), downstream=GroupFollowers()).run()
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-        everyone = client.get("/ui/entities?figurants=all").text
-        card = client.get(f"/ui/entities/{MOOR}").text
+        figurants = _people(client)
+        everyone = _people(client, role="all")
+        card = _dossier(client, "александр моор")
 
-    # Before step 5 nobody has a role: all are shown, and the page says why.
-    assert "Фигуранты ещё не определены" in before and "Найдено: 2." in before
-    assert "Найдено: 1." in page
-    assert re.search(r"Моор Александр</a>.*?фигурант дела</span>", page)
-    assert "Иванов Иван" not in page
-    # The role is a choice now; «figurants=all» of the old links still means every role.
-    assert '<option value="figurant" selected>Фигуранты дел</option>' in page
+    # Before step 5 nobody has a role: all are shown, and the list says why.
+    assert before["roles_known"] is False and before["total"] == 2
+    assert figurants["roles_known"] is True and figurants["total"] == 1
+    assert _names(figurants) == ["Моор Александр"]
+    assert _row(figurants, "Моор Александр")["role_label"] == "фигурант дела"
     # An administrative case is no criminal one: not a figurant, and says so.
-    assert "Найдено: 2." in everyone and "административное дело</span>" in everyone
-    assert "<h3>Роль в деле</h3>" in card and "ответ модели по цитатам" in card
+    assert everyone["total"] == 2
+    assert _row(everyone, "Иванов Иван")["role_label"] == "административное дело"
+    assert card["role_label"] == "фигурант дела"
+    assert "ответ модели по цитатам" in (card["role_method_label"] or "")
 
 
 def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Session]) -> None:
@@ -479,11 +438,11 @@ def test_the_region_of_a_registry_card_is_shown(session_factory: sessionmaker[Se
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-        card = client.get(f"/ui/entities/{MOOR}").text
+        listed = _people(client)
+        card = _dossier(client, "александр моор")
 
-    assert re.search(r"Моор Александр</a>.*?<span class=\"muted\">Луганская область</span>", page)
-    assert "<dt>Регион</dt><dd>Луганская область</dd>" in card
+    assert _row(listed, "Моор Александр")["regions"] == ["Луганская область"]
+    assert card["regions"] == ["Луганская область"]
 
 
 def _mark_of(session_factory: sessionmaker[Session]) -> bool | None:
@@ -516,28 +475,29 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
     )
 
     with _client(session_factory, registry) as client:
-        card = client.get(f"/ui/entities/{MOOR}").text
+        card = _dossier(client, "александр моор")
         listed = [row["name"] for row in client.get("/api/v1/political").json()["items"]]
         marked = client.post(
             f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
         )
-        card_after_mark = client.get(f"/ui/entities/{MOOR}").text
+        card_after_mark = _dossier(client, "александр моор")
         official_after_mark = _mark_of(session_factory)
         unmarked = client.post(
             f"/ui/entities/{MOOR}/official",
             data={"official": "no", "back": "officials"},
             follow_redirects=False,
         )
-        card_after_unmark = client.get(f"/ui/entities/{MOOR}").text
+        card_after_unmark = _dossier(client, "александр моор")
         official_after_unmark = _mark_of(session_factory)
         missing = client.post("/ui/entities/никто/official", data={"official": "yes"})
 
-    assert '<button type="submit" class="secondary">Это должностное лицо</button>' in card
+    assert card["official"] is False
     assert marked.status_code == 303
     assert marked.headers["location"] == f"/ui/investigations/{MOOR}"
-    # The card now offers to take it back, and says why he is an official.
-    assert '<button type="submit" class="secondary">Не должностное лицо</button>' in card_after_mark
-    assert "должностное лицо — отмечен вручную" in card_after_mark
+    # The card now says he is an official, and why.
+    assert card_after_mark["official"] is True
+    assert card_after_mark["role_label"] == "упомянут: чиновник"
+    assert card_after_mark["role_method_label"] == "должностное лицо"
     assert official_after_mark is True
     # An official leaves «Список» at once.
     assert "Моор Александр" in listed
@@ -547,9 +507,7 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
     # it no longer says he is an official.
     assert unmarked.status_code == 303
     assert official_after_unmark is False
-    assert '<button type="submit" class="secondary">Это должностное лицо</button>' in (
-        card_after_unmark
-    )
+    assert card_after_unmark["official"] is False
     assert missing.status_code == 404
 
 
@@ -560,25 +518,23 @@ def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session])
     )
 
     with _client(session_factory, registry) as client:
-        card = client.get(f"/ui/entities/{MOOR}").text
         corrected = client.post(
             f"/ui/entities/{MOOR}/name",
             data={"name": "Моор Александр Викторович"},
             follow_redirects=False,
         )
-        after = client.get(f"/ui/entities/{MOOR}").text
-        listed = client.get("/ui/entities", params={"figurants": "all"}).text
+        after = _dossier(client, "александр моор")
+        listed = _row(_people(client, role="all"), "Моор Александр Викторович")
         empty = client.post(f"/ui/entities/{MOOR}/name", data={"name": "   "})
         missing = client.post("/ui/entities/никто/name", data={"name": "Кто-то"})
 
-    assert '<button type="submit" class="secondary">Исправить имя</button>' in card
     assert corrected.status_code == 303
     assert corrected.headers["location"] == f"/ui/investigations/{MOOR}"
     # Written surname first, kept given name first, shown surname first.
-    assert "<title>Моор Александр Викторович</title>" in after
-    assert 'value="Александр Викторович Моор"' in after
-    assert "<dt>Имя</dt><dd>исправлено вручную</dd>" in after
-    assert "Моор Александр Викторович</a>" in listed and "исправлено</span>" in listed
+    assert after["name"] == "Моор Александр Викторович"
+    assert after["name_as_kept"] == "Александр Викторович Моор"
+    assert after["name_source_label"] == "исправлено вручную"
+    assert listed["name_source_label"] == "исправлено"
     assert empty.status_code == 400 and missing.status_code == 404
 
 
@@ -592,8 +548,8 @@ def test_a_corrected_name_that_is_another_entity_s_merges_them(
 
     with _client(session_factory, registry) as client:
         client.post(f"/ui/entities/{MOOR}/name", data={"name": "Иван Иванов"})
-        page = client.get("/ui/entities", params={"figurants": "all"}).text
+        listed = _people(client, role="all")
 
-    assert "Найдено: 1." in page and "Иванов Иван" in page
+    assert listed["total"] == 1 and _names(listed) == ["Иванов Иван"]
     with session_factory() as session:
         assert session.scalar(text("SELECT mention_count FROM entity_groups")) == 3

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -238,14 +237,13 @@ def test_the_default_period_is_the_last_45_days(session_factory: sessionmaker[Se
 
     with _client(session_factory) as client:
         response = client.get("/ui/candidates/export.xlsx", params={"snapshot_id": snapshot_id})
-        page = client.get("/ui/candidates", params={"snapshot_id": snapshot_id})
+        table = client.get("/api/v1/candidates/table", params={"snapshot_id": snapshot_id}).json()
 
     assert [row[1] for row in _rows(response.content)[1:]] == ["Свежий Иван"]
     default_from = (today - timedelta(days=45)).date()
-    assert f'name="date_from" value="{default_from.isoformat()}"' in page.text
-    # The page writes names as the customer's table does: surname first.
-    assert "Свежий Иван" in page.text
-    assert "Иван Свежий" not in page.text
+    assert table["period_start"] == default_from.isoformat()
+    # Names as the customer's table writes them: surname first.
+    assert [row["name"] for row in table["items"]] == ["Свежий Иван"]
 
 
 def test_administrative_cases_are_left_out_unless_asked_for(
@@ -295,10 +293,10 @@ def test_export_contains_all_candidates_not_only_the_page_limit(
 
     params: dict[str, str | int] = {"snapshot_id": snapshot_id, "limit": 2, "date_from": ""}
     with _client(session_factory) as client:
-        page = client.get("/ui/candidates", params=params)
+        table = client.get("/api/v1/candidates/table", params=params).json()
         response = client.get("/ui/candidates/export.xlsx", params=params)
 
-    assert page.text.count(">Кандидат ") == 2
+    assert len(table["items"]) == 2 and table["total"] == len(names)
     assert len(_rows(response.content)) == 1 + len(names)
 
 
@@ -333,21 +331,20 @@ def test_candidates_page_links_export_with_active_filters(
         session.commit()
 
     with _client(session_factory) as client:
-        page = client.get(
-            "/ui/candidates",
+        table = client.get(
+            "/api/v1/candidates/table",
             params={
                 "snapshot_id": snapshot_id,
                 "min_confidence": 0.8,
                 "date_from": "2026-08-01",
                 "include_administrative": "1",
             },
-        )
+        ).json()
 
-    assert (
-        f'href="/ui/candidates/export.xlsx?snapshot_id={snapshot_id}&min_confidence=0.8'
-        '&date_from=2026-08-01&include_administrative=1"' in page.text
+    assert table["export_url"] == (
+        f"/ui/candidates/export.xlsx?snapshot_id={snapshot_id}&min_confidence=0.8"
+        "&date_from=2026-08-01&include_administrative=1"
     )
-    assert ">Export to Excel</a>" in page.text
 
 
 def test_export_writes_formula_like_name_as_text(
@@ -444,23 +441,6 @@ def test_only_a_web_link_is_clickable(session_factory: sessionmaker[Session]) ->
     assert sheet.cell(row=2, column=LINK_COLUMN).hyperlink is None
 
 
-def test_the_candidates_page_offers_only_the_excel_export(
-    session_factory: sessionmaker[Session],
-) -> None:
-    with session_factory() as session:
-        snapshot_id = DatabaseSeeder(session).snapshot()
-        session.commit()
-
-    with _client(session_factory) as client:
-        page = client.get("/ui/candidates", params={"snapshot_id": snapshot_id})
-
-    assert re.findall(r'href="(/ui/candidates/export[^"?]*)', page.text) == [
-        "/ui/candidates/export.xlsx"
-    ]
-    assert "Скачать CSV" not in page.text
-    assert "Скачать PDF" not in page.text
-
-
 def test_an_unparsable_period_is_rejected_by_every_export(
     session_factory: sessionmaker[Session],
 ) -> None:
@@ -473,7 +453,7 @@ def test_an_unparsable_period_is_rejected_by_every_export(
         responses = [
             client.get(path, params=params)
             for path in (
-                "/ui/candidates",
+                "/api/v1/candidates/table",
                 "/ui/candidates/export.xlsx",
             )
         ]

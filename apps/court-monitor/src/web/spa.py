@@ -32,6 +32,8 @@ MOVED = {
     "/ui/runs": "/runs",
     "/ui/management": "/runs",
     "/ui/pairs": "/review/pairs",
+    "/ui/queue": "/review/pairs",
+    "/ui/disputes": "/review/pairs",
     "/ui/roles": "/review/roles",
     "/ui/politics-review": "/review/politics",
     "/ui/political": "/political",
@@ -53,9 +55,10 @@ MOVED = {
     "/ui/overview": "/overview",
 }
 # A page of one thing: /ui/<kind>/<id> → /<kind>/<id>. The dossier, a publication, a
-# person (`/ui/entities/<key>` already leads to the dossier).
+# person; a person's card (`/ui/entities/<key>`) is the dossier too.
 ONE_OF = {
     "/ui/investigations/": "/investigations/",
+    "/ui/entities/": "/investigations/",
     "/ui/articles/": "/articles/",
     "/ui/persons/": "/persons/",
     "/ui/wiki/": "/wiki/",

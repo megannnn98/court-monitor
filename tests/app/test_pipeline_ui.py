@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from web.ui.entities import _collect_bar
 from web.ui.pipeline import stepper
 from web.views.pipeline import PipelineState, step_confirmation
 
@@ -28,15 +27,6 @@ def test_pipeline_warns_before_each_paid_deepseek_stage(
         page = stepper(PipelineState(stage), 0)
         assert "DeepSeek" in page
         assert "return confirm" in page
-
-
-def test_entities_page_warns_before_paid_deepseek(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-
-    page = _collect_bar(PipelineState("entities"), None)
-
-    assert "DeepSeek" in page
-    assert "return confirm" in page
 
 
 def test_another_openrouter_model_is_warned_of_by_its_own_name(

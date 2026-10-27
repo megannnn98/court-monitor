@@ -1,11 +1,11 @@
-"""The home page presents the existing pipeline as one operator work cycle."""
+"""«Работа»: the existing pipeline as one operator work cycle, read through `/api/v1/cycle`."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -34,6 +34,11 @@ def _client(
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_operation_registry, None)
+
+
+def _cycle(client: TestClient) -> dict[str, Any]:
+    cycle: dict[str, Any] = client.get("/api/v1/cycle").json()
+    return cycle
 
 
 def _held(session_factory: sessionmaker[Session]) -> None:
@@ -68,25 +73,20 @@ def test_cycle_is_a_task_centric_dashboard_with_secondary_processing_status(
     )
 
     with _client(session_factory, registry) as client:
-        response = client.get("/ui/cycle")
+        cycle = _cycle(client)
 
-    assert response.status_code == 200
-    assert "<h1>Работа</h1>" in response.text
-    assert "Сейчас ничего проверять не нужно" in response.text
-    assert "Обработка данных" in response.text
-    # One press runs every step that is left; a single step is on the runs' page.
-    assert 'id="step-load"' in response.text and ">Сделать всё</button>" in response.text
-    assert 'formaction="/ui/management/run?chain=1&amp;after=0&amp;back=cycle"' in response.text
-    assert 'data-ask="Выполнить шаги 1–5 подряд?"' in response.text
-    assert "шаги 1–5 подряд; по одному шагу" in response.text
-    assert "Запустить следующий шаг" not in response.text
-    assert 'id="step-purge"' not in response.text
-    assert 'href="/ui/political"><svg' in response.text
-    assert "<span>Работа</span>" in response.text
-    assert "<span>Результаты</span>" in response.text
-    assert "<span>Найти человека</span>" in response.text
-    assert "source-table" not in response.text
-    assert 'id="source-errors"' not in response.text
+    # Nothing to review; one press runs every step that is left, from step 1.
+    assert cycle["attention"] is None and cycle["tasks"] == []
+    assert cycle["current_stage"] == "load" and cycle["latest_run_id"] == 0
+    assert cycle["chain_question"] == "Выполнить шаги 1–5 подряд?"
+    assert cycle["chain_span"] == "шаги 1–5 подряд"
+    assert [step["status"] for step in cycle["steps"]] == [
+        "ready",
+        "waiting",
+        "waiting",
+        "waiting",
+        "waiting",
+    ]
 
 
 def test_cycle_menu_count_includes_junk_held_for_a_decision(
@@ -98,13 +98,15 @@ def test_cycle_menu_count_includes_junk_held_for_a_decision(
         session_factory, command_line=OPERATION_COMMAND_LINE, executor=lambda _work: None
     )
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        cycle = _cycle(client)
+        page = client.get("/ui/logs").text
 
+    # The menu counts it on every page.
     assert '<span>Работа</span><span class="nav-count">1</span>' in page
-    assert 'data-primary-task="junk_holds"' in page
-    assert "Возможно мусор" in page
-    assert 'href="/ui/junk-holds"' in page
-    assert ">Начать проверку</a>" in page
+    attention = cycle["attention"]
+    assert (attention["key"], attention["count"]) == ("junk_holds", 1)
+    assert attention["title"].startswith("Возможно мусор")
+    assert attention["href"] == "/ui/junk-holds"
 
 
 def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
@@ -116,11 +118,10 @@ def test_cycle_step_uses_the_existing_action_and_returns_to_the_cycle(
 
     with _client(session_factory, registry) as client:
         started = client.post("/ui/management/run?back=cycle", follow_redirects=False)
-        page = client.get("/ui/cycle")
+        cycle = _cycle(client)
 
     assert (started.status_code, started.headers["location"]) == (303, "/ui/cycle")
-    assert 'class="pipeline-current running"' in page.text
-    assert 'name="back" value="cycle"' in page.text
+    assert cycle["steps"][0]["status"] == "running" and cycle["live"] is not None
 
 
 def test_every_page_names_the_same_live_next_station(
@@ -132,12 +133,12 @@ def test_every_page_names_the_same_live_next_station(
     finish_steps(session_factory, registry, "load")
 
     with _client(session_factory, registry) as client:
-        cycle = client.get("/ui/cycle").text
-        overview = client.get("/ui/overview").text
+        logs = client.get("/ui/logs").text
+        runs = client.get("/ui/runs").text
 
     next_action = "Шаг 2: очистить от мусора."
-    assert f"<strong>Дальше:</strong> {next_action}" in cycle
-    assert f"<strong>Дальше:</strong> {next_action}" in overview
+    assert f"<strong>Дальше:</strong> {next_action}" in logs
+    assert f"<strong>Дальше:</strong> {next_action}" in runs
 
 
 def test_cycle_makes_the_highest_priority_review_the_only_primary_action(
@@ -150,12 +151,13 @@ def test_cycle_makes_the_highest_priority_review_the_only_primary_action(
     finish_steps(session_factory, registry, "load", "purge")
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        cycle = _cycle(client)
 
-    assert 'data-primary-task="junk_holds"' in page
-    assert page.count('class="primary-action"') == 1
-    assert "Проверьте, относятся ли удержанные публикации" in page
-    assert 'id="step-entities"' in page
+    # The one thing to do first is the review of the highest priority.
+    assert cycle["attention"]["key"] == "junk_holds"
+    assert "Проверьте, относятся ли удержанные публикации" in cycle["attention"]["description"]
+    assert "junk_holds" not in [task["key"] for task in cycle["tasks"]]
+    assert cycle["current_stage"] == "entities"
 
 
 def test_cycle_shows_unclear_roles_after_higher_priority_queues_are_empty(
@@ -189,12 +191,12 @@ def test_cycle_shows_unclear_roles_after_higher_priority_queues_are_empty(
     finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        cycle = _cycle(client)
 
-    assert 'data-primary-task="roles"' in page
-    assert "Неясные роли" in page
-    assert 'href="/ui/roles"' in page
-    assert 'id="step-political"' in page
+    attention = cycle["attention"]
+    assert attention["key"] == "roles" and attention["title"].startswith("Неясные роли")
+    assert attention["href"] == "/ui/roles"
+    assert cycle["current_stage"] == "political"
 
 
 def test_cycle_describes_an_active_automatic_run_without_an_operator_cta(
@@ -206,11 +208,10 @@ def test_cycle_describes_an_active_automatic_run_without_an_operator_cta(
     registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        cycle = _cycle(client)
 
-    assert 'class="pipeline-current running"' in page
-    assert "Идёт автоматическая обработка" in page
-    assert 'class="primary-action"' not in page
+    assert cycle["steps"][0]["status"] == "running" and cycle["live"] is not None
+    assert cycle["attention"] is None
 
 
 def test_common_next_action_does_not_wait_for_a_stale_run(
@@ -230,10 +231,10 @@ def test_common_next_action_does_not_wait_for_a_stale_run(
         )
 
     with _client(session_factory, registry) as client:
-        overview = client.get("/ui/overview").text
+        page = client.get("/ui/logs").text
 
-    assert "<strong>Дальше:</strong> Шаг 1: подгрузить статьи." in overview
-    assert "Дождитесь завершения" not in overview
+    assert "<strong>Дальше:</strong> Шаг 1: подгрузить статьи." in page
+    assert "Дождитесь завершения" not in page
 
 
 def test_do_all_starts_a_chain_from_the_step_that_is_due(
@@ -245,22 +246,20 @@ def test_do_all_starts_a_chain_from_the_step_that_is_due(
     done = finish_steps(session_factory, registry, "load", "purge", "entities", "figurants")
 
     with _client(session_factory, registry) as client:
-        last = client.get("/ui/cycle").text
-        after = re.search(r"political\?chain=1&amp;after=(\d+)&amp;back=cycle", last)
-        assert after is not None
-        address = f"/ui/management/political?chain=1&after={after[1]}&back=cycle"
+        last = _cycle(client)
+        address = f"/ui/management/political?chain=1&after={last['latest_run_id']}&back=cycle"
         started = client.post(address, follow_redirects=False)
-        running = client.get("/ui/cycle").text
+        running = _cycle(client)
 
     # The last step alone is left: «Сделать всё» says so.
-    # The press names the latest run its page was drawn for.
-    assert int(after[1]) == done[-1]
-    assert 'data-ask="Выполнить шаг 5?"' in last and "шаг 5;" in last
+    # The press names the latest run the answer was read for.
+    assert last["latest_run_id"] == done[-1]
+    assert last["chain_question"] == "Выполнить шаг 5?" and last["chain_span"] == "шаг 5"
     assert (started.status_code, started.headers["location"]) == (303, "/ui/cycle")
     run = registry.runs_of("monitor", limit=1)[0]
     assert (run.parameters.mode, run.parameters.chain) == ("political", True)
-    assert "Идёт «Сделать всё»: это последний шаг." in running
-    assert ">Остановить</button>" in running and ">Сделать всё</button>" not in running
+    assert running["chain_note"] == "Идёт «Сделать всё»: это последний шаг."
+    assert running["live"] is not None
 
 
 def test_a_live_chained_step_says_what_starts_after_it(
@@ -273,14 +272,14 @@ def test_a_live_chained_step_says_what_starts_after_it(
     registry.start("monitor", OperationParameters(mode="purge", chain=True))
 
     with _client(session_factory, registry) as client:
-        cycle = client.get("/ui/cycle").text
+        cycle = _cycle(client)
         runs = client.get("/ui/runs").text
 
     note = (
         "Идёт «Сделать всё»: после этого шага сам запустится «Собрать сущности». "
         "«Остановить» прерывает и цепочку."
     )
-    assert note in cycle and note in runs
+    assert cycle["chain_note"] == note and note in runs
 
 
 def test_a_live_single_step_says_nothing_of_a_chain(session_factory: sessionmaker[Session]) -> None:
@@ -290,7 +289,7 @@ def test_a_live_single_step_says_nothing_of_a_chain(session_factory: sessionmake
     registry.start("monitor", OperationParameters(mode="load", sources=["ovd-info"]))
 
     with _client(session_factory, registry) as client:
-        assert "Идёт «Сделать всё»" not in client.get("/ui/cycle").text
+        assert _cycle(client)["chain_note"] == ""
 
 
 def test_a_chain_that_stopped_says_where_and_why(session_factory: sessionmaker[Session]) -> None:
@@ -318,17 +317,17 @@ def test_a_chain_that_stopped_says_where_and_why(session_factory: sessionmaker[S
         return run.id
 
     with _client(session_factory, registry) as client:
-        nothing = client.get("/ui/cycle").text
+        nothing = _cycle(client)["chain_stopped"]
         first = chained("load", "succeeded")
-        lost = client.get("/ui/cycle").text
+        lost = _cycle(client)["chain_stopped"]
         crashed = chained("purge", "failed")
-        failed, runs = client.get("/ui/cycle").text, client.get("/ui/runs").text
+        failed, runs = _cycle(client)["chain_stopped"], client.get("/ui/runs").text
         chained("purge", "interrupted")
-        stopped = client.get("/ui/cycle").text
+        stopped = _cycle(client)["chain_stopped"]
         finish_steps(session_factory, registry, "purge")
-        by_hand = client.get("/ui/cycle").text
+        by_hand = _cycle(client)["chain_stopped"]
 
-    assert "«Сделать всё» остановилось" not in nothing
+    assert nothing == ""
     # The step ended well and the next never started: the chain was lost, not the step.
     assert (
         f"«Сделать всё» остановилось на шаге 1 (запуск #{first}): следующий шаг не запустился "
@@ -342,7 +341,7 @@ def test_a_chain_that_stopped_says_where_and_why(session_factory: sessionmaker[S
     assert "«Сделать всё» остановилось на шаге 2" in runs
     assert "· шаг цепочки «Сделать всё» ·" in runs
     # A step pressed by hand afterwards is no chain: nothing to say.
-    assert "«Сделать всё» остановилось" not in by_hand
+    assert by_hand == ""
 
 
 def test_a_chain_that_reached_the_last_step_says_nothing(
@@ -360,7 +359,7 @@ def test_a_chain_that_reached_the_last_step_says_nothing(
         )
 
     with _client(session_factory, registry) as client:
-        assert "«Сделать всё» остановилось" not in client.get("/ui/cycle").text
+        assert _cycle(client)["chain_stopped"] == ""
 
 
 def test_the_same_press_cannot_start_a_second_chain(session_factory: sessionmaker[Session]) -> None:
@@ -377,11 +376,9 @@ def test_the_same_press_cannot_start_a_second_chain(session_factory: sessionmake
         finish_steps(session_factory, registry, "purge", "entities", "figurants", "political")
         again = client.post("/ui/management/run?chain=1&after=0&back=cycle", follow_redirects=False)
         unnamed = client.post("/ui/management/run?chain=1&back=cycle", follow_redirects=False)
-        page = client.get("/ui/cycle").text
-        fresh = re.search(r"run\?chain=1&amp;after=(\d+)", page)
-        assert fresh is not None
+        fresh = _cycle(client)["latest_run_id"]
         pressed = client.post(
-            f"/ui/management/run?chain=1&after={fresh[1]}&back=cycle", follow_redirects=False
+            f"/ui/management/run?chain=1&after={fresh}&back=cycle", follow_redirects=False
         )
         # A single step is not a chain: it needs no such word.
         single = client.post("/ui/management/purge", follow_redirects=False)

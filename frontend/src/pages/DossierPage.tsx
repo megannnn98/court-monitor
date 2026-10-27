@@ -17,6 +17,9 @@ import { readAgainAfterDecision } from "@/lib/decisions";
 import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
 
+/** The API's cut of the people list (`web.views.dossier.RELATED_LIMIT`): a full list is cut. */
+const RELATED_LIMIT = 30;
+
 /** The excerpt with the mention marked, as the legacy dossier writes it. */
 function Excerpt({ quote, start, end }: Pick<QuoteResponse, "quote" | "start" | "end">) {
   return (
@@ -464,6 +467,9 @@ export function DossierPage() {
                   ))}
                 </TableBody>
               </Table>
+              {person.related.length >= RELATED_LIMIT ? (
+                <p className="mt-2 text-sm text-muted-foreground">Показаны первые {RELATED_LIMIT} человек.</p>
+              ) : null}
             </Section>
           ) : null}
         </>

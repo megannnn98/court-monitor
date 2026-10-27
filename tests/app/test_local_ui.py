@@ -62,7 +62,7 @@ def test_person_detail_and_article_routes_expose_evidence_span(
         # The seeded news is a fine without a criminal-code charge: an administrative case,
         # hidden by default (48c4851), so the page is asked for administrative cases too.
         filters = f"snapshot_id={snapshot_id}&date_from=&include_administrative=1"
-        candidates_page = client.get(f"/ui/candidates?{filters}")
+        table = client.get(f"/api/v1/candidates/table?{filters}")
 
     assert detail.status_code == 200
     body = detail.json()
@@ -71,20 +71,18 @@ def test_person_detail_and_article_routes_expose_evidence_span(
     assert body["rosfinmonitoring"]["status"] == "not_matched"
     assert body["events"][0]["evidence"]["text"] == "Суд назначил штраф Ивану Иванову"
     assert article.json()["text"].startswith("Иван Иванов участвовал")
-    assert candidates_page.status_code == 200
-    assert "<th>№</th>" in candidates_page.text
-    assert "<td>1</td>" in candidates_page.text
+    assert table.status_code == 200
+    assert [row["name"] for row in table.json()["items"]] == ["Иванов Иван"]
 
 
 def test_ui_pages_have_operator_shell_and_contextual_instruction(
     session_factory: sessionmaker[Session],
 ) -> None:
     with _client(session_factory) as client:
-        candidates = client.get("/ui/candidates")
         wiki = client.get("/ui/wiki")
         wiki_page = client.get("/ui/wiki/Local-Web-UI")
 
-    for response in (candidates, wiki, wiki_page):
+    for response in (wiki, wiki_page):
         assert response.status_code == 200
         assert "court-monitor" in response.text
         assert "Дальше:" in response.text

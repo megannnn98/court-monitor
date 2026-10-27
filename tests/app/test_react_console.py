@@ -86,6 +86,9 @@ def test_a_moved_legacy_page_opens_in_react_with_its_query(built: Path) -> None:
         ("/ui/political?months=3", "/political?months=3"),
         ("/ui/entities?region=Москва", "/entities?region=Москва"),
         ("/ui/investigations/анна%20смирнова", "/investigations/анна смирнова"),
+        ("/ui/entities/анна%20смирнова", "/investigations/анна смирнова"),
+        ("/ui/queue?kind=pair", "/review/pairs?kind=pair"),
+        ("/ui/disputes?reset=2", "/review/pairs?reset=2"),
         ("/ui/articles/12", "/articles/12"),
         ("/ui/persons/5", "/persons/5"),
     ):
@@ -97,6 +100,7 @@ def test_a_moved_legacy_page_opens_in_react_with_its_query(built: Path) -> None:
     assert react_address("/ui/wiki/Home") == "/wiki/Home"
     assert react_address("/ui/people/export.xlsx") is None
     assert react_address("/ui/investigations/a/graph") is None
+    assert react_address("/ui/entities/export.xlsx") is None
     assert client.post("/ui/cycle").status_code != 302
 
 

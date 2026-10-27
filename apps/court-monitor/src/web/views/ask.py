@@ -7,7 +7,6 @@ holds is named above it. The questions asked before are listed below.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -29,25 +28,9 @@ EXAMPLES = (
     "Что известно о задержаниях на одиночных пикетах?",
 )
 
-# «[№ 123]»; a model may drop the sign, so a bare number of an id's length is one too.
-_REFERENCE = re.compile(r"\[(?:№\s*(\d+)|(\d{3,}))\]")
-
 
 def _number(value: object) -> str:
     return f"{value:g}".replace(".", ",") if isinstance(value, float) else str(value)
-
-
-_STATS_COLUMNS = (
-    ("name", "Группа"),
-    ("cases", "Дел"),
-    ("imprisoned", "Лишение свободы"),
-    ("mean_years", "Средний срок, лет"),
-    ("median_years", "Медиана, лет"),
-    ("max_years", "Наибольший, лет"),
-    ("suspended", "Условно"),
-    ("fined", "Штраф"),
-    ("in_absentia", "Заочно"),
-)
 
 
 def results_of(record: QuestionAnswer) -> list[dict[str, Any]]:

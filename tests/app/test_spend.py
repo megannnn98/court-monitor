@@ -11,12 +11,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from web import entity_model
 from web.app import app
 from web.dependencies import get_db
-from web.ui.cycle import _processing
 from web.ui.pipeline import stepper
 from web.ui.spend import balance_line, notice
 from web.views import spend
 from web.views.pipeline import PipelineState, chain_confirmation, step_confirmation
-from web.views.workload import Workload
 
 CREDITS = {"data": {"total_credits": 15, "total_usage": 10.737357613}}
 
@@ -168,18 +166,15 @@ def test_a_free_model_is_named_free_and_any_other_model_is_named_with_its_price(
     assert "Шаг платный" in paid and spend.paid("political")
 
 
-def test_the_page_of_the_cycle_shows_the_balance(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_step_says_its_price_and_the_balance(monkeypatch: pytest.MonkeyPatch) -> None:
     _paid(monkeypatch)
     _credits(monkeypatch)
-    work = Workload(pairs=0, unclear_roles=0, unclear_verdicts=0)
 
-    page = _processing(PipelineState("figurants"), work)
-
-    assert "Остаток на OpenRouter: $4.26" in page
+    assert "Остаток на OpenRouter: $4.26" in balance_line()
     assert (
         "Шаг платный, не более $2.00 за запуск: модель решений (фигуранты, политичность, "
         "новости) deepseek/deepseek-v4.1-flash"
-    ) in page
+    ) in notice("figurants")
 
 
 def _strip(session_factory: sessionmaker[Session]) -> str:

@@ -112,5 +112,5 @@ docker exec ebnv-api-1 sh -c 'cd /app && /opt/venv/bin/court-monitor find-senten
 - Чтение приговоров: `packages/court-processing/src/processing/evidence/sentences.py`; субъекты РФ: `packages/court-processing/src/processing/evidence/regions.py`.
 - Свёртка в дела и подсчёты: `packages/court-results/src/results/queries/sentence_cases.py`.
 - Вопрос и ответ: `packages/court-results/src/results/ask.py`.
-- Страницы: `apps/court-monitor/src/web/ui/ask.py`, `apps/court-monitor/src/web/ui/sentences.py`.
+- Страницы: `frontend/src/pages/AskPage.tsx` (API `apps/court-monitor/src/web/routers/ask.py`), `apps/court-monitor/src/web/ui/sentences.py`.
 - Таблицы: `article_sentences`, `article_sentence_readings`, `chat_questions`.

@@ -95,15 +95,13 @@ def test_the_people_are_the_legacy_list_s(session_factory: sessionmaker[Session]
     with _client(session_factory) as client:
         answer = client.get("/api/v1/entities", params={"role": "all"})
         found = client.get("/api/v1/entities", params={"role": "all", "q": "Моору"}).json()
-        page = client.get("/ui/entities", params={"role": "all"}).text
 
     assert answer.status_code == 200
     body = answer.json()
-    assert body["total"] == 2 and f"Найдено: {body['total']}" in page
+    assert body["total"] == 2
     assert body["page"] == 1 and body["page_size"] == 100
     assert [row["name"] for row in body["items"]] == ["Моор Александр", "Иванов Иван"]
     for row in body["items"]:
-        assert row["name"] in page
         assert row["dossier_url"].startswith("/ui/investigations/")
     moor = body["items"][0]
     assert (moor["mention_count"], moor["article_count"]) == (2, 2)
@@ -126,9 +124,8 @@ def test_the_publications_carry_their_people_and_events(
     with _client(session_factory) as client:
         body = client.get("/api/v1/publications").json()
         found = client.get("/api/v1/publications", params={"q": "Приговор"}).json()
-        page = client.get("/ui/publications").text
 
-    assert body["total"] == 2 and f"Найдено: {body['total']}." in page
+    assert body["total"] == 2
     assert [row["title"] for row in body["items"]] == ["Приговор Моору", "Арест Моора"]
     first = next(row for row in body["items"] if row["id"] == arrest)
     assert {person["name"] for person in first["people"]} == {"Моор Александр", "Иванов Иван"}

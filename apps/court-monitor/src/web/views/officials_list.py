@@ -38,7 +38,6 @@ logger = logging.getLogger("web.ui.airtable")
 
 PAGE_SIZE = 100
 
-REFERENCE_URL = "/ui/airtable/officials"
 
 # The categories a row may carry. They are the roles the pipeline already knows, so
 # saying "судья" here and "judge" there cannot drift apart into two vocabularies.
@@ -49,15 +48,6 @@ def category_label(value: str) -> str:
     return KIND_LABELS.get(value, "прочее") if value != "other" else "прочее"
 
 
-# What the list is for, said on the page itself rather than only in the code.
-_INTRO = (
-    "Люди, которых нельзя делать фигурантом: судьи, прокуроры, следователи, защитники, "
-    "свидетели. Человек, которого система сама признала должностным, помечается на его "
-    "карточке в «Людях»; здесь — сам список, из которого берётся ответ. "
-    "Снимается галочкой, а не удалением: решение остаётся в базе."
-)
-
-
 def officials_listing(db: Session) -> tuple[list[exclusion_list.ListedOfficial], int]:
     """The rows of the list, with the name each one has actually landed on.
 
@@ -66,15 +56,6 @@ def officials_listing(db: Session) -> tuple[list[exclusion_list.ListedOfficial],
     anything.
     """
     return exclusion_list.listing(db, limit=PAGE_SIZE)
-
-
-def official_suggestions(db: Session) -> list[tuple[str, str, str, str]]:
-    """The people the model calls officials and the list does not name: (key, name, kind,
-    why the model thinks so)."""
-    return [
-        (item.key, item.name, item.kind, item.reason)
-        for item in exclusion_list.suggestions(db, limit=PAGE_SIZE)
-    ]
 
 
 def official_suggestion_items(db: Session) -> list[exclusion_list.Suggestion]:

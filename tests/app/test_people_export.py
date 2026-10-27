@@ -330,10 +330,3 @@ def test_an_empty_base_gives_a_file_with_headers_only(
 
     assert [row[0] for row in book["Люди"].iter_rows(values_only=True)] == ["№"]
     assert [row[0] for row in book["Без имени"].iter_rows(values_only=True)] == ["№"]
-
-
-def test_the_people_page_has_the_button(session_factory: sessionmaker[Session]) -> None:
-    with _client(session_factory) as client:
-        page = client.get("/ui/entities").text
-
-    assert 'href="/ui/people/export.xlsx"' in page and "Выгрузить всех" in page

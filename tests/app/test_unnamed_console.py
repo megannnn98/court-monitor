@@ -173,7 +173,7 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
 
     with _client(session_factory) as client:
         listed = _list(client)
-        cycle = client.get("/ui/cycle").text
+        cycle = client.get("/api/v1/cycle").json()
 
     card = _card(listed)
     assert card["facts"] == "17 лет · мужчина · Тюмень · задержание · ст. 205"
@@ -188,9 +188,8 @@ def test_a_card_shows_the_text_what_it_tells_and_the_candidates(
     )
     assert candidate["seen"] == "в перечне с 01.12.2024 или раньше"
     assert _counts(listed)["open"] == 1 and card["resolution"] == ""
-    # The dashboard counts it and leads there.
-    assert 'data-primary-task="unnamed"' in cycle
-    assert "Безымянные фигуранты: 1" in cycle
+    # The dashboard counts it and leads there: the first thing to look at.
+    assert cycle["attention"]["key"] == "unnamed" and cycle["attention"]["count"] == 1
 
 
 def test_an_rf_entry_finds_its_unnamed_candidate_without_deciding(
@@ -262,14 +261,14 @@ def test_no_rf_match_stays_open_and_insufficient_closes(
         client.post(f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "no_rf_match"})
         no_rf = _list(client, status="no_rf")
         still_open = _list(client)
-        cycle = client.get("/ui/cycle").text
+        cycle = client.get("/api/v1/cycle").json()
         client.post(f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "insufficient"})
-        closed = client.get("/ui/cycle").text
+        closed = client.get("/api/v1/cycle").json()
 
     assert _counts(no_rf)["no_rf"] == 1 and _card(no_rf)["resolution"] == "no_rf_match"
     assert _keys(still_open) == [FIGURANT]
-    assert 'data-primary-task="unnamed"' in cycle
-    assert "Сейчас ничего проверять не нужно" in closed
+    assert cycle["attention"]["key"] == "unnamed"
+    assert closed["attention"] is None and closed["tasks"] == []
 
 
 def test_the_overview_shows_the_open_unnamed_with_their_candidates(
@@ -278,17 +277,19 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/overview").text
+        overview = client.get("/api/v1/overview").json()
         client.post(f"{API}/resolve", json={"figurant": FIGURANT, "resolution": "insufficient"})
-        closed = client.get("/ui/overview").text
+        closed = client.get("/api/v1/overview").json()
 
-    unnamed = page[page.index('id="unnamed-title"') :]
-    assert 'Неопознанные фигуранты <span class="count">1</span>' in unnamed
-    assert "&lt;b&gt;на железной дороге&lt;/b&gt;" in unnamed and "<b>на" not in unnamed
-    assert "17 лет · мужчина · Тюмень · задержание · ст. 205 · вероятных в перечне: 1" in unnamed
-    assert '<a href="/ui/unnamed">Все: 1 →</a>' in unnamed
+    assert overview["unnamed"] == 1
+    (item,) = overview["latest_unnamed"]
+    assert (item["quote"], item["facts"], item["found"]) == (
+        QUOTE,
+        "17 лет · мужчина · Тюмень · задержание · ст. 205",
+        "вероятных в перечне: 1",
+    )
     # Closed as insufficient: off the overview.
-    assert "Неопознанных нет." in closed
+    assert closed["unnamed"] == 0 and closed["latest_unnamed"] == []
 
 
 def test_the_overview_counts_the_candidates_worth_looking_at() -> None:

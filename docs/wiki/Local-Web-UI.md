@@ -130,13 +130,13 @@
 | приложение, порядок маршрутов | `apps/court-monitor/src/web/app.py` |
 | меню, строка показателей, нумерация | `apps/court-monitor/src/web/ui/layout.py` |
 | счётчик открытых решений | `apps/court-monitor/src/web/ui/workload.py` |
-| рабочий цикл и живое «Дальше» | `apps/court-monitor/src/web/ui/cycle.py`, `apps/court-monitor/src/web/ui/work_cycle.py` |
-| обзор | `apps/court-monitor/src/web/ui/overview.py` |
-| досье и поиск человека | `apps/court-monitor/src/web/ui/dossier.py` |
-| люди | `apps/court-monitor/src/web/ui/entities.py` |
+| рабочий цикл и живое «Дальше» | `frontend/src/pages/WorkPage.tsx` (API `apps/court-monitor/src/web/routers/cycle.py`), `apps/court-monitor/src/web/views/work_cycle.py` |
+| обзор | `frontend/src/pages/OverviewPage.tsx` (API `apps/court-monitor/src/web/routers/wiki_overview.py`) |
+| досье и поиск человека | `frontend/src/pages/DossierPage.tsx`, `InvestigationsPage.tsx` (API `apps/court-monitor/src/web/routers/dossier.py`) |
+| люди | `frontend/src/pages/EntitiesPage.tsx` (API `apps/court-monitor/src/web/routers/entities.py`) |
 | безымянные | `frontend/src/pages/UnnamedPage.tsx` (API `apps/court-monitor/src/web/routers/unnamed.py`) |
-| публикации, полный текст | `apps/court-monitor/src/web/ui/publications.py`, `apps/court-monitor/src/web/ui/persons.py` |
-| пары, роль, политичность | `apps/court-monitor/src/web/ui/disputes.py`, `apps/court-monitor/src/web/ui/queue.py` |
+| публикации, полный текст | `frontend/src/pages/PublicationsPage.tsx`, `ArticlePage.tsx` (API `apps/court-monitor/src/web/routers/publications.py`, `articles.py`) |
+| пары, роль, политичность | `frontend/src/pages/PairsPage.tsx`, `ReviewPage.tsx` (API `apps/court-monitor/src/web/routers/review.py`) |
 | результат, Excel | `frontend/src/pages/PoliticalPage.tsx` (API `apps/court-monitor/src/web/routers/political.py`), Excel `apps/court-monitor/src/web/ui/political_export.py` |
 | журнал запусков, шаги, воронка | `apps/court-monitor/src/web/ui/management.py`, `apps/court-monitor/src/web/ui/pipeline.py`, `apps/court-monitor/src/web/ui/funnel.py` |
 | вики | `apps/court-monitor/src/web/ui/wiki.py`, `apps/court-monitor/src/web/wiki.py` |
