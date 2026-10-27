@@ -275,7 +275,7 @@ def start_rosfin(
     working, a second thing to be wrong about what counts as the published list, and a
     second set of answers about the 403 and the maintenance page.
 
-    **Why the order check is not applied here.** `_start_whole_database` asks
+    **Why the order check is not applied here.** `start_step` asks
     `out_of_turn` first, which requires that the step be the pipeline's next one. That
     works for the five numbered stages but not for `rosfin`: `pipeline_current` answers
     from the stage list, and `rosfin` is not in it — it reports `figurants` for a run of
