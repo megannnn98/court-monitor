@@ -614,7 +614,7 @@ def start_management_purge(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 2: delete the articles without a criminal case; the whole database."""
-    return _start_whole_database(request, db, registry, "purge")
+    return _start_form_step(request, db, registry, "purge")
 
 
 @router.post("/ui/management/political", response_model=None)
@@ -624,7 +624,7 @@ def start_management_political(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 5: tell persecution from crime and check Rosfinmonitoring."""
-    return _start_whole_database(request, db, registry, "political")
+    return _start_form_step(request, db, registry, "political")
 
 
 @router.post("/ui/management/figurants", response_model=None)
@@ -634,7 +634,7 @@ def start_management_figurants(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 4: tell who a case is opened against among the entities."""
-    return _start_whole_database(request, db, registry, "figurants")
+    return _start_form_step(request, db, registry, "figurants")
 
 
 @router.post("/ui/management/entities", response_model=None)
@@ -644,7 +644,7 @@ def start_management_entities(
     registry: OperationRegistry = Depends(get_operation_registry),  # noqa: B008
 ) -> HTMLResponse | RedirectResponse:
     """Step 3: rebuild the person entities; the whole database."""
-    return _start_whole_database(request, db, registry, "entities")
+    return _start_form_step(request, db, registry, "entities")
 
 
 def _refused(
@@ -787,23 +787,24 @@ def start_step(
     stage = _MODES.get(mode)
     if stage is None:
         raise StepRefused(f"Неизвестный шаг: {mode}.", 400)
-    parameters = OperationParameters(
-        mode=stage, chain=chain, entity_model=entity_model, decision_model=decision_model
-    )
+    selected: list[str] | None = None
     if stage == "load":
         everything = [item.name for item in news_sources()]
         selected = list(dict.fromkeys(sources or [])) or everything
         if not set(selected) <= set(everything):
             raise StepRefused("В запросе есть неизвестный или не новостной источник.", 400)
-        parameters = OperationParameters(
-            sources=selected,
-            mode=stage,
-            chain=chain,
-            published_from=published_from.isoformat() if published_from else None,
-            published_to=published_to.isoformat() if published_to else None,
-            entity_model=entity_model,
-            decision_model=decision_model,
-        )
+    else:
+        # Sources and a period are step 1's; any other step covers the whole database.
+        published_from = published_to = None
+    parameters = OperationParameters(
+        sources=selected,
+        mode=stage,
+        chain=chain,
+        published_from=published_from.isoformat() if published_from else None,
+        published_to=published_to.isoformat() if published_to else None,
+        entity_model=entity_model,
+        decision_model=decision_model,
+    )
     try:
         return registry.start(_OPERATION, parameters)
     except OperationConflictError:
@@ -811,12 +812,17 @@ def start_step(
         raise StepRefused("Идёт другой запуск.", 409) from None
 
 
-def _start_whole_database(
+def _start_form_step(
     request: Request,
     db: Session,
     registry: OperationRegistry,
-    mode: Literal["purge", "entities", "rosfin", "figurants", "political"],
+    mode: _Mode,
+    *,
+    sources: list[str] | None = None,
+    published_from: date | None = None,
+    published_to: date | None = None,
 ) -> HTMLResponse | RedirectResponse:
+    """A step pressed on a legacy page: the run's page, or this page with the refusal."""
     try:
         entity_model, decision_model = _shown(request, db)
         run = start_step(
@@ -826,6 +832,9 @@ def _start_whole_database(
             after=request.query_params.get("after"),
             entity_model=entity_model,
             decision_model=decision_model,
+            sources=sources,
+            published_from=published_from,
+            published_to=published_to,
         )
     except StepRefused as refused:
         return _refused(db, registry, refused.message, refused.status_code)
@@ -846,23 +855,16 @@ async def _start(
         and published_from > published_to
     ):
         return _refused(db, registry, "Дата «С» должна быть не позже даты «По».", 400)
-    try:
-        entity_model, decision_model = _shown(request, db)
-        # The page sends no sources: all of them. The API may still name some.
-        run = start_step(
-            registry,
-            mode,
-            chain=_chained(request),
-            after=request.query_params.get("after"),
-            entity_model=entity_model,
-            decision_model=decision_model,
-            sources=form.get("sources", []),
-            published_from=published_from if isinstance(published_from, date) else None,
-            published_to=published_to if isinstance(published_to, date) else None,
-        )
-    except StepRefused as refused:
-        return _refused(db, registry, refused.message, refused.status_code)
-    return RedirectResponse(_started_at(request, run.id), status_code=303)
+    # The page sends no sources: all of them. The API may still name some.
+    return _start_form_step(
+        request,
+        db,
+        registry,
+        mode,
+        sources=form.get("sources", []),
+        published_from=published_from if isinstance(published_from, date) else None,
+        published_to=published_to if isinstance(published_to, date) else None,
+    )
 
 
 def _chained(request: Request) -> bool:

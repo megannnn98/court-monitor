@@ -13,7 +13,7 @@ import asyncio
 import logging
 import time
 from collections import Counter
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import aclosing, contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
@@ -356,7 +356,8 @@ class MonitoringService:
             published_from=published_from,
             published_to=published_to,
         )
-        try:
+
+        def body() -> None:
             discovery = self.discover(handle)
             ingestion = self.ingest(handle, discovery)
             self.extract(handle, ingestion)
@@ -364,21 +365,8 @@ class MonitoringService:
                 self.resolve(handle)
             if with_derived:
                 self._run_derived_stages(handle)
-        except MonitoringRunAbortedError:
-            logger.warning(
-                "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id
-            )
-            return self.finish(handle)
-        except Exception as exc:
-            logger.exception(
-                "event=monitoring_run_failed run_id=%s source=%s", handle.run_id, source
-            )
-            return self.finish(handle, error=exc)
-        except BaseException as exc:
-            # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.
-            self.finish(handle, error=exc)
-            raise
-        return self.finish(handle)
+
+        return self._guarded(handle, body, source=source)
 
     def resolve_source(
         self, source: str, *, trigger: MonitoringTrigger = MonitoringTrigger.MANUAL
@@ -389,8 +377,26 @@ class MonitoringService:
         handle = replace(
             self.start_source_run(source, trigger=trigger, discovery_limit=1), resolve_only=True
         )
+        return self._guarded(
+            handle, lambda: self.resolve(handle), source=source, scope="resolution"
+        )
+
+    def run_derived(
+        self, *, trigger: MonitoringTrigger = MonitoringTrigger.DERIVED
+    ) -> MonitoringRunView:
+        """Classification, RF matching and findings without any web access."""
+        handle = self.start_derived_run(trigger=trigger)
+        return self._guarded(handle, lambda: self._run_derived_stages(handle), scope="derived")
+
+    def _guarded(
+        self,
+        handle: RunHandle,
+        body: Callable[[], object],
+        **fields: str,
+    ) -> MonitoringRunView:
+        """Finish a run on every exit, preserving interruptions for the caller."""
         try:
-            self.resolve(handle)
+            body()
         except MonitoringRunAbortedError:
             logger.warning(
                 "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id
@@ -398,31 +404,10 @@ class MonitoringService:
             return self.finish(handle)
         except Exception as exc:
             logger.exception(
-                "event=monitoring_run_failed run_id=%s source=%s scope=resolution",
+                "event=monitoring_run_failed run_id=%s %s",
                 handle.run_id,
-                source,
+                " ".join(f"{key}={value}" for key, value in fields.items()),
             )
-            return self.finish(handle, error=exc)
-        except BaseException as exc:
-            # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.
-            self.finish(handle, error=exc)
-            raise
-        return self.finish(handle)
-
-    def run_derived(
-        self, *, trigger: MonitoringTrigger = MonitoringTrigger.DERIVED
-    ) -> MonitoringRunView:
-        """Classification, RF matching and findings without any web access."""
-        handle = self.start_derived_run(trigger=trigger)
-        try:
-            self._run_derived_stages(handle)
-        except MonitoringRunAbortedError:
-            logger.warning(
-                "event=monitoring_run_fenced run_id=%s: aborted while running", handle.run_id
-            )
-            return self.finish(handle)
-        except Exception as exc:
-            logger.exception("event=monitoring_run_failed run_id=%s scope=derived", handle.run_id)
             return self.finish(handle, error=exc)
         except BaseException as exc:
             # Interrupted (Ctrl+C, SIGTERM): release the scope now, not after the stale timeout.

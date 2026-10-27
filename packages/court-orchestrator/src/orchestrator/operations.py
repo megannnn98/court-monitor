@@ -736,57 +736,88 @@ _WHOLE_DATABASE_COMMANDS = {
 
 
 def _command_for(name: str, parameters: OperationParameters, program: tuple[str, ...]) -> list[str]:
-    main = list(program)
-    if name == "monitor" and parameters.mode in _WHOLE_DATABASE_COMMANDS:
+    """The argv of a run: the CLI program and the arguments its operation builds."""
+    arguments = _ARGUMENTS.get(name)
+    if arguments is None:
+        raise OperationNotFoundError(name)
+    return [*program, *arguments(parameters)]
+
+
+def _monitor_arguments(parameters: OperationParameters) -> list[str]:
+    if parameters.mode in _WHOLE_DATABASE_COMMANDS:
         if parameters.source is not None or parameters.sources is not None:
             raise ValueError(f"{parameters.mode} takes no sources: it covers the whole database")
-        command = [*main, _WHOLE_DATABASE_COMMANDS[parameters.mode]]
+        arguments = [_WHOLE_DATABASE_COMMANDS[parameters.mode]]
         if parameters.mode in ENTITY_MODEL_MODES and parameters.entity_model:
-            command += ["--entity-model", parameters.entity_model]
+            arguments += ["--entity-model", parameters.entity_model]
         if parameters.mode in ENTITY_MODEL_MODES and parameters.decision_model:
-            command += ["--decision-model", parameters.decision_model]
-        return command
-    if name == "monitor" and parameters.mode == "resolve":
+            arguments += ["--decision-model", parameters.decision_model]
+        return arguments
+    if parameters.mode == "resolve":
         if parameters.source is not None:
             raise ValueError("resolution takes sources, not source")
-        command = [*main, "monitor-resolve"]
-        for source in _require_news_sources(parameters.sources or []):
-            command += ["--selected-source", source]
-        return command
-    command = [*main, name]
-    if name == "monitor":
-        command.append("--catch-up")
-        if parameters.sources is not None:
-            if parameters.source is not None:
-                raise ValueError("source and sources cannot both be set")
-            for source in _require_news_sources(parameters.sources):
-                command += ["--selected-source", source]
-        elif parameters.source:
-            command += ["--source", _require_source(parameters.source)]
-        if parameters.mode == "load":
-            command.append("--load-only")
-        if parameters.published_from is not None:
-            command += ["--published-from", parameters.published_from]
-        if parameters.published_to is not None:
-            command += ["--published-to", parameters.published_to]
-        # Only an explicit limit: unset, the monitor's own ceiling applies.
-        if parameters.limit is not None:
-            command += ["--limit", str(parameters.limit)]
-    elif name == "discover-and-ingest":
-        source = _require_source(parameters.source)
-        command += ["--source", source, "--limit", str(_require_limit(parameters.limit))]
-    elif name == "extract-entities":
-        if parameters.source:
-            command += ["--source", _require_source(parameters.source)]
-        command += ["--limit", str(_require_limit(parameters.limit))]
-    elif name == "resolve-people":
-        command += ["--limit", str(_require_limit(parameters.limit))]
-        command += ["--workers", str(parameters.workers or 1)]
-    elif name == "classify-persecution":
-        command += ["--limit", str(_require_limit(parameters.limit))]
-    else:
-        raise OperationNotFoundError(name)
-    return command
+        return ["monitor-resolve", *_selected_sources(parameters.sources or [])]
+    arguments = ["monitor", "--catch-up"]
+    if parameters.sources is not None:
+        if parameters.source is not None:
+            raise ValueError("source and sources cannot both be set")
+        arguments += _selected_sources(parameters.sources)
+    elif parameters.source:
+        arguments += ["--source", _require_source(parameters.source)]
+    if parameters.mode == "load":
+        arguments.append("--load-only")
+    if parameters.published_from is not None:
+        arguments += ["--published-from", parameters.published_from]
+    if parameters.published_to is not None:
+        arguments += ["--published-to", parameters.published_to]
+    # Only an explicit limit: unset, the monitor's own ceiling applies.
+    if parameters.limit is not None:
+        arguments += ["--limit", str(parameters.limit)]
+    return arguments
+
+
+def _discover_arguments(parameters: OperationParameters) -> list[str]:
+    source = _require_source(parameters.source)
+    return ["discover-and-ingest", "--source", source, "--limit", _limit(parameters)]
+
+
+def _extract_arguments(parameters: OperationParameters) -> list[str]:
+    arguments = ["extract-entities"]
+    if parameters.source:
+        arguments += ["--source", _require_source(parameters.source)]
+    return [*arguments, "--limit", _limit(parameters)]
+
+
+def _resolve_people_arguments(parameters: OperationParameters) -> list[str]:
+    return [
+        "resolve-people",
+        "--limit",
+        _limit(parameters),
+        "--workers",
+        str(parameters.workers or 1),
+    ]
+
+
+def _classify_arguments(parameters: OperationParameters) -> list[str]:
+    return ["classify-persecution", "--limit", _limit(parameters)]
+
+
+# Each operation's arguments after the CLI program, by operation name.
+_ARGUMENTS: dict[str, Callable[[OperationParameters], list[str]]] = {
+    "monitor": _monitor_arguments,
+    "discover-and-ingest": _discover_arguments,
+    "extract-entities": _extract_arguments,
+    "resolve-people": _resolve_people_arguments,
+    "classify-persecution": _classify_arguments,
+}
+
+
+def _selected_sources(sources: list[str]) -> list[str]:
+    return [
+        argument
+        for source in _require_news_sources(sources)
+        for argument in ("--selected-source", source)
+    ]
 
 
 def _require_source(source: str | None) -> str:
@@ -807,10 +838,10 @@ def _require_news_sources(sources: list[str]) -> list[str]:
     return unique
 
 
-def _require_limit(limit: int | None) -> int:
-    if limit is None:
+def _limit(parameters: OperationParameters) -> str:
+    if parameters.limit is None:
         raise ValueError("limit is required")
-    return limit
+    return str(parameters.limit)
 
 
 def operation_run_to_dict(run: OperationRun) -> dict[str, Any]:
