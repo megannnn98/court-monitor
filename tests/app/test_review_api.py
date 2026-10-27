@@ -151,7 +151,6 @@ def test_the_pairs_are_listed_and_decided(session_factory: sessionmaker[Session]
     with _client(session_factory) as client:
         listed = client.get("/api/v1/review/pairs").json()
         similar = client.get("/api/v1/review/pairs", params={"kind": "similar"}).json()
-        page = client.get("/ui/pairs").text
         same = client.post(
             "/api/v1/review/pairs/decide",
             json={"key_a": "игорь ранав", "key_b": "игорь александрович ранав", "decision": "same"},
@@ -166,7 +165,7 @@ def test_the_pairs_are_listed_and_decided(session_factory: sessionmaker[Session]
         )
         after = client.get("/api/v1/review/pairs").json()
 
-    assert listed["open_pairs"] == 2 and f"Нерешённых пар: {listed['total']}." in page
+    assert listed["open_pairs"] == 2 and listed["total"] == 2
     assert {option["value"]: option["count"] for option in listed["kinds"]} == {
         "all": 2,
         "patronymic": 1,

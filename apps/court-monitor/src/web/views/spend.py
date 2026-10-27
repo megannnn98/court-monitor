@@ -261,10 +261,6 @@ def chain_shortfall(stages: Sequence[str], env: Mapping[str, str] | None = None)
     )
 
 
-# The steps that ask the entity model; the purge asks Jev.
-ENTITY_STAGES = ("entities", "figurants", "political")
-
-
 def chain_model_text(stages: Sequence[str], env: Mapping[str, str] | None = None) -> str:
     """Before «Сделать всё»: each model its steps will ask, with its price; empty when no
     step left asks one, or without OpenRouter."""

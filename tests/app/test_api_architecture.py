@@ -32,14 +32,7 @@ ROUTES_BEFORE_SPLIT = json.loads((ROOT / "tests/fixtures/api_routes.json").read_
 ROUTES_AFTER_SPLIT = [
     "GET /api/admin/airtable/configured",
     "POST /api/admin/airtable/sync",
-    "GET /ui/airtable",
-    "POST /ui/airtable/sync",
-    "POST /ui/airtable/rosfin",
-    "GET /ui/airtable/officials",
     "GET /ui/airtable/officials.csv",
-    "POST /ui/airtable/officials/add",
-    "POST /ui/airtable/officials/add-suggested",
-    "POST /ui/airtable/officials/deactivate",
     # The list itself, with the period filter and the file that goes with it.
     "GET /ui/rfm",
     "GET /ui/rfm/export.xlsx",

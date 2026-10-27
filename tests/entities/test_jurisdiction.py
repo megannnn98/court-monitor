@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from analysis.operator_base.jurisdiction import CourtHint, CourtHints, Jurisdiction
 from analysis.storage.models import AirtableKnownPersonRecord
-from web.ui.court_hints import courts_html
+from web.views.layout import external_url
 
 VOVS = "2-й Восточный окружной военный суд"
 ROWS = [
@@ -120,15 +120,7 @@ def test_the_sentences_are_read_from_the_base(session_factory: sessionmaker[Sess
     assert found == CourtHints([CourtHint(VOVS, 1, "https://2vovs.sudrf.test")], 1)
 
 
-def test_the_line_of_a_card() -> None:
-    assert courts_html(CourtHints([], 0)) == ""
-    line = courts_html(
-        CourtHints(
-            [CourtHint("Суд <1>", 5, "https://a.test"), CourtHint("Суд 2", 2, "javascript:x")], 9
-        )
-    )
-    assert line == (
-        '<p class="muted">Где судят по этой статье из этого места (приговоры в базе Airtable, '
-        'всего 9): Суд &lt;1&gt; — 5 (<a href="https://a.test">сайт суда</a>); Суд 2 — 2; '
-        "другие суды — 2.</p>"
-    )
+def test_a_court_s_site_is_a_link_only_when_it_is_one() -> None:
+    """The hints carry the court's site as the base wrote it; only http(s) is a link."""
+    assert external_url("https://a.test") == "https://a.test"
+    assert external_url("javascript:x") is None

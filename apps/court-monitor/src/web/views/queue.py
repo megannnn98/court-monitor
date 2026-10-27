@@ -24,7 +24,6 @@ logger = logging.getLogger("entities")
 
 LIST_LIMIT = 100
 
-_SECONDARY = ' class="secondary"'
 
 ROLE_CHOICES: tuple[tuple[str, str], ...] = (
     (FIGURANT, "Фигурант"),

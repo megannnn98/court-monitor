@@ -1,4 +1,4 @@
-"""Each work-cycle review kind has one focused page; legacy bookmarks redirect."""
+"""The review stations of the work cycle, read and decided through `/api/v1/review`."""
 
 from __future__ import annotations
 
@@ -32,34 +32,10 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         app.dependency_overrides.pop(get_db, None)
 
 
-def test_review_pages_are_focused_and_link_back_to_the_cycle(
-    session_factory: sessionmaker[Session],
-) -> None:
+def test_the_old_journal_address_redirects(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
-        pages = {
-            path: client.get(path) for path in ("/ui/pairs", "/ui/roles", "/ui/politics-review")
-        }
-
-    assert {path: response.status_code for path, response in pages.items()} == dict.fromkeys(
-        pages, 200
-    )
-    assert "Спорные совпадения людей" in pages["/ui/pairs"].text
-    assert "Неясная роль в деле" in pages["/ui/roles"].text
-    assert "Неясная политичность" in pages["/ui/politics-review"].text
-    for page in pages.values():
-        assert '<a href="/ui/cycle">Назад к циклу</a>' in page.text
-
-
-def test_legacy_queue_management_and_disputes_addresses_redirect(
-    session_factory: sessionmaker[Session],
-) -> None:
-    with _client(session_factory) as client:
-        queue = client.get("/ui/queue", follow_redirects=False)
-        disputes = client.get("/ui/disputes", follow_redirects=False)
         management = client.get("/ui/management?run_id=7", follow_redirects=False)
 
-    assert (queue.status_code, queue.headers["location"]) == (303, "/ui/pairs")
-    assert (disputes.status_code, disputes.headers["location"]) == (303, "/ui/pairs")
     assert (management.status_code, management.headers["location"]) == (
         303,
         "/ui/runs?run_id=7",
@@ -116,23 +92,17 @@ def test_the_role_and_politics_pages_carry_the_decision_buttons(
     _unclear(session_factory)
 
     with _client(session_factory) as client:
-        roles = client.get("/ui/roles").text
-        politics = client.get("/ui/politics-review").text
+        roles = client.get("/api/v1/review/roles").json()
+        politics = client.get("/api/v1/review/politics").json()
 
-    assert 'action="/ui/roles/decide"' in roles
-    assert '<button name="role" value="figurant" type="submit">Фигурант</button>' in roles
-    assert (
-        '<button name="role" value="mentioned" type="submit" class="secondary">Только упомянут</button>'
-        in roles
-    )
-    assert 'action="/ui/politics-review/decide"' in politics
-    assert (
-        '<button name="verdict" value="political" type="submit">Политическое</button>' in politics
-    )
-    assert (
-        '<button name="verdict" value="criminal" type="submit" class="secondary">'
-        "Обычное уголовное</button>" in politics
-    )
+    assert roles["title"] == "Неясная роль в деле"
+    assert [item["name"] for item in roles["items"]] == ["Сирош Фёдор"]
+    role_choices = {option["value"]: option["label"] for option in roles["choices"]}
+    assert role_choices["figurant"] == "Фигурант" and role_choices["mentioned"] == "Только упомянут"
+    assert politics["title"] == "Неясная политичность"
+    assert [item["name"] for item in politics["items"]] == ["Беда Александр"]
+    verdicts = {option["value"]: option["label"] for option in politics["choices"]}
+    assert verdicts == {"political": "Политическое", "criminal": "Обычное уголовное"}
 
 
 def test_deciding_a_role_applies_it_and_keeps_the_decision(
@@ -142,16 +112,16 @@ def test_deciding_a_role_applies_it_and_keeps_the_decision(
 
     with _client(session_factory) as client:
         response = client.post(
-            "/ui/roles/decide",
-            data={"key": "фёдор сирош", "role": "figurant"},
-            follow_redirects=False,
+            "/api/v1/review/roles/decide", json={"key": "фёдор сирош", "role": "figurant"}
         )
-        page = client.get("/ui/roles").text
-        broken = client.post("/ui/roles/decide", data={"key": "фёдор сирош", "role": "unclear"})
+        listed = client.get("/api/v1/review/roles").json()
+        broken = client.post(
+            "/api/v1/review/roles/decide", json={"key": "фёдор сирош", "role": "unclear"}
+        )
 
-    assert response.status_code == 303 and response.headers["location"] == "/ui/roles"
+    assert response.status_code == 200
     # The row left the review list.
-    assert "Сирош" not in page
+    assert listed["items"] == []
     assert broken.status_code == 400
     with session_factory() as session:
         decision = session.get(EntityRoleDecisionRecord, "фёдор сирош")
@@ -171,14 +141,12 @@ def test_deciding_politics_applies_it_and_keeps_the_decision(
 
     with _client(session_factory) as client:
         response = client.post(
-            "/ui/politics-review/decide",
-            data={"key": "александр беда", "verdict": "political"},
-            follow_redirects=False,
+            "/api/v1/review/politics/decide", json={"key": "александр беда", "verdict": "political"}
         )
-        page = client.get("/ui/politics-review").text
+        listed = client.get("/api/v1/review/politics").json()
 
-    assert response.status_code == 303 and response.headers["location"] == "/ui/politics-review"
-    assert "Беда" not in page
+    assert response.status_code == 200
+    assert listed["items"] == []
     with session_factory() as session:
         decision = session.get(EntityPoliticsDecisionRecord, "александр беда")
         verdict = session.scalar(

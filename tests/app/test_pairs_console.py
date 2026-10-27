@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -32,6 +32,16 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+def _pairs(client: TestClient, **params: str) -> dict[str, Any]:
+    """«Пары» as the React page reads them."""
+    listed: dict[str, Any] = client.get("/api/v1/review/pairs", params=params).json()
+    return listed
+
+
+def _names(listed: dict[str, Any]) -> list[tuple[str, str]]:
+    return [(item["left"]["name"], item["right"]["name"]) for item in listed["items"]]
 
 
 def _regions(key: str) -> list[list[object]]:
@@ -71,18 +81,20 @@ def test_the_pairs_are_listed_side_by_side_and_filtered_by_kind(
     _entities(session_factory, *PEOPLE)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/pairs").text
-        similar = client.get("/ui/pairs", params={"kind": "similar"}).text
+        listed = _pairs(client)
+        similar = _pairs(client, kind="similar")
 
-    # The pair review is reached from its station in the work cycle, not a menu item.
-    assert 'href="/ui/queue" aria-current="page"' not in page
-    assert "Нерешённых пар: 2." in page
-    assert "С отчеством и без (1)" in page and "Похожее имя (1)" in page
-    assert re.search(r"Ранав Игорь</a>.*?Ранав Игорь Александрович</a>", page, re.DOTALL)
-    assert "Регион: Чукотский автономный округ" in page
-    assert '<button name="decision" value="same" type="submit">Один человек</button>' in page
-    assert "Нерешённых пар: 1." in similar and "Мониава Лида" in similar
-    assert "Ранав" not in similar
+    assert listed["total"] == 2
+    kinds = {option["value"]: (option["label"], option["count"]) for option in listed["kinds"]}
+    assert kinds["patronymic"] == ("С отчеством и без", 1) and kinds["similar"] == (
+        "Похожее имя",
+        1,
+    )
+    # Side by side: the shorter name on the left.
+    assert ("Ранав Игорь", "Ранав Игорь Александрович") in _names(listed)
+    ranav = next(item for item in listed["items"] if item["left"]["name"] == "Ранав Игорь")
+    assert "Чукотский автономный округ" in ranav["left"]["regions"] + ranav["right"]["regions"]
+    assert similar["total"] == 1 and _names(similar)[0][0] == "Мониава Лида"
 
 
 def test_one_person_merges_and_different_people_leave_the_list(
@@ -92,25 +104,21 @@ def test_one_person_merges_and_different_people_leave_the_list(
 
     with _client(session_factory) as client:
         same = client.post(
-            "/ui/disputes/decide",
-            data={
-                "key_a": "игорь ранав",
-                "key_b": "игорь александрович ранав",
-                "decision": "same",
-                "kind": "all",
-                "page": "1",
-            },
-            follow_redirects=False,
+            "/api/v1/review/pairs/decide",
+            json={"key_a": "игорь ранав", "key_b": "игорь александрович ранав", "decision": "same"},
         )
         client.post(
-            "/ui/disputes/decide",
-            data={"key_a": "лида мониава", "key_b": "лидия мониава", "decision": "different"},
+            "/api/v1/review/pairs/decide",
+            json={"key_a": "лида мониава", "key_b": "лидия мониава", "decision": "different"},
         )
-        page = client.get("/ui/disputes").text
-        broken = client.post("/ui/disputes/decide", data={"key_a": "лида мониава"})
+        listed = _pairs(client)
+        broken = client.post(
+            "/api/v1/review/pairs/decide",
+            json={"key_a": "лида мониава", "key_b": "", "decision": "same"},
+        )
 
-    assert same.status_code == 303 and same.headers["location"] == "/ui/pairs?kind=all&page=1"
-    assert "Спорных пар нет." in page
+    assert same.status_code == 200
+    assert listed["total"] == 0 and listed["open_pairs"] == 0
     assert broken.status_code == 400
     with session_factory() as session:
         names = {
@@ -168,15 +176,19 @@ def test_a_pair_with_a_listed_side_left_to_a_person_says_why(
             session.add(EntityGroupRfMatchRecord(group_id=listed, entry_id=entry.id, level="full"))
 
     with _client(session_factory) as client:
-        page = client.get("/ui/disputes").text
+        pairs = _pairs(client)
 
-    assert "Нерешённых пар: 3." in page
+    assert pairs["total"] == 3
+    notes = [item["note"] for item in pairs["items"] if item["note"]]
     # Both pairs of «Денис Попов» say why; only the listed one says it is on the list.
-    assert page.count("Не слито автоматически") == 2
-    assert page.count("Не слито автоматически, хотя одна сторона в перечне") == 1
-    assert "«Попов Денис» подходит сразу к нескольким людям" in page
+    assert len(notes) == 2 and all(note.startswith("Не слито автоматически") for note in notes)
+    assert sum("хотя одна сторона в перечне" in note for note in notes) == 1
+    assert all("«Попов Денис» подходит сразу к нескольким людям" in note for note in notes)
     # The card's region, as the card wrote it, tells namesakes of one full name apart.
-    assert "«Попов Денис Владимирович» (Курская область), «Попов Денис Александрович»" in page
+    assert any(
+        "«Попов Денис Владимирович» (Курская область), «Попов Денис Александрович»" in note
+        for note in notes
+    )
 
 
 def test_a_name_and_a_patronymic_is_not_the_reason_a_clear_pair_waits(
@@ -192,9 +204,9 @@ def test_a_name_and_a_patronymic_is_not_the_reason_a_clear_pair_waits(
     )
 
     with _client(session_factory) as client:
-        page = client.get("/ui/disputes").text
-        own = client.get("/ui/pairs?kind=name_patronymic").text
+        listed = _pairs(client)
+        own = _pairs(client, kind="name_patronymic")
 
-    assert "Нерешённых пар: 2." in page
-    assert "Не слито автоматически" not in page
-    assert "Нерешённых пар: 1." in own and "Максим Павлович" in own
+    assert listed["total"] == 2
+    assert all(item["note"] is None for item in listed["items"])
+    assert own["total"] == 1 and _names(own) == [("Павлович Максим", "Кисель Максим Павлович")]

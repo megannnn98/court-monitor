@@ -122,11 +122,9 @@ def test_the_search_finds_by_any_form_and_opens_on_the_latest_cases(
         latest = client.get("/api/v1/investigations").json()
         found = client.get("/api/v1/investigations", params={"q": "Моора"}).json()
         nobody = client.get("/api/v1/investigations", params={"q": "Никто"}).json()
-        page = client.get("/ui/investigations").text
 
     assert latest["heading"] == "Свежие политические дела"
     assert [item["name"] for item in latest["items"]] == ["Моора Александр"]
-    assert latest["items"][0]["name"] in page
     assert latest["items"][0]["role_label"] == "фигурант дела"
     assert found["heading"] == "Найдено по «Моора»" and found["items"][0]["key"] == MOOR
     assert nobody["items"] == []
@@ -137,17 +135,14 @@ def test_the_dossier_says_what_the_legacy_page_says(session_factory: sessionmake
 
     with _client(session_factory) as client:
         dossier = client.get(f"/api/v1/investigations/{MOOR}").json()
-        page = client.get(f"/ui/investigations/{MOOR}").text
 
-    assert dossier["name"] == "Моора Александр" and dossier["name"] in page
+    assert dossier["name"] == "Моора Александр"
     assert dossier["role_label"] == "фигурант дела"
     assert dossier["verdict"] == "political"
     assert dossier["verdict_reason"] == "Преследование за антивоенные посты."
     assert dossier["verdict_method_label"] == "модель по цитатам из публикаций"
     assert dossier["verdict_source_article_id"] == article
-    assert dossier["rf_label"] == "не найден в перечне" and dossier["rf_label"] in page
-    for warning in dossier["warnings"]:
-        assert warning in page
+    assert dossier["rf_label"] == "не найден в перечне"
     assert [
         (charge["article"], charge["parts"], charge["political"]) for charge in dossier["charges"]
     ] == [("205.2", ["2"], True)]

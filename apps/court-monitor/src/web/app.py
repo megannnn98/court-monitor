@@ -49,22 +49,15 @@ from web.routers import (
     wiki_overview,
 )
 from web.spa import react_console
-from web.ui import airtable as ui_airtable
-from web.ui import ask as ui_ask
 from web.ui import candidates as ui_candidates
-from web.ui import cycle as ui_cycle
-from web.ui import disputes as ui_disputes
-from web.ui import dossier as ui_dossier
 from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import officials as ui_officials
 from web.ui import officials_list as ui_officials_list
-from web.ui import overview as ui_overview
+from web.ui import pairs_reset as ui_pairs_reset
 from web.ui import people_export as ui_people_export
 from web.ui import political_export as ui_political_export
-from web.ui import publications as ui_publications
-from web.ui import queue as ui_queue
 from web.ui import rfm_list as ui_rfm_list
 from web.ui import sentences as ui_sentences
 from web.ui import wiki as ui_wiki
@@ -129,22 +122,15 @@ for module in (
     reviews,
     ui_wiki,
     ui_candidates,
-    ui_cycle,
+    ui_pairs_reset,
     ui_management,
     ui_logs,
-    ui_overview,
-    ui_dossier,
     ui_entities,
     ui_people_export,
-    ui_disputes,
-    ui_queue,
-    ui_publications,
-    ui_ask,
     ui_sentences,
     ui_political_export,
     ui_rfm_list,
     ui_officials,
-    ui_airtable,
     ui_officials_list,
     airtable,
     operations,

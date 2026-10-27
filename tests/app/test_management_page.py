@@ -1158,7 +1158,7 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
     )
     with _client(session_factory, registry) as client:
         clean = client.get("/ui/management").text
-        clean_home = client.get("/ui/overview").text
+        clean_home = client.get("/api/v1/overview").json()
     monitoring = SqlAlchemyMonitoringRepository(session_factory)
     run = monitoring.start_run(
         scope="source:tg-broblsud",
@@ -1176,14 +1176,14 @@ def test_the_sources_errors_are_here_and_the_overview_only_warns(
 
     with _client(session_factory, registry) as client:
         page = client.get("/ui/management").text
-        home = client.get("/ui/overview").text
+        home = client.get("/api/v1/overview").json()
 
     assert 'id="source-errors"' in clean and "Ошибок нет." in clean
-    assert "ошибками загрузки" not in clean_home
+    assert clean_home["source_errors"] == 0
     errors = page[page.index('id="source-errors"') :]
     assert "tg-broblsud" in errors and "ValueError: Post text not found" in errors
-    assert "Источников с ошибками загрузки за неделю: 1" in home
-    assert 'href="/ui/runs#source-errors"' in home
+    # The overview only counts them; the journal says which.
+    assert home["source_errors"] == 1
 
 
 def test_the_runs_journal_marks_a_suspected_layout_change(
@@ -1527,9 +1527,7 @@ def test_the_next_step_is_told_what_it_spent_the_last_time(
 
     with _client(session_factory, registry) as client:
         runs = client.get("/ui/runs").text
-        cycle = client.get("/ui/cycle").text
 
     # The next step is the entities: its own last cost, not the purge's that just ended.
     told = f"В прошлый раз шаг потратил $0.0123 (#{old}, "
-    assert told in runs and told in cycle
-    assert "$0.5000 (#" not in cycle
+    assert told in runs

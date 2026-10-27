@@ -50,7 +50,7 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
 
 def test_the_menu_is_the_investigator_s_sections(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
-        page = client.get("/ui/candidates")
+        page = client.get("/ui/logs")
 
     nav = re.search(r'<nav id="main-nav" aria-label="Разделы">(.*?)</nav>', page.text, re.DOTALL)
     assert nav is not None
@@ -129,7 +129,7 @@ def test_the_site_opens_on_its_home_page(session_factory: sessionmaker[Session])
     with _client(session_factory) as client:
         console = client.get("/ui", follow_redirects=False)
         site = client.get("/", follow_redirects=False)
-        page = client.get("/ui/entities").text
+        page = client.get("/ui/logs").text
 
     assert (console.status_code, console.headers["location"]) == (303, "/ui/cycle")
     assert (site.status_code, site.headers["location"]) == (303, "/ui/cycle")
@@ -147,7 +147,6 @@ def test_the_candidates_the_wiki_and_their_exports_are_served(
         responses = {
             path: client.get(path)
             for path in (
-                "/ui/candidates",
                 f"/ui/candidates/export.xlsx?snapshot_id={snapshot_id}",
                 "/ui/wiki",
                 "/ui/wiki/Local-Web-UI",
@@ -201,16 +200,15 @@ def test_the_page_opens_on_the_newest_snapshot(
     with session_factory() as session:
         assert latest_snapshot_id(session) == newer
     with _client(session_factory) as client:
-        page = client.get("/ui/candidates")
+        table = client.get("/api/v1/candidates/table").json()
 
-    assert f'<option value="{newer}" selected>' in page.text
+    assert table["snapshot_id"] == newer
 
 
 def test_the_bar_marks_the_page_it_is_on_and_a_running_step_is_said_on_every_page(
     session_factory: sessionmaker[Session],
 ) -> None:
     with _client(session_factory) as client:
-        result = client.get("/ui/cycle").text
         logs = client.get("/ui/logs").text
         with session_factory.begin() as session:
             session.execute(
@@ -225,8 +223,6 @@ def test_the_bar_marks_the_page_it_is_on_and_a_running_step_is_said_on_every_pag
             )
         running = client.get("/ui/logs").text
 
-    assert '<a href="/ui/cycle" class="active" aria-current="page">' in result
-    assert 'class="tabbar-more"' in result
     # A page of the menu behind «Ещё»: the button is the one marked.
     assert (
         'class="tabbar-more active"' in logs

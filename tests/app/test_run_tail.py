@@ -93,7 +93,7 @@ def _registry(session_factory: sessionmaker[Session], *done: str) -> OperationRe
     return registry
 
 
-def test_the_page_of_the_cycle_shows_the_pulse_and_the_last_lines_of_the_running_step(
+def test_the_journal_shows_the_pulse_and_the_last_lines_of_the_running_step(
     session_factory: sessionmaker[Session],
 ) -> None:
     """The page the operator stays on: it showed a step «выполняется» and nothing else."""
@@ -101,7 +101,7 @@ def test_the_page_of_the_cycle_shows_the_pulse_and_the_last_lines_of_the_running
     _live(session_factory, registry, "purge")
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        page = client.get("/ui/runs").text
 
     assert _tail(page) == TAIL
     seen = re.search(r"Процесс отвечает: последний сигнал (\d+) с назад", page)
@@ -116,7 +116,7 @@ def test_a_silent_process_is_told_from_a_lost_one(
     registry = _registry(session_factory, "load")
     _live(session_factory, registry, "purge", signal="3 minutes")
     with _client(session_factory, registry) as client:
-        quiet = client.get("/ui/cycle").text
+        quiet = client.get("/ui/runs").text
     assert "последний сигнал 3 мин назад" in quiet and "Сигнала от процесса нет" not in quiet
 
     # Past five minutes the runner marks the run lost, and the pages stop showing it as live;
@@ -128,7 +128,7 @@ def test_a_silent_process_is_told_from_a_lost_one(
     lost = pulse(registry.get(run_id))
     assert 'class="warning log-pulse">Сигнала от процесса нет уже 6 мин' in lost
     with _client(session_factory, registry) as client:
-        assert "Процесс отвечает" not in client.get("/ui/cycle").text
+        assert "Процесс отвечает" not in client.get("/ui/runs").text
 
 
 def test_a_running_step_that_has_said_nothing_yet_says_so(
@@ -144,7 +144,7 @@ def test_a_running_step_that_has_said_nothing_yet_says_so(
     )
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        page = client.get("/ui/runs").text
 
     assert "Процесс пока ничего не написал в журнал." in page and _tail(page) == []
 
@@ -156,7 +156,7 @@ def test_a_run_that_has_not_started_says_it_is_getting_ready(
     _live(session_factory, registry, "purge", log="", status="pending")
 
     with _client(session_factory, registry) as client:
-        page = client.get("/ui/cycle").text
+        page = client.get("/ui/runs").text
 
     assert "Запуск готовится…" in page and "Процесс отвечает" not in page
 
@@ -171,31 +171,17 @@ def test_a_run_that_has_not_started_says_it_is_getting_ready(
         ("political", ("load", "purge", "entities", "figurants")),
     ],
 )
-def test_every_step_shows_its_pulse_and_lines_on_the_cycle_and_the_management_pages(
+def test_every_step_shows_its_pulse_and_lines_in_the_journal(
     session_factory: sessionmaker[Session], mode: str, done: tuple[str, ...]
 ) -> None:
     registry = _registry(session_factory, *done)
     run_id = _live(session_factory, registry, mode)
 
     with _client(session_factory, registry) as client:
-        cycle = client.get("/ui/cycle").text
-        management = client.get(f"/ui/runs?run_id={run_id}").text
+        page = client.get(f"/ui/runs?run_id={run_id}").text
 
-    for page in (cycle, management):
-        assert _tail(page) == TAIL, mode
-        assert "Процесс отвечает: последний сигнал" in page, mode
-
-
-def test_the_entities_page_shows_them_while_the_rebuild_runs(
-    session_factory: sessionmaker[Session],
-) -> None:
-    registry = _registry(session_factory, "load", "purge")
-    _live(session_factory, registry, "entities")
-
-    with _client(session_factory, registry) as client:
-        page = client.get("/ui/entities").text
-
-    assert _tail(page) == TAIL and "Процесс отвечает" in page
+    assert _tail(page) == TAIL, mode
+    assert "Процесс отвечает: последний сигнал" in page, mode
 
 
 def test_an_ended_run_has_no_pulse_and_a_bad_end_keeps_its_lines(

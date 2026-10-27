@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -14,16 +13,11 @@ from sqlalchemy.orm import Session
 from analysis import read as analysis_read
 from analysis.politics.classification import CRIMINAL, POLITICAL
 from analysis.rosfinmonitoring.rf_check import FULL
-from orchestrator.operations import (
-    OperationRegistry,
-    OperationRun,
-)
 from processing import read as identity
 from processing.extraction.name_frequency import lookup_gender
 from processing.identity.service import MANUAL
 from processing.roles.roles import FIGURANT, KIND_LABELS, MENTIONED, POSSIBLE, UNCLEAR
 from web.candidate_rows import surname_first
-from web.views.run_cards import local_time
 
 PAGE_SIZE = 100
 
@@ -70,10 +64,6 @@ NAME_SOURCES = {"model": "дала модель", MANUAL: "исправлено 
 def article_order(article: str) -> tuple[int, ...]:
     """«205.2» after «205» and before «207.3»: by number, not as text."""
     return tuple(int(part) if part.isdigit() else 0 for part in article.split("."))
-
-
-def _date(published_at: datetime | None) -> str:
-    return local_time(published_at) if published_at else "—"
 
 
 def _articles_by_group(db: Session, group_ids: Sequence[int]) -> dict[int, list[tuple[str, bool]]]:
@@ -128,13 +118,6 @@ ROLE_METHODS = {
 }
 
 
-def _last_collect(registry: OperationRegistry) -> OperationRun | None:
-    return next(
-        (run for run in registry.runs_of("monitor", limit=50) if run.parameters.mode == "entities"),
-        None,
-    )
-
-
 ROLE_FILTERS = {
     "figurant": "Фигуранты дел",
     "all": "Все роли",
@@ -150,16 +133,6 @@ VERDICT_FILTERS = {
     "unclear": "Неясные",
     "none": "Не оценивались",
 }
-
-_COLUMNS = (
-    ("name", "Имя"),
-    ("", "Статьи УК"),
-    ("", "События дела"),
-    ("mentions", "Упоминаний"),
-    ("articles", "Публикаций"),
-    ("recent", "Последняя новость"),
-    ("", "Как писали"),
-)
 
 
 @dataclass(frozen=True)

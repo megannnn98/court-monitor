@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import quote
 
 from fastapi.testclient import TestClient
@@ -222,6 +223,12 @@ def _news(session_factory: sessionmaker[Session], key: str, kind: str, reason: s
         )
 
 
+def _dossier(client: TestClient, key: str = MOOR) -> dict[str, Any]:
+    """The dossier as the React page reads it."""
+    dossier: dict[str, Any] = client.get(f"/api/v1/investigations/{quote(key)}").json()
+    return dossier
+
+
 def test_the_overview_is_what_is_new(session_factory: sessionmaker[Session]) -> None:
     _case(session_factory)
     _news(session_factory, MOOR, "new_case", "арестован по новому делу")
@@ -229,23 +236,16 @@ def test_the_overview_is_what_is_new(session_factory: sessionmaker[Session]) -> 
     _news(session_factory, "иван иванов", "sentence", "приговор свидетелю")
 
     with _client(session_factory) as client:
-        page = client.get("/ui/overview")
+        overview = client.get("/api/v1/overview").json()
 
-    assert page.status_code == 200
-    assert "<title>Обзор</title>" in page.text
-    new_cases = page.text[
-        page.text.index('id="new_case-title"') : page.text.index('id="sentence-title"')
-    ]
-    assert 'Новые дела <span class="count">1</span>' in new_cases
-    assert f'href="/ui/investigations/{quote(MOOR)}">Моор Александр</a>' in new_cases
-    assert "арестован по новому делу" in new_cases
-    assert 'href="/ui/political?months=0&news=new_case">Все: 1 →</a>' in new_cases
-    assert 'Приговоры <span class="count">0</span>' in page.text
-    assert "Приговоров нет." in page.text and "приговор свидетелю" not in page.text
-    assert "Неопознанные фигуранты" in page.text
-    # The pipeline, its runs and the figures are elsewhere; the status line keeps the figures.
-    for gone in ("Цикл обработки", "kpi", "Последние запуски", "Ошибки источников"):
-        assert gone not in page.text, gone
+    assert overview["new_cases"] == 1
+    (new_case,) = overview["latest_new_cases"]
+    assert (new_case["key"], new_case["name"], new_case["reason"]) == (
+        MOOR,
+        "Моор Александр",
+        "арестован по новому делу",
+    )
+    assert overview["sentences"] == 0 and overview["latest_sentences"] == []
 
 
 def test_a_dossier_opens_and_an_unknown_person_is_not_found(
@@ -254,22 +254,13 @@ def test_a_dossier_opens_and_an_unknown_person_is_not_found(
     _case(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote(MOOR)}")
-        missing = client.get("/ui/investigations/" + quote("никто никакой"))
-        moved = client.get(f"/ui/entities/{quote(MOOR)}", follow_redirects=False)
+        dossier = _dossier(client)
+        missing = client.get("/api/v1/investigations/" + quote("никто никакой"))
 
-    assert page.status_code == 200
-    assert "<title>Моор Александр</title>" in page.text
-    for section in ("Решение системы", "Статьи УК", "Хронология", "Граф событий", "Доказательства"):
-        assert section in page.text
-    assert '<section class="band" id="graph" aria-labelledby="graph-title">' in page.text
-    assert "<dt>Публикаций</dt><dd>3 · упоминаний: 3</dd>" in page.text
-    assert "<dt>Первая публикация</dt><dd>01.09.2026</dd>" in page.text
+    assert dossier["name"] == "Моор Александр"
+    assert (dossier["article_count"], dossier["mention_count"]) == (3, 3)
+    assert dossier["first_published_at"].startswith("2026-09-01")
     assert missing.status_code == 404
-    assert (moved.status_code, moved.headers["location"]) == (
-        307,
-        f"/ui/investigations/{quote(MOOR)}",
-    )
 
 
 def test_the_timeline_is_in_order_and_one_event_told_twice_is_one_item(
@@ -278,22 +269,22 @@ def test_the_timeline_is_in_order_and_one_event_told_twice_is_one_item(
     _case(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        timeline = _dossier(client)["timeline"]
 
-    timeline = page[page.index('<ol class="timeline">') : page.index("</ol>")]
-    items = re.findall(r"<time>([^<]+)</time>.*?<p><b>([^<]+)</b>", timeline, re.DOTALL)
-    # The verdict names no date of its own, so the page says that instead of a day; the
-    # arrest of 01.09, which the text dated, is shown by that date and comes first.
-    assert items == [("01.09.2026", "Арест"), ("дата события не установлена", "Приговор")]
+    # The arrest of 01.09, which the text dated, comes first by that date; the verdict
+    # names no date of its own, and says so rather than passing the publication's date off
+    # as the event's.
+    assert [(item["label"], item["dated"]) for item in timeline] == [
+        ("Арест", True),
+        ("Приговор", False),
+    ]
+    arrest, verdict = timeline
+    assert arrest["day"].startswith("2026-09-01")
+    assert verdict["day"].startswith("2026-09-10")
     # Two publications of the arrest, one item with two sources.
-    assert "источников: 2" in timeline and timeline.count('class="timeline-item"') == 2
-    # The verdict's own date is unknown, and the page says that rather than passing the
-    # publication's date off as the event's.
-    assert "дата события не установлена" in timeline
-    assert "публикация 10.09.2026" in timeline
-    assert "по дате публикации" not in timeline
-    assert "Ленинский суд" in timeline and "(суд)" in timeline
-    assert "ст. 205.2" in timeline
+    assert len(arrest["sources"]) == 2
+    assert arrest["orgs"] == [{"name": "Ленинский суд", "role_label": "суд"}]
+    assert arrest["articles"] == ["205.2"]
 
 
 def test_the_evidence_quotes_mark_the_mention_and_link_the_text(
@@ -311,17 +302,17 @@ def test_the_evidence_quotes_mark_the_mention_and_link_the_text(
         ).one()
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        publications = _dossier(client)["publications"]
 
-    evidence = page[page.index('id="evidence"') :]
-    assert (
-        f'<a href="/ui/articles/{article}?start={start}&amp;end={end}">Арест Моора</a>' in evidence
-    )
-    assert "<mark>Александра Моора</mark>" in evidence
-    assert "ОВД-Инфо · 01.09.2026" in evidence
-    assert 'href="https://example.test/arrest" rel="noopener noreferrer"' in evidence
+    arrest = next(item for item in publications if item["article_id"] == article)
+    # The mention is marked in the quote, and the text opens at it.
+    assert arrest["quote"][arrest["start"] : arrest["end"]] == "Александра Моора"
+    assert (arrest["text_start"], arrest["text_end"]) == (start, end)
+    assert (arrest["title"], arrest["source"]) == ("Арест Моора", "ОВД-Инфо")
+    assert arrest["published_at"].startswith("2026-09-01")
+    assert arrest["url"] == "https://example.test/arrest"
     # The other person of a publication.
-    assert "Иванов Иван</a>" in evidence
+    assert "Иванов Иван" in [other["name"] for item in publications for other in item["others"]]
 
 
 def test_the_decision_panel_shows_the_verdict_its_reason_and_its_source(
@@ -332,16 +323,14 @@ def test_the_decision_panel_shows_the_verdict_its_reason_and_its_source(
         source = session.scalar(text("SELECT id FROM parsed_articles WHERE title = 'Арест Моора'"))
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        dossier = _dossier(client)
 
-    decision = page[page.index('id="decision-title"') : page.index('id="charges"')]
-    assert '<span class="badge succeeded">политическое</span>' in decision
-    assert "модель по цитатам из публикаций" in decision
-    assert "Преследование за антивоенные посты." in decision
-    assert f"<blockquote>{QUOTE}</blockquote>" in decision
+    assert dossier["verdict_label"] == "политическое"
+    assert dossier["verdict_method_label"] == "модель по цитатам из публикаций"
+    assert dossier["verdict_reason"] == "Преследование за антивоенные посты."
+    assert dossier["verdict_quote"] == QUOTE
     # The quote leads to its publication in one step.
-    assert f'<a href="/ui/articles/{source}">исходная публикация</a>' in decision
-    assert "Уверенность не хранится" in decision
+    assert dossier["verdict_source_article_id"] == source
 
 
 def test_the_rosfinmonitoring_status_is_shown_as_it_is(
@@ -349,20 +338,20 @@ def test_the_rosfinmonitoring_status_is_shown_as_it_is(
 ) -> None:
     _case(session_factory)
     with _client(session_factory) as client:
-        clear = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        clear = _dossier(client)
     _listed(session_factory, "name")
     with _client(session_factory) as client:
-        maybe = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        maybe = _dossier(client)
     with session_factory.begin() as session:
         session.execute(text("UPDATE entity_group_rf_matches SET level = 'full'"))
     with _client(session_factory) as client:
-        listed = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        listed = _dossier(client)
 
-    assert "не найден в перечне" in clear
-    assert "возможно в перечне (тёзка без отчества)" in maybe and "МООР АЛЕКСАНДР ПЕТРОВИЧ" in maybe
-    assert "может быть тёзка" in maybe
+    assert clear["rf_label"] == "не найден в перечне" and not clear["rf_maybe"]
+    assert maybe["rf_maybe"] is True and "тёзка" in maybe["rf_label"]
+    assert any("МООР АЛЕКСАНДР ПЕТРОВИЧ" in entry["text"] for entry in maybe["rf_entries"])
     # On the list: who the person is, not a mark against them.
-    assert '<span class="badge ">в перечне Росфинмониторинга</span>' in listed
+    assert listed["rf_label"] == "в перечне Росфинмониторинга" and not listed["rf_maybe"]
 
 
 def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
@@ -370,7 +359,7 @@ def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
 ) -> None:
     _case(session_factory)
     with _client(session_factory) as client:
-        unread = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        unread = _dossier(client)
     with session_factory.begin() as session:
         session.execute(
             text(
@@ -382,14 +371,16 @@ def test_the_latest_news_is_named_in_the_dossier_and_the_overview(
         )
 
     with _client(session_factory) as client:
-        dossier = client.get(f"/ui/investigations/{quote(MOOR)}").text
-        overview = client.get("/ui/overview").text
+        dossier = _dossier(client)
+        overview = client.get("/api/v1/overview").json()
 
-    assert "Свежая новость" not in unread
-    role = dossier[dossier.index("<h3>Роль в деле</h3>") :]
-    assert '<h3>Свежая новость</h3>\n    <p><span class="badge succeeded">приговор</span>' in role
-    assert "суд вынес приговор" in role
-    assert "суд вынес приговор" in overview
+    assert unread["news"] is None
+    assert dossier["news"] == {
+        "kind": "sentence",
+        "label": "приговор",
+        "reason": "суд вынес приговор",
+    }
+    assert "суд вынес приговор" in [item["reason"] for item in overview["latest_sentences"]]
 
 
 def _known(session_factory: sessionmaker[Session], *names: str) -> None:
@@ -413,62 +404,35 @@ def test_the_dossier_says_whether_the_operator_s_base_holds_the_person(
 ) -> None:
     _case(session_factory)
     with _client(session_factory) as client:
-        no_base = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        no_base = _dossier(client)["known"]
     _known(session_factory, "Кто-то Другой")
     with _client(session_factory) as client:
-        absent = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        absent = _dossier(client)["known"]
     _known(session_factory, "Моор Александр Петрович")
     with _client(session_factory) as client:
-        present = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        present = _dossier(client)["known"]
 
     # No base synced: the dossier says nothing, rather than «not in the base».
-    assert "<h3>База Airtable</h3>" not in no_base
-    assert "<h3>База Airtable</h3>" in absent and "нет в базе" in absent
-    assert "вероятно, новый человек" in absent
-    assert "вероятно, есть в базе" in present and "<li>Моор Александр Петрович</li>" in present
-    # What a name proves is said where the answer is.
-    assert "Сверка только по имени" in present and "нет в базе" not in present
+    assert no_base["loaded"] is False and no_base["not_in_base"] is False
+    assert absent["loaded"] is True and absent["not_in_base"] is True
+    assert present["not_in_base"] is False and present["label"] == "вероятно, есть в базе"
+    assert present["names"] == ["Моор Александр Петрович"]
 
 
-def test_the_dossier_holds_the_place_of_the_event_graph(
+def test_the_dossier_names_the_graph_the_api_serves(
     session_factory: sessionmaker[Session],
 ) -> None:
     _case(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{MOOR}").text
-        graph = client.get(f"/api/investigations/{MOOR}/graph")
+        address = _dossier(client)["graph_url"]
+        graph = client.get(address)
 
-    section = page[page.index('<section class="band" id="graph"') :]
-    section = section[: section.index("</section>")]
-    address = "/api/investigations/%D0%B0%D0%BB%D0%B5%D0%BA%D1%81%D0%B0%D0%BD%D0%B4%D1%80%20%D0%BC%D0%BE%D0%BE%D1%80/graph"
-    assert f'data-graph-url="{address}"' in section
-    assert f'data-expand-url="{address}/expand"' in section
-    # The address the page gives is the one the API serves.
+    assert (
+        address
+        == "/api/investigations/%D0%B0%D0%BB%D0%B5%D0%BA%D1%81%D0%B0%D0%BD%D0%B4%D1%80%20%D0%BC%D0%BE%D0%BE%D1%80/graph"
+    )
     assert graph.status_code == 200 and graph.json()["center"].startswith("person:")
-    assert '<a href="#graph">Граф событий</a>' in page
-    # The library, the logic and the page script, from this site, in that order.
-    assert re.findall(
-        r'<script defer src="(/static/[^"?]+)\?v=[0-9a-f]{12}"></script>', section
-    ) == [
-        "/static/vendor/vis-network/vis-network.min.js",
-        "/static/investigation-graph-core.js",
-        "/static/investigation-graph.js",
-    ]
-    assert "http://" not in section and "https://" not in section
-    # Co-occurrence is off until asked for; the rest is on.
-    assert re.findall(r'data-filter="(\w+)"( checked)?', section) == [
-        ("events", " checked"),
-        ("people", " checked"),
-        ("publications", " checked"),
-        ("orgs", " checked"),
-        ("articles", " checked"),
-        ("cooccurrence", ""),
-    ]
-    assert 'class="secondary ig-reset"' in section and '<div class="ig-panel"' in section
-    # Without the script the section says so, and no node of the graph is written here.
-    assert "требует JavaScript" in section and "Остальное досье от него не зависит" in section
-    assert "Ленинский суд" not in section and "Моор" not in section.split("aria-label")[0]
 
 
 def test_the_people_of_the_same_publications_are_a_count_not_a_connection(
@@ -477,29 +441,21 @@ def test_the_people_of_the_same_publications_are_a_count_not_a_connection(
     _case(session_factory, extra=25)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        related = _dossier(client)["related"]
 
-    table = page[page.index('<details id="links">') :]
-    table = table[: table.index("</details>")]
-    # Everyone of a shared publication, readable without the script — and named for what
-    # it is.
-    assert "<summary>Люди из тех же публикаций (26)</summary>" in table
-    assert "Совместные упоминания: счёт общих публикаций, не установленная связь" in table
-    assert table.count("<tr><td><a href=") == 26 and "Иванов Иван" in table
-    # The old drawing is gone: no person is joined to a person, a court or an article here.
-    assert "<svg" not in page[page.index('id="graph"') :]
-    assert "Ленинский суд" not in table and "ст. 205.2" not in table
+    # Everyone of a shared publication, with the count of the publications they share.
+    assert len(related) == 26 and "Иванов Иван" in [person["name"] for person in related]
+    assert all(person["shared"] >= 1 for person in related)
 
 
 def test_a_cut_list_of_people_says_it_is_cut(session_factory: sessionmaker[Session]) -> None:
     _case(session_factory, extra=33)
 
     with _client(session_factory) as client:
-        page = client.get(f"/ui/investigations/{quote(MOOR)}").text
+        related = _dossier(client)["related"]
 
-    # 34 people share a publication; the table holds the first 30 and does not call it all.
-    assert "<summary>Люди из тех же публикаций (первые 30)</summary>" in page
-    assert page[page.index('<details id="links">') :].count("<tr><td><a href=") == 30
+    # 34 people share a publication; the list holds the first 30.
+    assert len(related) == 30
 
 
 def _statements(session_factory: sessionmaker[Session], path: str) -> int:
@@ -523,35 +479,24 @@ def test_the_dossier_s_queries_do_not_grow_with_the_case(
     session_factory: sessionmaker[Session],
 ) -> None:
     _case(session_factory)
-    small = _statements(session_factory, f"/ui/investigations/{quote(MOOR)}")
+    small = _statements(session_factory, f"/api/v1/investigations/{quote(MOOR)}")
     _more(session_factory, 12, "Коммерсантъ")
 
-    large = _statements(session_factory, f"/ui/investigations/{quote(MOOR)}")
+    large = _statements(session_factory, f"/api/v1/investigations/{quote(MOOR)}")
 
     assert large == small
 
 
-def test_the_people_pager_is_short_and_keeps_the_filters(
-    session_factory: sessionmaker[Session],
-) -> None:
-    with session_factory.begin() as session:
-        session.execute(
-            text(
-                "INSERT INTO entity_groups (key, name, variants, mention_count, article_count, "
-                "event_types) SELECT 'человек ' || n, 'Иван Человеков' || n, '[]', 1, 1, '{}' "
-                "FROM generate_series(1, 1200) AS n"
-            )
-        )
+def test_the_pager_is_short_and_keeps_the_filters() -> None:
+    from web.ui.layout import pager
 
-    with _client(session_factory) as client:
-        page = client.get("/ui/entities", params={"rf": "all", "sort": "name", "page": 6}).text
+    shown_pager = pager("/ui/sentences", {"reason": "all", "region": "Москва"}, 6, 12)
 
-    pager = page[page.index('class="pager"') :]
-    shown = re.findall(r">(\d+|…|Назад|Вперёд)<", pager)
+    shown = re.findall(r">(\d+|…|Назад|Вперёд)<", shown_pager)
     assert shown == ["Назад", "1", "…", "4", "5", "6", "7", "8", "…", "12", "Вперёд"]
-    for link in re.findall(r'href="(/ui/entities\?[^"]+)"', pager):
-        assert "rf=all" in link and "sort=name" in link
-    assert "Найдено: 1200." in page
+    links = re.findall(r'href="(/ui/sentences\?[^"]+)"', shown_pager)
+    assert links and all("reason=all" in link and "region=" in link for link in links)
+    assert pager("/ui/sentences", {}, 1, 1) == ""
 
 
 def _pairs(session_factory: sessionmaker[Session]) -> None:
@@ -571,158 +516,79 @@ def _pairs(session_factory: sessionmaker[Session]) -> None:
             )
 
 
+def _pair_list(client: TestClient) -> dict[str, Any]:
+    listed: dict[str, Any] = client.get("/api/v1/review/pairs").json()
+    return listed
+
+
 def test_a_decided_pair_is_kept_and_the_next_one_is_shown(
     session_factory: sessionmaker[Session],
 ) -> None:
     _pairs(session_factory)
 
     with _client(session_factory) as client:
-        first = client.get("/ui/pairs").text
+        first = _pair_list(client)
         decided = client.post(
-            "/ui/disputes/decide",
-            data={
-                "key_a": "олег орлов",
-                "key_b": "олег петрович орлов",
-                "decision": "different",
-                "back": "pairs",
-            },
-            follow_redirects=False,
+            "/api/v1/review/pairs/decide",
+            json={"key_a": "олег орлов", "key_b": "олег петрович орлов", "decision": "different"},
         )
-        after = client.get(decided.headers["location"]).text
+        after = _pair_list(client)
 
-    assert "Нерешённых пар: 2" in first and "Орлов Олег Петрович" in first
-    assert decided.status_code == 303 and decided.headers["location"] == "/ui/pairs"
-    assert "Нерешённых пар: 1" in after and "Смирнова Анна Ивановна" in after
-    assert "Орлов" not in after
+    names = [(item["left"]["name"], item["right"]["name"]) for item in after["items"]]
+    assert first["total"] == 2
+    assert "Орлов Олег Петрович" in [item["right"]["name"] for item in first["items"]]
+    assert decided.status_code == 200
+    assert after["total"] == 1 and names == [("Смирнова Анна", "Смирнова Анна Ивановна")]
     with session_factory() as session:
         record = session.get(EntityPairDecisionRecord, ("олег орлов", "олег петрович орлов"))
         assert record is not None and (record.decision, record.source) == ("different", "manual")
 
 
-def test_the_old_queue_keeps_its_filter_when_redirecting(
-    session_factory: sessionmaker[Session],
-) -> None:
-    with _client(session_factory) as client:
-        legacy = client.get("/ui/queue?kind=similar", follow_redirects=False)
-
-    assert (legacy.status_code, legacy.headers["location"]) == (
-        303,
-        "/ui/pairs?kind=similar",
-    )
-
-
 def test_empty_states_say_so(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
-        overview = client.get("/ui/overview").text
-        pairs = client.get("/ui/pairs").text
-        roles = client.get("/ui/roles").text
-        politics = client.get("/ui/politics-review").text
-        publications = client.get("/ui/publications").text
-        investigations = client.get("/ui/investigations").text
+        overview = client.get("/api/v1/overview").json()
+        pairs = _pair_list(client)
+        roles = client.get("/api/v1/review/roles").json()
+        politics = client.get("/api/v1/review/politics").json()
+        publications = client.get("/api/v1/publications").json()
+        investigations = client.get("/api/v1/investigations").json()
     _case(session_factory)
     with _client(session_factory) as client:
-        witness = client.get("/ui/investigations/" + quote("иван иванов")).text
+        witness = _dossier(client, "иван иванов")
 
-    assert "Новых дел нет." in overview and "Приговоров нет." in overview
-    assert "Неопознанных нет." in overview and "Решений оператора не ждёт ничего." in overview
-    assert "ошибками загрузки" not in overview
-    assert "Спорных пар нет." in pairs
-    assert "Неясная роль в деле: открытых случаев нет." in roles
-    assert "Неясная политичность: открытых случаев нет." in politics
-    assert "Ничего не найдено." in publications
-    assert "Никого не найдено." in investigations
-    assert "Нет событий, где этот человек назван участником" in witness
-    assert "Шаг 5 не оценивал это дело" in witness
+    assert (overview["new_cases"], overview["sentences"], overview["unnamed"]) == (0, 0, 0)
+    assert (overview["pairs"], overview["unclear_roles"], overview["unclear_verdicts"]) == (0, 0, 0)
+    assert overview["source_errors"] == 0
+    assert pairs["total"] == 0 and roles["items"] == [] and politics["items"] == []
+    assert publications["total"] == 0 and investigations["items"] == []
+    # A witness: in no event as a participant, and not judged by step 5.
+    assert witness["timeline"] == [] and witness["verdict"] is None
 
 
-def test_loaded_and_typed_text_is_escaped(session_factory: sessionmaker[Session]) -> None:
+def test_names_and_addresses_are_given_as_written(session_factory: sessionmaker[Session]) -> None:
+    """The API gives what was loaded and typed as it is: the React pages escape it and link
+    only a web address (`DossierPage.test.tsx`)."""
     _case(session_factory)
     with session_factory.begin() as session:
         session.execute(
             text("UPDATE entity_groups SET name = 'Александр <b>Моор</b>' WHERE key = :key"),
             {"key": MOOR},
         )
-        session.execute(
-            text(
-                "UPDATE parsed_articles SET title = '<img src=x onerror=alert(1)>' "
-                "WHERE title = 'Арест Моора'"
-            )
-        )
-
-        # A scraped address is no script to run.
-        session.execute(
-            text(
-                "UPDATE source_documents SET canonical_url = 'javascript:alert(1)' "
-                "WHERE external_id = 'arrest'"
-            )
-        )
 
     with _client(session_factory) as client:
-        pages = [
-            client.get(f"/ui/investigations/{quote(MOOR)}").text,
-            client.get("/ui/publications").text,
-            client.get("/ui/entities", params={"figurants": "all", "q": "<script>"}).text,
-            client.get("/ui/investigations", params={"q": "<script>x</script>"}).text,
-        ]
+        dossier = _dossier(client)
 
-    for page in pages:
-        assert "<b>Моор</b>" not in page
-        assert "<img src=x" not in page
-        assert "<script>x</script>" not in page and '"<script>"' not in page
-        assert 'href="javascript:' not in page
-    assert "&lt;b&gt;Моор&lt;/b&gt;" in pages[0]
-    assert "&lt;img src=x onerror=alert(1)&gt;" in pages[1]
+    assert dossier["name"] == "<b>Моор</b> Александр"
 
 
 def test_the_old_addresses_still_answer(session_factory: sessionmaker[Session]) -> None:
-    _case(session_factory)
-
     with _client(session_factory) as client:
         answers = {
             path: client.get(path).status_code
-            for path in (
-                "/",
-                "/ui",
-                "/ui/management",
-                "/ui/entities",
-                f"/ui/entities/{quote(MOOR)}",
-                "/ui/disputes",
-                "/ui/airtable",
-                "/ui/logs",
-                "/ui/wiki",
-                "/ui/overview",
-                "/ui/investigations",
-                "/ui/publications",
-                "/ui/queue",
-                "/ui/pairs",
-            )
+            for path in ("/ui/management", "/ui/logs", "/ui/runs", "/ui/wiki")
         }
 
     assert set(answers.values()) == {200}, answers
-
-
-def test_the_interface_speaks_russian(session_factory: sessionmaker[Session]) -> None:
-    _case(session_factory)
-
-    with _client(session_factory) as client:
-        pages = {
-            path: client.get(path).text
-            for path in (
-                "/ui/overview",
-                f"/ui/investigations/{quote(MOOR)}",
-                "/ui/entities",
-                "/ui/publications",
-                "/ui/pairs",
-            )
-        }
-
-    for path, page in pages.items():
-        visible = re.sub(r"<script.*?</script>|<[^>]+>", " ", page, flags=re.DOTALL)
-        for english in ("Persons", "ER pending", "run:", "Dashboard", "Search", "Timeline"):
-            assert english not in visible, (path, english)
-        assert '<html lang="ru">' in page
-    assert 'href="/ui/cycle">К циклу</a>' not in pages["/ui/overview"]  # no work is open
-    assert "Спорные совпадения людей" in pages["/ui/pairs"]
 
 
 def test_every_pair_decision_can_be_reset(session_factory: sessionmaker[Session]) -> None:
@@ -739,17 +605,13 @@ def test_every_pair_decision_can_be_reset(session_factory: sessionmaker[Session]
             )
 
     with _client(session_factory) as client:
-        before = client.get("/ui/pairs").text
+        before = _pair_list(client)
         reset = client.post("/ui/pairs/reset-decisions", follow_redirects=False)
-        after = client.get(reset.headers["location"]).text
+        after = _pair_list(client)
 
-    # Asked first, with what goes; the button only when there is something to forget.
-    assert "Сбросить все решения по парам" in before
-    assert "Сохранено решений: 2 (вручную: 1," in before and "Спорных пар нет." in before
-    assert "return confirm(" in before and "Это необратимо." in before
+    assert before["total"] == 0 and sum(before["decided"].values()) == 2
     assert reset.status_code == 303 and reset.headers["location"] == "/ui/pairs?reset=2"
-    assert "Решения по парам сброшены: 2." in after
     # Both pairs are disputed again; nothing is left to reset.
-    assert "Нерешённых пар: 2" in after and "Сохранённых решений по парам нет." in after
+    assert after["total"] == 2 and sum(after["decided"].values()) == 0
     with session_factory() as session:
         assert session.scalar(text("SELECT count(*) FROM entity_pair_decisions")) == 0

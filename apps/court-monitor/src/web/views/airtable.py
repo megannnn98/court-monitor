@@ -31,8 +31,6 @@ from web.dependencies import session_factory_for
 
 SYNC_URL = "/api/admin/airtable/sync"
 
-# Shown in place of the Airtable table name when records come from a file.
-_FILE_COLUMN = "Файл"
 
 _MODE_NOTES = {
     MODE_API: "Список читается из Airtable по API — кнопка сама забирает свежие данные.",

@@ -14,12 +14,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from typing import cast
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from support.workspace import APP_SRC
 
 from orchestrator.operations import OperationRegistry
 from orchestrator.storage.models import OperatorOperationRunRecord
@@ -57,52 +57,15 @@ def registry_runs(session: Session) -> list[OperatorOperationRunRecord]:
     )
 
 
-def test_the_page_offers_the_button_and_no_file(session_factory: sessionmaker[Session]) -> None:
-    with _client(session_factory) as client:
-        page = client.get("/ui/airtable").text
-
-    assert "Обновить перечень и сверить с РФМ" in page
-    assert 'action="/ui/airtable/rosfin"' in page
-    # The file is gone, and nothing of it is left behind: no hidden input, no button that
-    # only works if you know the endpoint, no prose describing a fallback that is not there.
-    assert "official-file" not in page
-    assert "import-button" not in page
-    assert "Загрузить перечень" not in page
-    assert "загрузите файл" not in page
-
-
-def test_the_page_says_what_the_button_does(session_factory: sessionmaker[Session]) -> None:
-    """A button that says «обновить» and does not say what happens next is the thing this
-    change is about: the operator has to know that a snapshot is made only on a real
-    change, and that the check runs again — otherwise «Кандидаты» look empty and nobody
-    knows why."""
-    with _client(session_factory) as client:
-        page = client.get("/ui/airtable").text
-
-    assert "fedsfm.ru" in page
-    assert "только если перечень изменился" in " ".join(page.split())
-    assert "пересверяет людей с перечнем" in " ".join(page.split())
-
-
-def test_the_page_still_names_the_official_snapshot(
-    session_factory: sessionmaker[Session],
-) -> None:
-    with _client(session_factory) as client:
-        page = client.get("/ui/airtable").text
-
-    assert "Официальный перечень РФМ (fedsfm.ru)" in page
-
-
 def test_the_button_starts_the_existing_rosfin_operation(
     session_factory: sessionmaker[Session],
 ) -> None:
     """Not a download in an HTTP request: the operation that already exists, by the same
     name the CLI and step 5 use, started through the same registry as every other step."""
     with _client(session_factory) as client:
-        answer = client.post("/ui/airtable/rosfin", follow_redirects=False)
+        answer = client.post("/api/v1/airtable/rosfin")
 
-    assert answer.status_code == 303
-    assert answer.headers["location"].startswith("/ui/runs?run_id=")
+    assert answer.status_code == 200 and answer.json()["run_id"] > 0
 
     with session_factory() as session:
         runs = registry_runs(session)
@@ -120,10 +83,10 @@ def test_a_run_in_flight_starts_no_second(
     snapshot. The first run never finishes here, so the second would have to be refused —
     and it is, by the registry itself, before a run row is written."""
     with _client(session_factory) as client:
-        first = client.post("/ui/airtable/rosfin", follow_redirects=False)
-        second = client.post("/ui/airtable/rosfin", follow_redirects=False)
+        first = client.post("/api/v1/airtable/rosfin")
+        second = client.post("/api/v1/airtable/rosfin")
 
-    assert first.status_code == 303
+    assert first.status_code == 200
     assert second.status_code == 409
     with session_factory() as session:
         started = [row for row in registry_runs(session) if row.parameters["mode"] == "rosfin"]
@@ -139,17 +102,18 @@ def test_the_route_is_registered_and_the_file_route_is_not() -> None:
 
     def walk(routes: Iterable[object]) -> Iterator[APIRoute]:
         for route in routes:
-            original = getattr(route, "original_router", None)
-            if original is not None:
-                yield from walk(original.routes)
-            elif isinstance(route, APIRoute):
-                yield route
+            # The included router's effective routes carry its prefix (`/api/v1`).
+            candidates = getattr(route, "effective_candidates", None)
+            if candidates is not None:
+                yield from walk(candidates())
+            elif isinstance(getattr(route, "original_route", route), APIRoute):
+                yield cast(APIRoute, route)
 
     paths = {
         f"{method} {route.path}" for route in walk(app.routes) for method in route.methods or ()
     }
 
-    assert "POST /ui/airtable/rosfin" in paths
+    assert "POST /api/v1/airtable/rosfin" in paths
     assert "POST /api/admin/rosfinmonitoring/import" not in paths
 
 
@@ -157,9 +121,12 @@ def test_the_cli_command_is_still_the_same_work() -> None:
     """The page may not offer a file, but the answer to «как это делается без
     интерфейса» is still the command that has always done it."""
 
-    source = (APP_SRC / "web" / "ui" / "airtable.py").read_text(encoding="utf-8")
+    from orchestrator.operations import OperationParameters, _command_for
 
-    assert "check-entities-rosfin" in source
+    assert _command_for("monitor", OperationParameters(mode="rosfin"), ("cli",)) == [
+        "cli",
+        "check-entities-rosfin",
+    ]
 
 
 def test_the_api_reads_the_lists_and_starts_one_refresh(

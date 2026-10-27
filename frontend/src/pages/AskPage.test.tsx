@@ -44,6 +44,31 @@ it("shows the answer with links, the warning and the counts under it", async () 
   expect(screen.getByText(/Сегодня потрачено \$0\.12 из \$1\.00/)).toBeTruthy();
 });
 
+it("shows the groups too small to compare apart, under their own heading and before the total", async () => {
+  const stats = {
+    tool: "stats",
+    what: "приговоры по регионам",
+    groups: [{ name: "Москва", cases: 12, mean_years: 7.5 }],
+    small_groups: [{ name: "Тыва", cases: 1, mean_years: 3 }],
+    small_groups_left_out: 2,
+    total: { name: "Всего", cases: 15 }
+  };
+  get.mockReturnValue(ok({ ...PAGE, answer: { ...ANSWER, results: [stats] } }) as never);
+  renderPage(<AskPage />);
+
+  const answer = await screen.findByRole("region", { name: "Ответ" });
+  const rows = within(answer)
+    .getAllByRole("row")
+    .map((row) => row.textContent ?? "");
+  const heading = rows.indexOf("Слишком мало сроков для сравнения");
+  const ranked = rows.findIndex((row) => row.startsWith("Москва"));
+  expect(ranked).toBeGreaterThanOrEqual(0);
+  expect(heading).toBeGreaterThan(ranked);
+  expect(rows.findIndex((row) => row.startsWith("Тыва"))).toBe(heading + 1);
+  expect(rows[rows.length - 1].startsWith("Всего")).toBe(true);
+  expect(within(answer).getByText(/групп отброшено как слишком маленькие: 2/)).toBeTruthy();
+});
+
 it("asks with an example and opens the new answer", async () => {
   post.mockReturnValue(ok({ id: 10, note: null }) as never);
   renderPage(<AskPage />);
