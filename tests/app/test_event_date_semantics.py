@@ -207,7 +207,6 @@ def test_an_undated_event_is_still_returned(session_factory: sessionmaker[Sessio
     with _client(session_factory) as client:
         events = client.get(f"/api/v1/persons/{person_id}/events").json()
         detail = client.get(f"/persons/{person_id}/detail").json()
-        page = client.get(f"/ui/persons/{person_id}")
 
     assert events != [] and detail["events"] != []
     (event,) = events
@@ -215,7 +214,6 @@ def test_an_undated_event_is_still_returned(session_factory: sessionmaker[Sessio
     # The unknown date is stated as unknown, not invented and not dropped.
     assert event["event_date"] is None
     assert detail["events"][0]["event_date"] is None
-    assert page.status_code == 200 and ARRESTED_UNDATED in page.text
 
 
 # 7. Two sources publishing one event on different days: the publication date must not

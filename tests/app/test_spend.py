@@ -189,7 +189,7 @@ def _strip(session_factory: sessionmaker[Session]) -> str:
 
     app.dependency_overrides[get_db] = override
     try:
-        page = TestClient(app).get("/ui/about").text
+        page = TestClient(app).get("/ui/sentences").text
     finally:
         app.dependency_overrides.pop(get_db, None)
     return page.split('<section class="status-strip"', 1)[1].split("</section>", 1)[0]

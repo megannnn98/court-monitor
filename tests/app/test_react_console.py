@@ -123,8 +123,8 @@ def test_the_console_is_served_a_legacy_page_it_asks_for(
     app.dependency_overrides[get_db] = override
     try:
         client = TestClient(app, follow_redirects=False)
-        moved = client.get("/ui/about")
-        asked = client.get("/ui/about", headers={PIECE_HEADER: "1"})
+        moved = client.get("/ui/sentences")
+        asked = client.get("/ui/sentences", headers={PIECE_HEADER: "1"})
     finally:
         app.dependency_overrides.pop(get_db, None)
 
@@ -133,9 +133,9 @@ def test_the_console_is_served_a_legacy_page_it_asks_for(
     page = asked.text
     piece = page[page.index(PIECE_OPEN) + len(PIECE_OPEN) : page.index(PIECE_CLOSE)]
     # What the page shows under its head, and nothing of the page around it.
-    assert "<h2>Сборка</h2>" in piece
+    assert "Таких приговоров нет." in piece
     assert "<nav" not in piece and "<h1>" not in piece and "status-strip" not in piece
-    assert page.index("<h1>О системе</h1>") < page.index(PIECE_OPEN)
+    assert page.index("<h1>Приговоры</h1>") < page.index(PIECE_OPEN)
 
 
 @pytest.mark.parametrize(

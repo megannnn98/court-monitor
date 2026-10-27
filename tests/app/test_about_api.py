@@ -68,22 +68,16 @@ def test_the_route_answers_with_the_build_and_the_totals(
     assert about["checked_at"]
 
 
-def test_the_route_and_the_page_say_the_same(session_factory: sessionmaker[Session]) -> None:
+def test_the_route_names_the_last_successful_run(session_factory: sessionmaker[Session]) -> None:
     with session_factory.begin() as session:
         session.execute(text("DELETE FROM operator_operation_runs"))
     _succeeded_run(session_factory, datetime(2026, 10, 1, 9, 30, tzinfo=UTC))
 
     with _client(session_factory) as client:
         about = client.get("/api/v1/about").json()
-        page = client.get("/ui/about").text
 
     started = datetime.fromisoformat(about["last_successful_run_at"])
     assert started == datetime(2026, 10, 1, 9, 30, tzinfo=UTC)
-    assert started.astimezone().strftime("%d.%m.%Y %H:%M") in page
-    for value in (about["version"], about["tag"], about["commit"], about["built_at"]):
-        assert value in page
-    assert f"{about['articles']:,}".replace(",", " ") in page
-    assert f"{about['people']:,}".replace(",", " ") in page
 
 
 def test_no_successful_run_is_said_as_none(session_factory: sessionmaker[Session]) -> None:

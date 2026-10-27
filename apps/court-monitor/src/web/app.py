@@ -49,7 +49,6 @@ from web.routers import (
     wiki_overview,
 )
 from web.spa import react_console
-from web.ui import about as ui_about
 from web.ui import airtable as ui_airtable
 from web.ui import ask as ui_ask
 from web.ui import base_unnamed as ui_base_unnamed
@@ -65,7 +64,6 @@ from web.ui import officials as ui_officials
 from web.ui import officials_list as ui_officials_list
 from web.ui import overview as ui_overview
 from web.ui import people_export as ui_people_export
-from web.ui import persons as ui_persons
 from web.ui import political as ui_political
 from web.ui import publications as ui_publications
 from web.ui import queue as ui_queue
@@ -132,7 +130,6 @@ for module in (
     candidates,
     rosfinmonitoring,
     reviews,
-    ui_persons,
     ui_wiki,
     ui_candidates,
     ui_cycle,
@@ -153,7 +150,6 @@ for module in (
     ui_political,
     ui_rfm_list,
     ui_officials,
-    ui_about,
     ui_airtable,
     ui_officials_list,
     airtable,
