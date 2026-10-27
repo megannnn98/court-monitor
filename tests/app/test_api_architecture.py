@@ -48,7 +48,6 @@ ROUTES_AFTER_SPLIT = [
     # The operator's «обработано» on a person of the result.
     "POST /ui/political/done",
     # «Мусор» for every held article of one story at once.
-    "POST /ui/junk-holds/junk-all",
     # The nameless records of the operator's base against the list.
     "GET /ui/base-unnamed",
     "POST /ui/base-unnamed/decide",

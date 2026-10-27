@@ -8,7 +8,6 @@ returns the article to the pipeline). `processing.junk.holds` does the work.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -64,10 +63,6 @@ def same_news(ids: list[int], pairs: list[tuple[int, int]]) -> list[list[int]]:
     return list(groups.values())
 
 
-def _day(moment: datetime | None) -> str:
-    return moment.astimezone().strftime("%d.%m.%Y") if moment else "—"
-
-
 # Whose word the note is, when it is a model's.
 _NOTE_LABELS = {MODEL_JUNK: "Модель: в работу не брать — ", "case": "Модель: дело — "}
 
@@ -96,7 +91,7 @@ def default_status(counts: dict[str, int]) -> str:
 
 
 def held_stories(db: Session, status: str) -> tuple[dict[int, Any], list[list[list[int]]]]:
-    """The list's rows by article, and its stories in pages; read by this page and the API."""
+    """The list's rows by article, and its stories in pages; read by the API."""
     rows = hold_view.held_articles(db, status)
     by_id = {row.article_id: row for row in rows}
     pairs = [
