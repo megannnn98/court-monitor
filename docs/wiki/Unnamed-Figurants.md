@@ -235,7 +235,7 @@ stop
 
 - Названные в других публикациях: `packages/court-analysis/src/analysis/unnamed/named_candidates.py`.
 - Кандидаты из базы оператора: `packages/court-analysis/src/analysis/operator_base/base_candidates.py`; записи базы без имени против
-  перечня: `packages/court-analysis/src/analysis/operator_base/base_unnamed.py`, страница `apps/court-monitor/src/web/ui/base_unnamed.py`.
+  перечня: `packages/court-analysis/src/analysis/operator_base/base_unnamed.py`, страница `frontend/src/pages/BaseUnnamedPage.tsx`, её API — `apps/court-monitor/src/web/routers/base_unnamed.py`.
 - Поиск, подбор, решения: `packages/court-analysis/src/analysis/unnamed/figurants.py` (`UnnamedFinder`,
   `candidates`, `decide`, `resolve_identity`).
 - Материализация опознаний при пересборке: `packages/court-processing/src/processing/identity/collector.py`

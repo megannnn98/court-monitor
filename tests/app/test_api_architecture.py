@@ -49,8 +49,6 @@ ROUTES_AFTER_SPLIT = [
     "POST /ui/political/done",
     # «Мусор» for every held article of one story at once.
     # The nameless records of the operator's base against the list.
-    "GET /ui/base-unnamed",
-    "POST /ui/base-unnamed/decide",
     # The graph of an investigation: the first answer and what a node adds.
     "GET /api/investigations/{key}/graph",
     "GET /api/investigations/{key}/graph/expand",
