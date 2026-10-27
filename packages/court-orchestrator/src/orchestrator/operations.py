@@ -437,6 +437,21 @@ class OperationRegistry:
             following_id = following.id
         return self.stop(following_id)
 
+    def runs_of_worker(self, operation: str, first_id: int) -> list[OperationRun]:
+        """The runs of `operation` this registry's worker ran from `first_id` on, in order:
+        a chain's steps, without a run another worker (the console) started beside them."""
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(OperatorOperationRunRecord)
+                .where(
+                    OperatorOperationRunRecord.operation_name == operation,
+                    OperatorOperationRunRecord.id >= first_id,
+                    OperatorOperationRunRecord.worker_id == self._worker_id,
+                )
+                .order_by(OperatorOperationRunRecord.id)
+            ).all()
+            return [_to_run(record) for record in records]
+
     def interrupt_stale_runs(self) -> list[int]:
         """Live runs whose heartbeat stopped: their process died, they will never finish."""
         with self._session_factory.begin() as session:

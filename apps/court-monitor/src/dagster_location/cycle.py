@@ -17,8 +17,6 @@ from pathlib import Path
 from typing import Final
 
 import dagster as dg
-from sqlalchemy import text
-from sqlalchemy.orm import Session, sessionmaker
 
 from application import build_application_services
 from orchestrator.dagster.jobs import MONITORING_JOB
@@ -156,51 +154,6 @@ def wait_for_load(
         )
 
 
-def _source_load_running(session_factory: sessionmaker[Session]) -> bool:
-    with session_factory() as session:
-        return bool(
-            session.scalar(
-                text(
-                    "SELECT count(*) FROM monitoring_runs "
-                    "WHERE source IS NOT NULL AND status = 'running'"
-                )
-            )
-        )
-
-
-def _source_loaded_recently(session_factory: sessionmaker[Session]) -> bool:
-    with session_factory() as session:
-        return bool(
-            session.scalar(
-                text(
-                    "SELECT count(*) FROM monitoring_runs WHERE source IS NOT NULL "
-                    "AND status IN ('completed', 'completed_with_errors') "
-                    "AND finished_at >= now() - make_interval(secs => :seconds)"
-                ),
-                {"seconds": LOAD_LOOKBACK.total_seconds()},
-            )
-        )
-
-
-def _chain_runs(
-    registry: OperationRegistry,
-    session_factory: sessionmaker[Session],
-    first_id: int,
-    worker_id: str,
-) -> list[OperationRun]:
-    """The steps this cycle's registry ran: the worker id is the cycle's own, so an
-    operation the console started in between is never counted as the cycle's."""
-    with session_factory() as session:
-        ids = session.scalars(
-            text(
-                "SELECT id FROM operator_operation_runs WHERE operation_name = 'monitor' "
-                "AND id >= :first AND worker_id = :worker ORDER BY id"
-            ),
-            {"first": first_id, "worker": worker_id},
-        ).all()
-    return [registry.get(run_id) for run_id in ids]
-
-
 def check_chain(runs: list[OperationRun]) -> None:
     """The chain must have run every step and every step must have succeeded."""
     modes = tuple(run.parameters.mode for run in runs)
@@ -221,7 +174,9 @@ def check_chain(runs: list[OperationRun]) -> None:
 
 @dg.op
 def run_monitoring_cycle(context: dg.OpExecutionContext) -> None:
-    session_factory = build_application_services().session_factory
+    services = build_application_services()
+    session_factory = services.session_factory
+    repository = services.monitoring.repository
 
     def dagster_load_active() -> bool:
         return bool(
@@ -231,8 +186,8 @@ def run_monitoring_cycle(context: dg.OpExecutionContext) -> None:
         )
 
     wait_for_load(
-        load_active=lambda: dagster_load_active() or _source_load_running(session_factory),
-        loaded_recently=lambda: _source_loaded_recently(session_factory),
+        load_active=lambda: dagster_load_active() or repository.source_run_active(),
+        loaded_recently=lambda: repository.source_run_finished_within(LOAD_LOOKBACK),
         log=context.log.info,
     )
     # The executor runs a step in this thread, and the next step of the chain after it:
@@ -252,7 +207,7 @@ def run_monitoring_cycle(context: dg.OpExecutionContext) -> None:
             description=f"another monitor operation is running; the cycle did not start: {exc}",
             allow_retries=False,
         ) from exc
-    runs = _chain_runs(registry, session_factory, first.id, worker_id)
+    runs = registry.runs_of_worker("monitor", first.id)
     unasked = sum(unasked_total(run.stdout) for run in runs)
     failures = sum(failures_total(run.stdout) for run in runs)
     check_chain(runs)

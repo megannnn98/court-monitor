@@ -61,7 +61,9 @@ def test_asset_graph_orders_stages_and_jobs_and_schedules_exist() -> None:
         *(f"monitoring_{source.replace('-', '_')}_schedule" for source in SOURCES),
         CYCLE_SCHEDULE,
     }
-    assert schedules[CYCLE_SCHEDULE].cron_schedule == settings.cycle_cron
+    cycle_schedule = schedules[CYCLE_SCHEDULE]
+    assert isinstance(cycle_schedule, dg.ScheduleDefinition)
+    assert cycle_schedule.cron_schedule == settings.cycle_cron
     schedule = schedules["monitoring_ovd_info_schedule"]
     assert isinstance(schedule, dg.ScheduleDefinition)
     assert schedule.cron_schedule == "*/30 * * * *"

@@ -4,8 +4,9 @@ asks a model or deletes an article."""
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import dagster as dg
@@ -36,6 +37,8 @@ from orchestrator.operations import (
     OperationRunStatus,
     ProcessResult,
 )
+from orchestrator.repository import SqlAlchemyMonitoringRepository
+from orchestrator.storage.models import MonitoringRunRecord
 
 
 def _run(mode: str, status: OperationRunStatus = OperationRunStatus.SUCCEEDED) -> OperationRun:
@@ -132,7 +135,7 @@ def test_a_step_past_its_deadline_is_told_to_stop(monkeypatch: pytest.MonkeyPatc
         return ProcessResult(return_code=-2, stdout="", stderr="")
 
     monkeypatch.setattr(cycle, "_run_process", process)
-    monkeypatch.setattr(cycle.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(time, "monotonic", lambda: next(clock))
     runner = bounded_process_runner(
         CommandLine(program=("x",), cwd=Path(".")), timedelta(seconds=10)
     )
@@ -182,7 +185,7 @@ def test_the_chain_from_purge_runs_the_four_steps_to_the_last(
 
     assert [mode for mode, _status in _chain_rows(session_factory)] == list(CYCLE_STEPS)
     assert {status for _mode, status in _chain_rows(session_factory)} == {"succeeded"}
-    runs = cycle._chain_runs(registry, session_factory, first.id, WORKER)
+    runs = registry.runs_of_worker("monitor", first.id)
     check_chain(runs)
     assert sum(unasked_total(run.stdout) for run in runs) == 4
 
@@ -207,7 +210,7 @@ def test_a_failing_step_ends_the_chain_and_the_report(
         "figurants",
     ]
     with pytest.raises(dg.Failure, match="figurants ended failed"):
-        check_chain(cycle._chain_runs(registry, session_factory, first.id, WORKER))
+        check_chain(registry.runs_of_worker("monitor", first.id))
 
 
 def test_a_live_operation_keeps_the_cycle_out(session_factory: sessionmaker[Session]) -> None:
@@ -224,9 +227,57 @@ def test_a_live_operation_keeps_the_cycle_out(session_factory: sessionmaker[Sess
         started.start("monitor", OperationParameters(mode="purge", chain=True))
 
 
+def _source_run(
+    session_factory: sessionmaker[Session], *, source: str | None, status: str, ended_ago: timedelta
+) -> None:
+    now = datetime.now(UTC)
+    with session_factory.begin() as session:
+        session.add(
+            MonitoringRunRecord(
+                scope="all" if source is None else f"source:{source}",
+                source=source,
+                trigger_type="manual",
+                status=status,
+                parameters={},
+                started_at=now - ended_ago - timedelta(minutes=5),
+                heartbeat_at=now,
+                finished_at=None if status == "running" else now - ended_ago,
+            )
+        )
+
+
 def test_only_a_running_source_run_counts_as_a_load(session_factory: sessionmaker[Session]) -> None:
-    assert cycle._source_load_running(session_factory) is False
-    assert cycle._source_loaded_recently(session_factory) is False
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    assert repository.source_run_active() is False
+
+    _source_run(session_factory, source=None, status="running", ended_ago=timedelta())
+    _source_run(session_factory, source="ovd-info", status="completed", ended_ago=timedelta())
+    assert repository.source_run_active() is False
+
+    _source_run(session_factory, source="ovd-info", status="running", ended_ago=timedelta())
+    assert repository.source_run_active() is True
+
+
+def test_a_load_counts_as_recent_by_the_time_it_ended(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = SqlAlchemyMonitoringRepository(session_factory)
+    window = timedelta(hours=12)
+    assert repository.source_run_finished_within(window) is False
+
+    _source_run(session_factory, source="ovd-info", status="failed", ended_ago=timedelta(hours=1))
+    _source_run(
+        session_factory, source="sota-vision", status="completed", ended_ago=timedelta(hours=13)
+    )
+    assert repository.source_run_finished_within(window) is False
+
+    _source_run(
+        session_factory,
+        source="tg-mash",
+        status="completed_with_errors",
+        ended_ago=timedelta(hours=2),
+    )
+    assert repository.source_run_finished_within(window) is True
 
 
 def test_a_step_stopped_by_the_deadline_fails_even_when_the_cli_answers_zero(
@@ -241,7 +292,7 @@ def test_a_step_stopped_by_the_deadline_fails_even_when_the_cli_answers_zero(
         return ProcessResult(return_code=0, stdout="", stderr="")
 
     monkeypatch.setattr(cycle, "_run_process", process)
-    monkeypatch.setattr(cycle.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(time, "monotonic", lambda: next(clock))
     runner = bounded_process_runner(
         CommandLine(program=("x",), cwd=Path(".")), timedelta(seconds=10)
     )
@@ -291,7 +342,7 @@ def test_a_console_run_after_the_chain_is_not_the_cycles(
     )
     console.start("monitor", OperationParameters(mode="figurants"))
 
-    runs = cycle._chain_runs(registry, session_factory, first.id, WORKER)
+    runs = registry.runs_of_worker("monitor", first.id)
 
     assert tuple(run.parameters.mode for run in runs) == CYCLE_STEPS
 
