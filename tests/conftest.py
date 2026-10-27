@@ -6,8 +6,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
+from support.schema_revision import revision_mismatch
 
 from db.database import create_database_engine, create_session_factory
 from evaluation.disposable import wipe
@@ -38,8 +39,31 @@ def test_engine() -> Iterator[Engine]:
     if engine.url.database != "court_monitor_test":
         raise RuntimeError("Integration tests may only use court_monitor_test")
 
+    mismatch = _revision_mismatch(engine)
+    if mismatch is not None:
+        engine.dispose()
+        raise RuntimeError(mismatch)
+
     yield engine
     engine.dispose()
+
+
+def _revision_mismatch(engine: Engine) -> str | None:
+    """Why the shared database is not at this code's Alembic head; None when it is.
+
+    The database is shared by every branch and the tests never migrate it. A branch with
+    a migration of its own leaves it ahead of the others, and their tests then fail far
+    from the cause (on 2026-10-27 the readiness check answered 503)."""
+    from web.health import expected_schema_revision
+
+    head = expected_schema_revision()
+    with engine.connect() as connection:
+        revisions = (
+            list(connection.scalars(text("SELECT version_num FROM alembic_version")))
+            if inspect(connection).has_table("alembic_version")
+            else []
+        )
+    return revision_mismatch(revisions, head)
 
 
 @pytest.fixture
