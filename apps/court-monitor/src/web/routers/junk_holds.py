@@ -1,6 +1,6 @@
 """«Отсев» for the React console: the articles the junk screen held back from the purge,
-in stories, and a person's words on them, as the legacy page reads and takes them
-(`web.ui.junk_holds`). The words are actions, refused from other origins (`web.csrf`)."""
+in stories, and a person's words on them (`web.views.junk_holds`). The words are
+actions, refused from other origins (`web.csrf`)."""
 
 from typing import Any
 

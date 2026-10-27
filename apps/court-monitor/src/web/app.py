@@ -57,7 +57,6 @@ from web.ui import cycle as ui_cycle
 from web.ui import disputes as ui_disputes
 from web.ui import dossier as ui_dossier
 from web.ui import entities as ui_entities
-from web.ui import junk_holds as ui_junk_holds
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import officials as ui_officials
@@ -144,7 +143,6 @@ for module in (
     ui_publications,
     ui_unnamed,
     ui_base_unnamed,
-    ui_junk_holds,
     ui_ask,
     ui_sentences,
     ui_political,

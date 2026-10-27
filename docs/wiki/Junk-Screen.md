@@ -181,7 +181,7 @@ final_keep=… final_drop=…`.
   префикс E5 `passage: `, `EMBEDDING_DEVICE`, `EMBEDDING_BATCH_SIZE`):
   `packages/court-processing/src/processing/junk/embedder.py`; очистка: `packages/court-processing/src/processing/junk/purge.py`.
 - «Мусор» / «Извлечь заново»: `packages/court-processing/src/processing/junk/holds.py`; чтение моделью и «Это дело —
-  в работу»: `packages/court-processing/src/processing/junk/hold_reader.py`; страница: `apps/court-monitor/src/web/ui/junk_holds.py`.
+  в работу»: `packages/court-processing/src/processing/junk/hold_reader.py`; страница: `frontend/src/pages/JunkHoldsPage.tsx`, её API — `apps/court-monitor/src/web/routers/junk_holds.py`.
 - Замер и переобучение: `tools/court-evaluation/src/evaluation/junk_screen/` (корпус из дампа до очистки,
   разметка моделью, сравнение способов, экспорт модели); метки —
   `evaluation/junk_screen/labels.json`.

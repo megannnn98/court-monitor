@@ -1,11 +1,13 @@
-"""«Отсев: на проверке»: the articles the junk screen held back, and a person's word."""
+"""«Отсев: на проверке»: the articles the junk screen held back, and a person's word.
+
+Read and taken through `/api/v1/junk-holds`, as the React page does."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -21,6 +23,8 @@ from web.dependencies import get_db
 from web.ui.run_cards import _holds_read
 from web.views.junk_holds import PAGE_SIZE, _pages, same_news
 from web.views.workload import workload
+
+API = "/api/v1/junk-holds"
 
 
 @contextmanager
@@ -69,44 +73,60 @@ def _status(session_factory: sessionmaker[Session], article: int) -> str | None:
         return status
 
 
+def _list(client: TestClient, status: str | None = None) -> dict[str, Any]:
+    params = {} if status is None else {"status": status}
+    listed: dict[str, Any] = client.get(API, params=params).json()
+    return listed
+
+
+def _stories(listed: dict[str, Any]) -> list[list[int]]:
+    return [[article["article_id"] for article in story["articles"]] for story in listed["stories"]]
+
+
+def _cards(listed: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    return {
+        article["article_id"]: article
+        for story in listed["stories"]
+        for article in story["articles"]
+    }
+
+
+def _counts(listed: dict[str, Any]) -> dict[str, int]:
+    return {option["value"]: option["count"] for option in listed["statuses"]}
+
+
 def test_the_held_articles_are_listed_with_why_and_the_queue_counts_them(
     session_factory: sessionmaker[Session],
 ) -> None:
     article = _held(session_factory, "Сегодня в городе прошла выставка.")
 
     with _client(session_factory) as client:
-        page = client.get("/ui/junk-holds").text
-        cycle = client.get("/ui/cycle").text
+        listed = _list(client)
+    with session_factory() as session:
+        queue = workload(session).junk_holds
 
-    assert "<title>Отсев: на проверке</title>" in page
-    assert f'href="/ui/articles/{article}">Главные новости &lt;b&gt;дня&lt;/b&gt;</a>' in page
-    assert "оценка 0.81 (порог 0.52)" in page and "не доказательство уголовного дела" in page
-    assert "На проверке (1)" in page and "Извлечь заново" in page
-    assert 'data-primary-task="junk_holds"' in cycle
-    assert "Возможно мусор: 1" in cycle
+    card = _cards(listed)[article]
+    assert card["title"] == "Главные новости <b>дня</b>"
+    assert (card["score"], card["cutoff"]) == (0.81, 0.52)
+    assert "не доказательство уголовного дела" in card["reason"]
+    assert listed["status"] == "held" and _counts(listed)["held"] == 1
+    assert queue == 1
 
 
 def test_junk_and_back_again(session_factory: sessionmaker[Session]) -> None:
     article = _held(session_factory, "Сегодня в городе прошла выставка.")
 
     with _client(session_factory) as client:
-        junk = client.post(
-            "/ui/junk-holds/junk",
-            data={"article": str(article), "back": "status=held&page=1"},
-            follow_redirects=False,
-        )
+        junk = client.post(f"{API}/junk", json={"article": article})
         marked = _status(session_factory, article)
-        listed = client.get("/ui/junk-holds", params={"status": "junk"}).text
-        back = client.post(
-            "/ui/junk-holds/hold", data={"article": str(article)}, follow_redirects=False
-        )
-        twice = client.post("/ui/junk-holds/hold", data={"article": str(article)})
-        nothing = client.post("/ui/junk-holds/junk", data={"article": "999999"})
+        listed = _list(client, "junk")
+        back = client.post(f"{API}/hold", json={"article": article})
+        twice = client.post(f"{API}/hold", json={"article": article})
+        nothing = client.post(f"{API}/junk", json={"article": 999999})
 
-    assert junk.status_code == 303
-    assert junk.headers["location"] == f"/ui/junk-holds?status=held&page=1#a-{article}"
-    assert marked == "junk" and "удалится при следующей очистке" in listed
-    assert back.status_code == 303 and _status(session_factory, article) == "held"
+    assert junk.status_code == 200 and marked == "junk"
+    assert _stories(listed) == [[article]]
+    assert back.status_code == 200 and _status(session_factory, article) == "held"
     assert twice.status_code == 404 and nothing.status_code == 404
 
 
@@ -116,15 +136,11 @@ def test_extracting_again_releases_an_article_whose_event_is_found(
     article = _held(session_factory, "Суд арестовал Олега Орлова по делу о фейках.")
 
     with _client(session_factory) as client:
-        released = client.post(
-            "/ui/junk-holds/reextract", data={"article": str(article)}, follow_redirects=False
-        )
-        page = client.get(released.headers["location"]).text
-        gone = client.post("/ui/junk-holds/reextract", data={"article": str(article)})
+        released = client.post(f"{API}/reextract", json={"article": article})
+        gone = client.post(f"{API}/reextract", json={"article": article})
 
-    assert released.status_code == 303 and f"released={article}" in released.headers["location"]
+    assert released.status_code == 200 and released.json()["released"] is True
     assert _status(session_factory, article) is None
-    assert "она возвращена в работу" in page
     assert gone.status_code == 404
 
 
@@ -179,52 +195,32 @@ def test_the_same_news_from_several_sources_stands_together_and_goes_together(
     other = _held_as(session_factory, "b", "Суд оштрафовал жителя Анапы за репост", 0.8)
     second = _held_as(session_factory, "c", title + " Белгородской области", 0.7)
     with _client(session_factory) as client:
-        page = client.get("/ui/junk-holds").text
-        assert page.count('<section class="same-news">') == 1
-        assert "Похоже на одну новость, публикаций: 2." in page
         # The copy stands right after the first, ahead of the unrelated article.
-        assert page.index(f'id="a-{first}"') < page.index(f'id="a-{second}"')
-        assert page.index(f'id="a-{second}"') < page.index(f'id="a-{other}"')
-        assert f'name="articles" value="{first},{second}"' in page
+        assert _stories(_list(client)) == [[first, second], [other]]
 
-        response = client.post(
-            "/ui/junk-holds/junk-all",
-            content=f"articles={first},{second}&back=status%3Dheld%26page%3D1",
-            headers={"content-type": "application/x-www-form-urlencoded"},
-            follow_redirects=False,
-        )
-        assert response.status_code == 303
+        response = client.post(f"{API}/junk-all", json={"articles": [first, second]})
+        assert response.status_code == 200
         assert _status(session_factory, first) == _status(session_factory, second) == "junk"
         assert _status(session_factory, other) == "held"
-        assert '<section class="same-news">' not in client.get("/ui/junk-holds").text
+        assert _stories(_list(client)) == [[other]]
 
 
 def test_junk_for_all_is_all_or_nothing(session_factory: sessionmaker[Session]) -> None:
     """One article of the story no longer held: the page is stale, nothing is changed."""
     first = _held_as(session_factory, "a", "Первая новость о задержании активиста", 0.9)
     with _client(session_factory) as client:
-        response = client.post(
-            "/ui/junk-holds/junk-all",
-            content=f"articles={first},999999",
-            headers={"content-type": "application/x-www-form-urlencoded"},
-            follow_redirects=False,
-        )
-        assert response.status_code == 404
-        assert _status(session_factory, first) == "held"
-        bad = client.post(
-            "/ui/junk-holds/junk-all",
-            content="articles=1,x",
-            headers={"content-type": "application/x-www-form-urlencoded"},
-            follow_redirects=False,
-        )
-        assert bad.status_code == 400
+        response = client.post(f"{API}/junk-all", json={"articles": [first, 999999]})
+    assert response.status_code == 404
+    assert _status(session_factory, first) == "held"
 
 
 def test_unrelated_articles_are_not_grouped(session_factory: sessionmaker[Session]) -> None:
-    _held_as(session_factory, "a", "Суд в Москве арестовал блогера за пост о войне", 0.9)
-    _held_as(session_factory, "b", "В Казани задержали организатора одиночного пикета", 0.8)
+    first = _held_as(session_factory, "a", "Суд в Москве арестовал блогера за пост о войне", 0.9)
+    second = _held_as(
+        session_factory, "b", "В Казани задержали организатора одиночного пикета", 0.8
+    )
     with _client(session_factory) as client:
-        assert '<section class="same-news">' not in client.get("/ui/junk-holds").text
+        assert _stories(_list(client)) == [[first], [second]]
 
 
 def _held_naming(
@@ -270,9 +266,8 @@ def test_two_articles_naming_one_person_are_one_story_and_a_surname_alone_is_not
     _held_naming(session_factory, "c", "Суд вынес решение по иску к мэрии", "Дмитриев")
     _held_naming(session_factory, "d", "Прокурор запросил срок по делу о репосте", "Дмитриев")
     with _client(session_factory) as client:
-        page = client.get("/ui/junk-holds").text
-    assert page.count('<section class="same-news">') == 1
-    assert f'name="articles" value="{first},{second}"' in page
+        stories = _stories(_list(client))
+    assert [story for story in stories if len(story) > 1] == [[first, second]]
 
 
 def _read(session_factory: sessionmaker[Session]) -> dict[str, int]:
@@ -324,8 +319,12 @@ def _model_events(session_factory: sessionmaker[Session], article: int) -> list[
         )
 
 
-def _titles(page: str) -> list[str]:
-    return re.findall(r"Заголовок (\w+)</a></h3>", page)
+def _titles(listed: dict[str, Any]) -> list[str]:
+    return [
+        article["title"].removeprefix("Заголовок ")
+        for story in listed["stories"]
+        for article in story["articles"]
+    ]
 
 
 def test_the_held_are_four_lists_and_the_model_s_junk_goes_by_one_press(
@@ -334,38 +333,29 @@ def test_the_held_are_four_lists_and_the_model_s_junk_goes_by_one_press(
     ids = _read(session_factory)
 
     with _client(session_factory) as client:
-        pages = {
-            view: client.get("/ui/junk-holds", params={"status": view}).text
-            for view in ("held", "model_junk", "released", "junk")
-        }
-        gone = client.post(
-            "/ui/junk-holds/junk-all",
-            data={"articles": f"{ids['bribe']},{ids['fine']}", "back": "status=model_junk"},
-            follow_redirects=False,
-        )
-        after = client.get("/ui/junk-holds", params={"status": "model_junk"}).text
+        lists = {view: _list(client, view) for view in ("held", "model_junk", "released", "junk")}
+        gone = client.post(f"{API}/junk-all", json={"articles": lists["model_junk"]["article_ids"]})
+        after = _list(client, "model_junk")
 
-    assert {view: _titles(page) for view, page in pages.items()} == {
+    assert {view: _titles(listed) for view, listed in lists.items()} == {
         "held": ["unread"],
         "model_junk": ["bribe", "fine"],
         "released": ["donation"],
         "junk": [],
     }
-    held = pages["held"]
-    assert "На проверке (1)" in held and "Модель считает мусором (2)" in held
-    assert "Выпущено в работу (1)" in held and "Отмечены как мусор (0)" in held
-    # The model's reason, as the model's; a person takes a case on against it.
-    assert "Модель: в работу не брать — взятки, обычное уголовное дело" in pages["model_junk"]
-    assert "Модель: дело — приговор за донаты" in pages["released"]
-    assert "Это дело — в работу</button>" in pages["model_junk"]
-    # A release is undone by «Мусор» alone: there is nothing to extract or release again.
-    assert 'action="/ui/junk-holds/unrelease"' in pages["released"]
-    assert 'action="/ui/junk-holds/junk"' not in pages["released"]
-    assert "Извлечь заново" not in pages["released"]
-    assert f'name="articles" value="{ids["bribe"]},{ids["fine"]}"' in pages["model_junk"]
-    assert "Мусор — все 2</button>" in pages["model_junk"] and "Мусор — все" not in held
-    assert gone.status_code == 303 and "status=model_junk" in gone.headers["location"]
-    assert "Модель считает мусором (0)" in after and "Отмечены как мусор (2)" in after
+    assert _counts(lists["held"]) == {"held": 1, "model_junk": 2, "released": 1, "junk": 0}
+    # The model's reason, as the model's.
+    bribe = _cards(lists["model_junk"])[ids["bribe"]]
+    assert (bribe["note_label"], bribe["note"]) == (
+        "Модель: в работу не брать — ",
+        "взятки, обычное уголовное дело",
+    )
+    donation = _cards(lists["released"])[ids["donation"]]
+    assert (donation["note_label"], donation["note"]) == ("Модель: дело — ", "приговор за донаты")
+    # «Мусор — все» on the model's list takes every article of it.
+    assert lists["model_junk"]["article_ids"] == [ids["bribe"], ids["fine"]]
+    assert gone.status_code == 200
+    assert _counts(after)["model_junk"] == 0 and _counts(after)["junk"] == 2
 
 
 def test_a_person_takes_a_case_on_against_the_model_and_undoes_a_release(
@@ -374,31 +364,19 @@ def test_a_person_takes_a_case_on_against_the_model_and_undoes_a_release(
     ids = _read(session_factory)
 
     with _client(session_factory) as client:
-        taken = client.post(
-            "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
-        )
-        twice = client.post(
-            "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
-        )
-        released_page = client.get("/ui/junk-holds", params={"status": "released"}).text
-        released_page = released_page[released_page.index(f'id="a-{ids["fine"]}"') :]
-        released_page = released_page[: released_page.index("</article>")]
-        undone = client.post(
-            "/ui/junk-holds/unrelease",
-            data={"article": str(ids["donation"])},
-            follow_redirects=False,
-        )
-        not_released = client.post(
-            "/ui/junk-holds/unrelease", data={"article": str(ids["bribe"])}, follow_redirects=False
-        )
+        taken = client.post(f"{API}/release", json={"article": ids["fine"]})
+        twice = client.post(f"{API}/release", json={"article": ids["fine"]})
+        fine = _cards(_list(client, "released"))[ids["fine"]]
+        undone = client.post(f"{API}/unrelease", json={"article": ids["donation"]})
+        not_released = client.post(f"{API}/unrelease", json={"article": ids["bribe"]})
 
-    assert (taken.status_code, twice.status_code, undone.status_code) == (303, 404, 303)
+    assert (taken.status_code, twice.status_code, undone.status_code) == (200, 404, 200)
     assert not_released.status_code == 404 and _status(session_factory, ids["bribe"]) == "held"
     # A person's release is an event too: the later steps take an article by its event.
     assert _status(session_factory, ids["fine"]) == "released"
     assert _model_events(session_factory, ids["fine"]) == ["case_opened"]
     # The word is the person's: the card no longer says what the model thought of it.
-    assert "Модель:" not in released_page and "Выпущено в работу оператором." in released_page
+    assert (fine["note_label"], fine["note"]) == ("", "Выпущено в работу оператором.")
     # A release undone takes its event back, or the purge would never see the article.
     assert _status(session_factory, ids["donation"]) == "junk"
     assert _model_events(session_factory, ids["donation"]) == []
@@ -426,10 +404,10 @@ def test_every_held_article_is_counted_and_the_unread_list_opens_first(
     with session_factory() as session:
         with_unread = workload(session).junk_holds
     with _client(session_factory) as client:
-        opened_with_unread = client.get("/ui/junk-holds").text
-        client.post("/ui/junk-holds/junk", data={"article": str(ids["unread"])})
-        opened = client.get("/ui/junk-holds").text
-        client.post("/ui/junk-holds/junk-all", data={"articles": f"{ids['bribe']},{ids['fine']}"})
+        opened_with_unread = _list(client)
+        client.post(f"{API}/junk", json={"article": ids["unread"]})
+        opened = _list(client)
+        client.post(f"{API}/junk-all", json={"articles": [ids["bribe"], ids["fine"]]})
     with session_factory() as session:
         nothing_left = workload(session).junk_holds
 
@@ -437,7 +415,7 @@ def test_every_held_article_is_counted_and_the_unread_list_opens_first(
     assert with_unread == 3
     assert _titles(opened_with_unread) == ["unread"]
     # Nothing unread: the queue's link opens the list there is work in.
-    assert _titles(opened) == ["bribe", "fine"]
+    assert opened["status"] == "model_junk" and _titles(opened) == ["bribe", "fine"]
     assert nothing_left == 0
 
 
@@ -463,15 +441,9 @@ def test_a_page_opened_before_a_release_cannot_undo_it(
 
     with _client(session_factory) as client:
         # The page of the model's junk is open; meanwhile another person takes one on.
-        client.post("/ui/junk-holds/release", data={"article": str(ids["fine"])})
-        stale_all = client.post(
-            "/ui/junk-holds/junk-all",
-            data={"articles": f"{ids['bribe']},{ids['fine']}"},
-            follow_redirects=False,
-        )
-        stale_one = client.post(
-            "/ui/junk-holds/junk", data={"article": str(ids["fine"])}, follow_redirects=False
-        )
+        client.post(f"{API}/release", json={"article": ids["fine"]})
+        stale_all = client.post(f"{API}/junk-all", json={"articles": [ids["bribe"], ids["fine"]]})
+        stale_one = client.post(f"{API}/junk", json={"article": ids["fine"]})
 
     # All or nothing, and nothing: the released keeps its event, the other stays held.
     assert (stale_all.status_code, stale_one.status_code) == (404, 404)
@@ -484,11 +456,11 @@ def test_back_to_the_check_is_read_anew(session_factory: sessionmaker[Session]) 
     ids = _read(session_factory)
 
     with _client(session_factory) as client:
-        client.post("/ui/junk-holds/unrelease", data={"article": str(ids["donation"])})
-        client.post("/ui/junk-holds/junk", data={"article": str(ids["bribe"])})
+        client.post(f"{API}/unrelease", json={"article": ids["donation"]})
+        client.post(f"{API}/junk", json={"article": ids["bribe"]})
         for name in ("donation", "bribe"):
-            client.post("/ui/junk-holds/hold", data={"article": str(ids[name])})
-        held = client.get("/ui/junk-holds", params={"status": "held"}).text
+            client.post(f"{API}/hold", json={"article": ids[name]})
+        held = _list(client, "held")
     with session_factory() as session:
         unread = set(
             session.scalars(
@@ -515,9 +487,7 @@ def test_an_article_with_no_extraction_to_write_to_is_not_released(
         )
 
     with _client(session_factory) as client:
-        refused = client.post(
-            "/ui/junk-holds/release", data={"article": str(ids["fine"])}, follow_redirects=False
-        )
+        refused = client.post(f"{API}/release", json={"article": ids["fine"]})
 
     # Released without its event it would be in no list and no step, and never purged.
     assert refused.status_code == 404
@@ -525,44 +495,37 @@ def test_an_article_with_no_extraction_to_write_to_is_not_released(
     assert _model_events(session_factory, ids["fine"]) == []
 
 
-def test_the_api_reads_the_stories_and_takes_the_words_the_page_does(
+def test_the_api_reads_the_stories_and_refuses_what_it_should(
     session_factory: sessionmaker[Session],
 ) -> None:
-    """`/api/v1/junk-holds` for the React page: the same lists, stories and words."""
     first = _held_as(session_factory, "a", "Суд арестовал активиста Ивана Петрова за пост", 0.9)
     second = _held_as(session_factory, "b", "Суд арестовал активиста Ивана Петрова за посты", 0.8)
     alone = _held(session_factory, "Сегодня в городе прошла выставка.")
 
     with _client(session_factory) as client:
-        held = client.get("/api/v1/junk-holds").json()
-        junk = client.post("/api/v1/junk-holds/junk", json={"article": alone})
-        as_junk = client.get("/api/v1/junk-holds", params={"status": "junk"}).json()
-        twice = client.post("/api/v1/junk-holds/junk", json={"article": alone})
-        stale = client.post("/api/v1/junk-holds/junk-all", json={"articles": [first, 999999]})
+        held = _list(client)
+        junk = client.post(f"{API}/junk", json={"article": alone})
+        as_junk = _list(client, "junk")
+        twice = client.post(f"{API}/junk", json={"article": alone})
+        stale = client.post(f"{API}/junk-all", json={"articles": [first, 999999]})
         after_stale = _status(session_factory, first)
         # A list longer than any page: it reaches the action, which takes all or none.
         many = [first, second, *range(1_000_000, 1_005_000)]
-        long_stale = client.post("/api/v1/junk-holds/junk-all", json={"articles": many})
+        long_stale = client.post(f"{API}/junk-all", json={"articles": many})
         after_long = _status(session_factory, second)
         foreign = client.post(
-            "/api/v1/junk-holds/hold",
-            json={"article": alone},
-            headers={"Origin": "https://evil.example"},
+            f"{API}/hold", json={"article": alone}, headers={"Origin": "https://evil.example"}
         )
-        back = client.post("/api/v1/junk-holds/hold", json={"article": alone})
-        both = client.post("/api/v1/junk-holds/junk-all", json={"articles": [first, second]})
+        back = client.post(f"{API}/hold", json={"article": alone})
+        both = client.post(f"{API}/junk-all", json={"articles": [first, second]})
 
-    assert held["status"] == "held"
-    assert {option["value"]: option["count"] for option in held["statuses"]}["held"] == 3
-    stories = [
-        [article["article_id"] for article in story["articles"]] for story in held["stories"]
-    ]
-    assert stories == [[first, second], [alone]]
-    card = held["stories"][1]["articles"][0]
+    assert held["status"] == "held" and _counts(held)["held"] == 3
+    assert _stories(held) == [[first, second], [alone]]
+    card = _cards(held)[alone]
     assert card["title"] == "Главные новости <b>дня</b>" and card["score"] == 0.81
     assert card["url"].startswith("https://") and card["status"] == "held"
     assert junk.json() == {"articles": [alone], "released": False}
-    assert [story["articles"][0]["article_id"] for story in as_junk["stories"]] == [alone]
+    assert _stories(as_junk) == [[alone]]
     assert twice.status_code == 404 and twice.json()["detail"] == "Статья не на проверке"
     assert stale.status_code == 404 and after_stale == "held"
     assert (long_stale.status_code, after_long) == (404, "held")
