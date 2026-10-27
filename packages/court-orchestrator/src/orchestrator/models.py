@@ -19,6 +19,8 @@ from monitor_core.errors import PersistenceError, TransientDiscoveryError, Trans
 # Every registered source: the two websites and the monitored Telegram channels.
 DEFAULT_ENABLED_SOURCES = tuple(SOURCES)
 DEFAULT_CRON = "0 * * * *"
+# After the night's load: the steps over the whole database that make the result.
+DEFAULT_CYCLE_CRON = "15 5 * * *"
 # A ceiling, not the size of a run: a regular run pages back until it reaches what is
 # stored (`DiscoversUntilKnown`). At 50 a channel with more posts between two runs lost
 # the older ones for good — the next run started from the newest again.
@@ -125,6 +127,7 @@ def _positive_int(env: Mapping[str, str], name: str, default: int) -> int:
 class MonitoringSettings:
     enabled_sources: tuple[str, ...] = DEFAULT_ENABLED_SOURCES
     cron: str = DEFAULT_CRON
+    cycle_cron: str = DEFAULT_CYCLE_CRON
     discovery_limit: int = DEFAULT_DISCOVERY_LIMIT
     stale_run_after: timedelta = timedelta(minutes=DEFAULT_STALE_RUN_AFTER_MINUTES)
 
@@ -136,6 +139,8 @@ class MonitoringSettings:
             )
         if len(self.cron.split()) != 5:
             raise MonitoringConfigurationError("MONITORING_CRON must have 5 cron fields")
+        if len(self.cycle_cron.split()) != 5:
+            raise MonitoringConfigurationError("MONITORING_CYCLE_CRON must have 5 cron fields")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> MonitoringSettings:
@@ -150,6 +155,7 @@ class MonitoringSettings:
         return cls(
             enabled_sources=sources,
             cron=(env.get("MONITORING_CRON") or DEFAULT_CRON).strip(),
+            cycle_cron=(env.get("MONITORING_CYCLE_CRON") or DEFAULT_CYCLE_CRON).strip(),
             discovery_limit=_positive_int(
                 env, "MONITORING_DISCOVERY_LIMIT", DEFAULT_DISCOVERY_LIMIT
             ),
