@@ -1,6 +1,6 @@
 """«Без имени в базе» for the React console: the nameless records of the operator's base
-and who on the list they may be, read and decided as the legacy page does
-(`web.ui.base_unnamed`). A decision is an action, refused from other origins."""
+and who on the list they may be (`web.views.base_unnamed`). A decision is an action,
+refused from other origins."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session

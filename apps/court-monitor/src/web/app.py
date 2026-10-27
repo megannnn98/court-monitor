@@ -51,7 +51,6 @@ from web.routers import (
 from web.spa import react_console
 from web.ui import airtable as ui_airtable
 from web.ui import ask as ui_ask
-from web.ui import base_unnamed as ui_base_unnamed
 from web.ui import candidates as ui_candidates
 from web.ui import cycle as ui_cycle
 from web.ui import disputes as ui_disputes
@@ -140,7 +139,6 @@ for module in (
     ui_disputes,
     ui_queue,
     ui_publications,
-    ui_base_unnamed,
     ui_ask,
     ui_sentences,
     ui_political,

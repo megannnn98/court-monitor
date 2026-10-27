@@ -25,7 +25,7 @@ CLEAR = "clear"
 
 
 def facts_text(case: NamelessCase) -> str:
-    """What the base says of the case, as one line; read by this page and the API."""
+    """What the base says of the case, as one line; read by the API."""
     record = case.record
     parts = [f"{case.age} лет"] if case.age is not None else []
     if record.gender:
@@ -50,7 +50,7 @@ def case_courts(courts: Jurisdiction, case: NamelessCase) -> CourtHints:
 def base_listing(
     db: Session, status: str
 ) -> tuple[list[NamelessCase], dict[str, int], list[NamelessCase]]:
-    """Every case, the tabs' counts and the tab's cases; read by this page and the API."""
+    """Every case, the tabs' counts and the tab's cases; read by the API."""
     cases = nameless_cases(db)
     chosen = [
         case
