@@ -517,7 +517,7 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
 
     with _client(session_factory, registry) as client:
         card = client.get(f"/ui/entities/{MOOR}").text
-        listed = client.get("/ui/political").text
+        listed = [row["name"] for row in client.get("/api/v1/political").json()["items"]]
         marked = client.post(
             f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
         )

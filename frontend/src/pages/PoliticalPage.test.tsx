@@ -117,6 +117,23 @@ it("shows the queues, a short table and the first person in the panel", async ()
   expect(within(table).queryByText("модель: так про Анна Смирнова")).toBeNull();
 });
 
+it("names the source of the day of inclusion beside it, and only there", async () => {
+  // No publication of ОВД-Инфо on the row: the words are the day's attribution, not a source's name.
+  list.mockReturnValue(ok({ ...PAGE, items: [{ ...ROW, links: [] }, { ...OTHER, links: [] }], total: 2 }) as never);
+
+  renderPage(<PoliticalPage />);
+
+  const panel = await screen.findByRole("complementary", { name: "Подробно: Смирнова Анна" });
+  expect(within(panel).getByText(/Дата включения — по списку ОВД-Инфо \(CC BY 3\.0\):/)).toBeTruthy();
+  expect(within(panel).getByRole("link", { name: "repression.net/rosfinmonitoring" }).getAttribute("href")).toBe(
+    "https://repression.net/rosfinmonitoring"
+  );
+  fireEvent.click(within(screen.getAllByRole("row")[2]).getAllByRole("cell")[2]);
+  const other = await screen.findByRole("complementary", { name: "Подробно: Иванов Иван" });
+  // No day, no attribution of a day.
+  expect(within(other).queryByText(/ОВД-Инфо/)).toBeNull();
+});
+
 it("shows the person chosen in the table", async () => {
   list.mockReturnValue(ok({ ...PAGE, items: [ROW, OTHER], total: 2 }) as never);
 

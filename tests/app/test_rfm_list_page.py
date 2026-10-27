@@ -520,7 +520,7 @@ def test_the_period_computation_is_readable_without_the_page() -> None:
 
 def test_the_page_is_in_the_menu(session_factory: sessionmaker[Session]) -> None:
     with _client(session_factory) as client:
-        page = client.get("/ui/political").text
+        page = client.get("/ui/logs").text
     assert 'href="/ui/rfm"' in page
 
 

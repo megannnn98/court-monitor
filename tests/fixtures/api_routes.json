@@ -38,7 +38,6 @@
  "GET /ui/officials",
  "GET /ui/overview",
  "GET /ui/pairs",
- "GET /ui/political",
  "GET /ui/political/export.xlsx",
  "GET /ui/politics-review",
  "GET /ui/publications",

@@ -299,7 +299,7 @@ TEST_DATABASE_URL=postgresql+psycopg://court_monitor:court_monitor_test@127.0.0.
 ## Безымянные в «Результате» (01.10.2026)
 
 Оператор попросила видеть безымянные случаи в «Результате» и в выгрузке Excel, рядом с
-людьми с именем. Логика — `packages/court-results/src/results/queries/unnamed_cases.py`, показ — `apps/court-monitor/src/web/ui/political.py`.
+людьми с именем. Логика — `packages/court-results/src/results/queries/unnamed_cases.py`, показ — `frontend/src/pages/PoliticalPage.tsx` через `apps/court-monitor/src/web/routers/political.py`.
 
 - **Кто попадает.** Только случаи, где текст называет политическую статью
   (`UNNAMED_POLITICAL_ARTICLES`: политические статьи плюс все 205-е). У безымянных нет

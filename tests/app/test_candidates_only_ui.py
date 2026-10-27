@@ -210,7 +210,7 @@ def test_the_bar_marks_the_page_it_is_on_and_a_running_step_is_said_on_every_pag
     session_factory: sessionmaker[Session],
 ) -> None:
     with _client(session_factory) as client:
-        result = client.get("/ui/political").text
+        result = client.get("/ui/cycle").text
         logs = client.get("/ui/logs").text
         with session_factory.begin() as session:
             session.execute(
@@ -225,7 +225,7 @@ def test_the_bar_marks_the_page_it_is_on_and_a_running_step_is_said_on_every_pag
             )
         running = client.get("/ui/logs").text
 
-    assert '<a href="/ui/political" class="active" aria-current="page">' in result
+    assert '<a href="/ui/cycle" class="active" aria-current="page">' in result
     assert 'class="tabbar-more"' in result
     # A page of the menu behind «Ещё»: the button is the one marked.
     assert (

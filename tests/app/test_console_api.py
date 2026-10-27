@@ -216,16 +216,14 @@ def test_the_result_is_the_legacy_list_s(session_factory: sessionmaker[Session])
         body = client.get("/api/v1/political").json()
         fresh = client.get("/api/v1/political", params={"months": 3}).json()
         fresh_file = client.get(fresh["export_url"])
-        page = client.get("/ui/political", params={"months": 0}).text
 
-    assert body["total"] == 2 and f"Найдено: {body['total']}." in page
+    assert body["total"] == 2
     by_name = {row["name"]: row for row in body["items"]}
     assert set(by_name) == {"Смирнова Анна", "Иванов Иван"}
     assert by_name["Смирнова Анна"]["rf_label"] == "в перечне РФМ"
     assert by_name["Смирнова Анна"]["basis"] == "модель: так про Анна Смирнова"
     assert by_name["Смирнова Анна"]["regions"] == "Москва"
     assert by_name["Иванов Иван"]["rf_label"] == "возможно в перечне"
-    assert by_name["Смирнова Анна"]["basis"] in page
     # No base loaded: nobody is «not in the base», and the choice is not offered.
     assert body["base_loaded"] is False and body["known"] == []
     assert all(row["known"] is None and not row["not_in_base"] for row in body["items"])
@@ -286,7 +284,6 @@ def test_done_takes_a_person_off_the_result_and_back(
         ticked = client.post("/api/v1/political/done", json={"key": "анна смирнова", "done": True})
         hidden = client.get("/api/v1/political").json()
         shown = client.get("/api/v1/political", params={"done": "show"}).json()
-        legacy = client.get("/ui/political", params={"months": 0}).text
         unticked = client.post(
             "/api/v1/political/done", json={"key": "анна смирнова", "done": False}
         )
@@ -303,8 +300,6 @@ def test_done_takes_a_person_off_the_result_and_back(
     assert [row["name"] for row in hidden["items"]] == ["Иванов Иван"]
     assert hidden["done_total"] == 1
     assert {row["name"]: row["done"] for row in shown["items"]}["Смирнова Анна"] is True
-    # The legacy page reads the same mark.
-    assert "Показать обработанных (1)" in legacy
     assert unticked.json() == {"key": "анна смирнова", "done": False}
     assert back["total"] == 2 and back["done_total"] == 0
     assert nobody.status_code == 404 and nobody.json() == {"detail": "Человек не найден"}

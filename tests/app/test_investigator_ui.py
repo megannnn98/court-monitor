@@ -687,7 +687,6 @@ def test_the_old_addresses_still_answer(session_factory: sessionmaker[Session]) 
                 "/ui/entities",
                 f"/ui/entities/{quote(MOOR)}",
                 "/ui/disputes",
-                "/ui/political",
                 "/ui/airtable",
                 "/ui/logs",
                 "/ui/wiki",

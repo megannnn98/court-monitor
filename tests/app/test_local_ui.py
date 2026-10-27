@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -104,3 +105,17 @@ def test_wiki_renders_plantuml_as_svg(monkeypatch: pytest.MonkeyPatch) -> None:
     rendered = _wiki_markdown_to_html(markdown)
 
     assert '<figure class="wiki-diagram"><svg>diagram</svg></figure>' in rendered
+
+
+def test_the_legacy_pages_load_the_console_script(session_factory: sessionmaker[Session]) -> None:
+    """Every legacy page loads `local-ui.js`: the scroll kept over a reload, outside links
+    in a new tab, and the copy button beside a name."""
+    with _client(session_factory) as client:
+        page = client.get("/ui/logs").text
+        script = client.get("/static/local-ui.js").text
+
+    assert re.search(r'<script defer src="/static/local-ui\.js\?v=[0-9a-f]{12}">', page)
+    # The three things the script is for, each by the line that does it.
+    assert "sessionStorage.setItem(KEY, String(window.scrollY))" in script
+    assert 'link.target = "_blank"' in script and "link.host !== location.host" in script
+    assert "navigator.clipboard.writeText(button.dataset.copy)" in script

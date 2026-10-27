@@ -33,12 +33,3 @@ def funnel_html(whole: Funnel) -> str:
   подтверждает личность. Нажмите на ступень, чтобы её посмотреть.</p>
   {rows}
 </section>"""
-
-
-def funnel_line(whole: Funnel) -> str:
-    """The funnel in one line, for «Результат»."""
-    parts = " → ".join(f"{_n(stage.count)} {escape(stage.label.lower())}" for stage in whole.stages)
-    return (
-        f'<p class="muted funnel-line">Воронка за всё время ({escape(whole.period)}): {parts}. '
-        '<a href="/ui/runs#funnel">Подробнее</a></p>'
-    )

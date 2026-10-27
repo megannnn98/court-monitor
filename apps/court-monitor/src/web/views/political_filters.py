@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from urllib.parse import parse_qs, unquote
 
 from analysis.news.case_news import CLOSED, NEW_CASE, ONGOING, OTHER, SENTENCE, UNKNOWN
 from analysis.operator_base.known_base import LEVEL_LABELS
@@ -18,9 +17,7 @@ from analysis.operator_base.known_base import LEVEL_LABELS
 PERIODS = {0: "За всё время", 1: "Месяц", 3: "3 месяца", 6: "Полгода", 12: "Год"}
 
 # The last filters, so that a reload or the menu's link keeps the period.
-FILTERS_COOKIE = "political_filters"
 
-FILTER_NAMES = ("months", "date_from", "date_to", "news", "known", "done", "who", "rfm")
 
 # Named people, or the figurants a publication does not name (`results.queries.unnamed_cases`).
 WHO_FILTERS = {"all": "Все", "named": "С именем", "unnamed": "Без имени"}
@@ -127,10 +124,6 @@ def _parse_date(text: str) -> date | None:
     return None
 
 
-def _form_date(value: date | None) -> str:
-    return f"{value:%d/%m/%Y}" if value else ""
-
-
 def filters(
     months: int,
     date_from: str,
@@ -160,26 +153,4 @@ def in_queue(chosen: Filters, queue: str) -> Filters:
     _, preset = QUEUES.get(queue, QUEUES["all"])
     return Filters(
         months=chosen.months, date_from=chosen.date_from, date_to=chosen.date_to, **preset
-    )
-
-
-def remembered(cookie: str) -> Filters | None:
-    """The filters the cookie keeps; None when it keeps nothing usable."""
-    # The page's script writes it encoded; the server, plain.
-    values = {name: items[-1] for name, items in parse_qs(unquote(cookie)).items()}
-    if not values:
-        return None
-    try:
-        months = int(values.get("months") or 0)
-    except ValueError:
-        months = 0
-    return filters(
-        months,
-        values.get("date_from", "")[:10],
-        values.get("date_to", "")[:10],
-        values.get("news", "all"),
-        values.get("known", "all"),
-        values.get("done", "hide"),
-        values.get("who", "all"),
-        values.get("rfm", "all"),
     )

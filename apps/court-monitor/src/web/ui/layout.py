@@ -343,10 +343,6 @@ def pager(path: str, params: dict[str, str], page: int, pages: int) -> str:
     return f'<div class="pager" role="navigation" aria-label="Страницы">{" ".join(parts)}</div>'
 
 
-def _fmt(value: object) -> str:
-    return "—" if value is None or value == "" else escape(str(value))
-
-
 def _button(action_url: str, label: str) -> str:
     return (
         f'<form method="post" action="{escape(action_url)}"><button>{escape(label)}</button></form>'

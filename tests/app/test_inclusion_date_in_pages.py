@@ -9,11 +9,13 @@ CC BY 3.0.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
+from typing import Any
 from urllib.parse import quote
 
 import pytest
@@ -49,6 +51,16 @@ def _client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+def _result(client: TestClient, **params: str) -> dict[str, Any]:
+    """«Результат» as the React page reads it."""
+    listed: dict[str, Any] = client.get("/api/v1/political", params=params).json()
+    return listed
+
+
+def _rows(listed: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {row["name"]: row for row in listed["items"]}
 
 
 def _seed(session_factory: sessionmaker[Session], *, namesake: bool = True) -> None:
@@ -125,16 +137,16 @@ def test_the_date_is_worded_as_the_entry_s_in_and_never_the_person_s() -> None:
     assert entry_included_text(INCLUDED) == "запись перечня включена 14.03.2024"
 
 
-def test_the_result_page_shows_the_date_of_the_matched_entry(
+def test_the_result_shows_the_date_of_the_matched_entry(
     session_factory: sessionmaker[Session],
 ) -> None:
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/political?known=all").text
+        smirnova = _rows(_result(client, known="all"))["Смирнова Анна"]
 
-    assert "запись перечня включена 14.03.2024" in page
-    assert "в перечне РФМ" in page
+    assert smirnova["rf_included"] == "запись перечня включена 14.03.2024"
+    assert smirnova["rf_label"] == "в перечне РФМ"
 
 
 def test_a_namesake_is_shown_no_date(
@@ -146,10 +158,10 @@ def test_a_namesake_is_shown_no_date(
     _seed(session_factory)
 
     with _client(session_factory) as client:
-        page = client.get("/ui/political?known=all").text
+        ivanov = _rows(_result(client, known="all"))["Иванов Иван"]
 
-    assert "возможно в перечне" in page
-    assert "02.05.2019" not in page, (
+    assert ivanov["rf_label"] == "возможно в перечне" and ivanov["rf_included"] is None
+    assert "02.05.2019" not in json.dumps(ivanov, ensure_ascii=False), (
         "the day belongs to the namesake's entry, not to the person in the row"
     )
 
@@ -176,20 +188,6 @@ def test_the_excel_shows_a_namesake_no_date(
     assert any("запись перечня включена 14.03.2024" in cell for cell in rows), (
         "the one entry we did identify keeps its day"
     )
-
-
-def test_the_result_page_carries_the_attribution(
-    session_factory: sessionmaker[Session],
-) -> None:
-    """Ирина has no access to the site and works from files; wherever the number is
-    shown, the source it came from is named, because their list is CC BY 3.0."""
-    _seed(session_factory)
-
-    with _client(session_factory) as client:
-        page = client.get("/ui/political?known=all").text
-
-    assert "ОВД-Инфо" in page
-    assert "repression.net/rosfinmonitoring" in page
 
 
 def test_the_excel_carries_the_date_and_the_attribution(
@@ -325,12 +323,10 @@ def test_an_entry_without_a_date_shows_the_entry_and_nothing_more(
         session.add(EntityGroupRfMatchRecord(group_id=entity.id, entry_id=entry.id, level="full"))
 
     with _client(session_factory) as client:
-        page = client.get("/ui/political?known=all").text
+        (row,) = _result(client, known="all")["items"]
 
-    assert "в перечне РФМ" in page
-    assert not re.search(r"запись перечня включена \d", page), (
-        "the legend explains the wording in words; no row of this list has a day to show"
-    )
+    assert row["rf_label"] == "в перечне РФМ"
+    assert row["rf_included"] is None, "no row of this list has a day to show"
 
 
 @pytest.mark.parametrize(
@@ -383,12 +379,12 @@ def test_a_day_of_the_operator_s_table_says_so_wherever_it_is_shown(
         session.execute(text("UPDATE rosfinmonitoring_entries SET inclusion_source = 'operator'"))
 
     with _client(session_factory) as client:
-        result = client.get("/ui/political?known=all").text
+        result = _rows(_result(client, known="all"))["Смирнова Анна"]["rf_included"]
         dossier = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
         book = client.get("/ui/political/export.xlsx?known=all").content
 
     marked = "запись перечня включена 14.03.2024 (по таблице оператора)"
-    assert marked in result and marked in dossier
+    assert result == marked and marked in dossier
     cells = [
         str(cell.value)
         for sheet in load_workbook(BytesIO(book)).worksheets
@@ -483,28 +479,32 @@ def test_a_person_charged_under_an_article_of_the_list_is_marked_and_can_be_chos
     )
 
     with _client(session_factory) as client:
-        everyone = client.get("/ui/political?known=all&months=0").text
-        awaited = client.get("/ui/political?known=all&months=0&rfm=awaited").text
+        everyone = _result(client, known="all", months="0")
+        awaited = _result(client, known="all", months="0", rfm="awaited")
         book = client.get("/ui/political/export.xlsx?known=all&months=0").content
         dossier = client.get(f"/ui/investigations/{quote('пётр новый')}").text
         listed_dossier = client.get(f"/ui/investigations/{quote('анна смирнова')}").text
 
-    assert '<span class="muted">статья перечня: 205.2 — в перечне</span>' in everyone
-    for words in (
-        "статья перечня: 282.2 — в перечне пока нет",
-        "статья перечня: 205.5 — в перечне пока нет",
+    rows = _rows(everyone)
+    assert (rows["Смирнова Анна"]["listing"], rows["Смирнова Анна"]["awaited"]) == (
+        "статья перечня: 205.2 — в перечне",
+        False,
+    )
+    for name, words in (
+        ("Иванов Иван", "статья перечня: 282.2 — в перечне пока нет"),
+        ("Новый Пётр", "статья перечня: 205.5 — в перечне пока нет"),
     ):
-        assert f'<span class="badge pending">{words}</span>' in everyone
-    assert '<span class="muted">статья 280 — в перечень включают иногда</span>' in everyone
-    assert everyone.count("статья перечня:") == 3
+        assert (rows[name]["listing"], rows[name]["awaited"]) == (words, True)
+    assert rows["Иногда Олег"]["listing"] == "статья 280 — в перечень включают иногда"
+    assert not rows["Иногда Олег"]["awaited"]
+    assert rows["Простой Глеб"]["listing"] is None and rows["Безстатьи Яков"]["listing"] is None
     # The count is of the whole list, and the choice leaves the two awaited.
-    assert '<option value="awaited">Ждём в перечне (2)</option>' in everyone
-    assert '<option value="awaited" selected>Ждём в перечне (2)</option>' in awaited
-    assert "Найдено: 2." in awaited
-    # Surname first, as the page writes a name.
-    assert "Новый Пётр" in awaited and "Иванов Иван" in awaited
-    assert "Смирнова Анна" not in awaited
-    assert "rfm=awaited" in awaited  # the choice rides on to the pager and the file
+    assert everyone["awaited"] == 2 and awaited["awaited"] == 2
+    assert {option["value"]: option["count"] for option in everyone["rfm"]}["awaited"] == 2
+    assert awaited["total"] == 2
+    # Surname first, as the list writes a name.
+    assert sorted(_rows(awaited)) == ["Иванов Иван", "Новый Пётр"]
+    assert "rfm=awaited" in awaited["export_url"]  # the choice rides on to the file
     sheet = load_workbook(BytesIO(book)).worksheets[0]
     header = [cell.value for cell in sheet[1]]
     assert header[-1] == "Статья перечня"
