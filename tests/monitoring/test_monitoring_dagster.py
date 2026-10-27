@@ -8,6 +8,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from support.monitoring_fixtures import SIDOROV, FakeUpstream, build_service
 
+from dagster_location.cycle import CYCLE_JOB, CYCLE_SCHEDULE
 from dagster_location.definitions import build_definitions
 from ingestion.sources.source_registry import SOURCES
 from orchestrator.dagster.jobs import MONITORING_DERIVED_JOB, MONITORING_JOB, SOURCE_TAG
@@ -53,11 +54,16 @@ def test_asset_graph_orders_stages_and_jobs_and_schedules_exist() -> None:
     assert {job.name for job in defs.resolve_all_job_defs()} >= {
         MONITORING_JOB,
         MONITORING_DERIVED_JOB,
+        CYCLE_JOB,
     }
     schedules = {schedule.name: schedule for schedule in defs.schedules or []}
     assert set(schedules) == {
-        f"monitoring_{source.replace('-', '_')}_schedule" for source in SOURCES
+        *(f"monitoring_{source.replace('-', '_')}_schedule" for source in SOURCES),
+        CYCLE_SCHEDULE,
     }
+    cycle_schedule = schedules[CYCLE_SCHEDULE]
+    assert isinstance(cycle_schedule, dg.ScheduleDefinition)
+    assert cycle_schedule.cron_schedule == settings.cycle_cron
     schedule = schedules["monitoring_ovd_info_schedule"]
     assert isinstance(schedule, dg.ScheduleDefinition)
     assert schedule.cron_schedule == "*/30 * * * *"

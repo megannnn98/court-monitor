@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dagster as dg
 
+from dagster_location.cycle import build_cycle_schedule, monitoring_cycle_job
 from dagster_location.resources import monitoring_service_resource
 from orchestrator.dagster.assets import MONITORING_ASSETS, MONITORING_RESOURCE_KEY
 from orchestrator.dagster.jobs import build_derived_job, monitoring_job
@@ -26,8 +27,8 @@ def build_definitions(
     )
     return dg.Definitions(
         assets=MONITORING_ASSETS,
-        jobs=[monitoring_job, derived_job],
-        schedules=build_source_schedules(settings),
+        jobs=[monitoring_job, derived_job, monitoring_cycle_job],
+        schedules=[*build_source_schedules(settings), build_cycle_schedule(settings)],
         resources={
             MONITORING_RESOURCE_KEY: monitoring_service_resource()
             if monitoring is None

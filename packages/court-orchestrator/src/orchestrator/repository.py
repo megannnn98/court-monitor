@@ -114,6 +114,40 @@ class SqlAlchemyMonitoringRepository:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
+    def source_run_active(self) -> bool:
+        """Whether any source has a run still going: a load that writes."""
+        with self._session_factory() as session:
+            return bool(
+                session.scalar(
+                    select(func.count())
+                    .select_from(MonitoringRunRecord)
+                    .where(
+                        MonitoringRunRecord.source.is_not(None),
+                        MonitoringRunRecord.status == MonitoringRunStatus.RUNNING.value,
+                    )
+                )
+            )
+
+    def source_run_finished_within(self, within: timedelta) -> bool:
+        """Whether some source's run ended (with or without errors) in the last `within`."""
+        with self._session_factory() as session:
+            return bool(
+                session.scalar(
+                    select(func.count())
+                    .select_from(MonitoringRunRecord)
+                    .where(
+                        MonitoringRunRecord.source.is_not(None),
+                        MonitoringRunRecord.status.in_(
+                            (
+                                MonitoringRunStatus.COMPLETED.value,
+                                MonitoringRunStatus.COMPLETED_WITH_ERRORS.value,
+                            )
+                        ),
+                        MonitoringRunRecord.finished_at >= func.now() - within,
+                    )
+                )
+            )
+
     def layout_suspects(self, source: str | None = None) -> list[LayoutSuspect]:
         """The sources (or the one) whose runs look like a change of the site's layout."""
         with self._session_factory() as session:
