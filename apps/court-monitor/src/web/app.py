@@ -68,7 +68,6 @@ from web.ui import publications as ui_publications
 from web.ui import queue as ui_queue
 from web.ui import rfm_list as ui_rfm_list
 from web.ui import sentences as ui_sentences
-from web.ui import unnamed as ui_unnamed
 from web.ui import wiki as ui_wiki
 
 logger = logging.getLogger("api")
@@ -141,7 +140,6 @@ for module in (
     ui_disputes,
     ui_queue,
     ui_publications,
-    ui_unnamed,
     ui_base_unnamed,
     ui_ask,
     ui_sentences,

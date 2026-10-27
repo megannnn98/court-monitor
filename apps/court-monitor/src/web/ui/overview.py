@@ -15,10 +15,10 @@ from analysis.news.case_news import NEW_CASE, SENTENCE
 from analysis.unnamed.matching import candidates
 from web.dependencies import get_db
 from web.ui.layout import _page
-from web.ui.unnamed import _facts
 from web.views.entities import display_name
 from web.views.management import recent_source_errors
 from web.views.overview import _day, _found, latest_news, news_counts, open_unnamed, short_quote
+from web.views.unnamed import facts_text
 from web.views.workload import workload
 
 router = APIRouter()
@@ -48,7 +48,7 @@ def _unnamed_band(db: Session, open_count: int) -> str:
         items.append(
             f'<li><span class="when">{_day(figurant.published_at)}</span> '
             f"«{escape(quote_text)}»"
-            f'<span class="why">{_facts(figurant)} · {_found(found, age_told=figurant.age is not None)}</span></li>'
+            f'<span class="why">{escape(facts_text(figurant))} · {_found(found, age_told=figurant.age is not None)}</span></li>'
         )
     return f"""<section class="band" aria-labelledby="unnamed-title">
   <h2 id="unnamed-title">Неопознанные фигуранты <span class="count">{open_count}</span></h2>
