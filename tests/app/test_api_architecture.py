@@ -231,8 +231,33 @@ def _calls(path: Path) -> set[str]:
 
 @pytest.mark.parametrize(
     "module",
-    sorted((SRC / "web/routers").glob("*.py")) + sorted((SRC / "web/ui").glob("*.py")),
+    sorted((SRC / "web/routers").glob("*.py"))
+    + sorted((SRC / "web/ui").glob("*.py"))
+    + sorted((SRC / "web/views").glob("*.py")),
     ids=lambda path: f"{path.parent.name}/{path.name}",
 )
 def test_route_modules_build_no_engine_or_session_factory(module: Path) -> None:
     assert _calls(module) & ENGINE_FACTORIES == set()
+
+
+def _imported_modules(path: Path) -> set[str]:
+    modules: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+            modules |= {f"{node.module}.{alias.name}" for alias in node.names}
+        elif isinstance(node, ast.Import):
+            modules |= {alias.name for alias in node.names}
+    return modules
+
+
+@pytest.mark.parametrize(
+    "module",
+    sorted((SRC / "web/routers").glob("*.py")) + sorted((SRC / "web/views").glob("*.py")),
+    ids=lambda path: f"{path.parent.name}/{path.name}",
+)
+def test_the_api_and_the_views_read_nothing_from_the_html_pages(module: Path) -> None:
+    """The legacy pages (`web.ui`) render HTML; what the API and they share lives in
+    `web.views`. The API never depends on a page, so a page can go without touching it."""
+    pages = {name for name in _imported_modules(module) if name.startswith("web.ui")}
+    assert pages == set()

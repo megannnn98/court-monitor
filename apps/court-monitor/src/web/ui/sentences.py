@@ -8,38 +8,21 @@ a list of its own, to be put back.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
 from html import escape
 from typing import Any
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from processing.evidence.regions import canonical
-from processing.evidence.sentences import set_sentence_hidden
-from processing.read import HiddenSentence, hidden_sentences, sentence_reading_count
 from results.ask import KIND_LABELS, REASON_LABELS
-from results.queries.sentence_cases import POLITICAL, Case, Filters, cases
-from results.queries.sentence_cases import select as select_cases
+from results.queries.sentence_cases import POLITICAL, Case
 from web.dependencies import get_db
 from web.ui.layout import _page, pager
+from web.views.sentences import HIDDEN, PAGE_SIZE, _set_hidden, read_sentences, term_text
 
 router = APIRouter()
-
-PAGE_SIZE = 50
-HIDDEN = "hidden"
-
-
-def term_text(months: int, fine_rub: int) -> str:
-    """«2 г. 6 мес.», «штраф 35 000 ₽», or a dash."""
-    years, rest = divmod(months, 12)
-    parts = [f"{years} г." if years else "", f"{rest} мес." if rest else ""]
-    if fine_rub:
-        parts.append(f"штраф {fine_rub:,} ₽".replace(",", " "))
-    return " ".join(part for part in parts if part) or "—"
 
 
 def _button(action: str, rows: tuple[int, ...] | list[int], label: str, back: str) -> str:
@@ -88,42 +71,6 @@ _HEAD = (
     '<th scope="col">За что</th><th scope="col">Публикация и её слова</th>'
     '<th scope="col"><span class="visually-hidden">Действие</span></th></tr></thead>'
 )
-
-
-@dataclass(frozen=True)
-class SentencePage:
-    """«Приговоры» under its filters; read by the legacy page and `GET /api/v1/sentences`."""
-
-    # The filters as understood: an unknown reason is «political», a region canonical.
-    reason: str
-    region: str
-    all_cases: list[Case]
-    # The cases of the page, newest sentence first, and how many pass the filters.
-    cases: list[Case]
-    total: int
-    # The rows a person took out of every count, newest first.
-    hidden: Sequence[HiddenSentence]
-    # How many publications the model has read for a sentence.
-    read: int
-
-
-def read_sentences(db: Session, *, reason: str, region: str, page: int) -> SentencePage:
-    all_cases = cases(db)
-    reason = reason if reason in ("", POLITICAL, *REASON_LABELS) else POLITICAL
-    region = canonical(region)
-    found = select_cases(
-        all_cases, Filters(reasons=(reason,) if reason else (), region=region)
-    ).cases
-    found.sort(key=lambda case: (case.sentenced_on, case.row_ids), reverse=True)
-    return SentencePage(
-        reason=reason,
-        region=region,
-        all_cases=all_cases,
-        cases=found[(page - 1) * PAGE_SIZE : page * PAGE_SIZE],
-        total=len(found),
-        hidden=hidden_sentences(db),
-        read=sentence_reading_count(db),
-    )
 
 
 @router.get("/ui/sentences", response_class=HTMLResponse)
@@ -200,28 +147,6 @@ def ui_sentences(
         ),
         db=db,
     )
-
-
-async def _set_hidden(request: Request, db: Session, hidden: bool) -> RedirectResponse:
-    form = parse_qs((await request.body()).decode("utf-8", errors="replace"))
-    ids = {int(part) for part in form.get("rows", [""])[0].split(",") if part.isdigit()}
-    if not ids:
-        raise HTTPException(status_code=400, detail="Не указан приговор")
-    changed = set_sentence_hidden(db, ids, hidden=hidden)
-    if not changed:
-        raise HTTPException(status_code=404, detail="Такого приговора нет")
-    if len(changed) != len(ids):
-        # The page is older than the rows: a part of a case must not go alone. Nothing
-        # is committed, so nothing is hidden.
-        raise HTTPException(
-            status_code=409, detail="Список приговоров изменился. Обновите страницу."
-        )
-    db.commit()
-    kept = parse_qs(form.get("back", [""])[0])
-    params: dict[str, str] = {
-        key: kept[key][0] for key in ("reason", "region", "view", "page") if key in kept
-    }
-    return RedirectResponse(f"/ui/sentences?{urlencode(params)}", status_code=303)
 
 
 @router.post("/ui/sentences/hide", response_model=None)

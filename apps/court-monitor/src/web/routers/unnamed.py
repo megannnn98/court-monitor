@@ -27,9 +27,9 @@ from web.response_models import (
     UnnamedRfEntryResponse,
     UnnamedScreenedResponse,
 )
-from web.ui.entities import display_name
-from web.ui.layout import external_url
-from web.ui.unnamed import (
+from web.views.entities import display_name
+from web.views.layout import external_url
+from web.views.unnamed import (
     _STATUSES,
     PAGE_SIZE,
     _day,

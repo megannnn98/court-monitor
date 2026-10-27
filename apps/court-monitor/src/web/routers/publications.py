@@ -15,8 +15,8 @@ from web.response_models import (
     PublicationRowResponse,
     SourceCountResponse,
 )
-from web.ui.entities import EVENT_LABELS, display_name
-from web.ui.publications import PAGE_SIZE, PEOPLE_SHOWN, people_and_events, read_publications
+from web.views.entities import EVENT_LABELS, display_name
+from web.views.publications import PAGE_SIZE, PEOPLE_SHOWN, people_and_events, read_publications
 
 router = APIRouter()
 

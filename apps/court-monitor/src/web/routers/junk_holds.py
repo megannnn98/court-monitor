@@ -17,7 +17,7 @@ from web.response_models import (
     JunkHoldsResponse,
     OptionResponse,
 )
-from web.ui.junk_holds import (
+from web.views.junk_holds import (
     _STATUSES,
     apply_hold,
     apply_junk,
@@ -30,7 +30,7 @@ from web.ui.junk_holds import (
     junk_counts,
     note_label,
 )
-from web.ui.layout import external_url
+from web.views.layout import external_url
 
 router = APIRouter()
 

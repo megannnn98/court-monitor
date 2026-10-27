@@ -11,10 +11,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from web import entity_model
 from web.app import app
 from web.dependencies import get_db
-from web.ui import spend
 from web.ui.cycle import _processing
-from web.ui.pipeline import PipelineState, chain_confirmation, step_confirmation, stepper
-from web.ui.workload import Workload
+from web.ui.pipeline import stepper
+from web.ui.spend import balance_line, notice
+from web.views import spend
+from web.views.pipeline import PipelineState, chain_confirmation, step_confirmation
+from web.views.workload import Workload
 
 CREDITS = {"data": {"total_credits": 15, "total_usage": 10.737357613}}
 
@@ -73,7 +75,7 @@ def test_no_key_means_no_question_and_no_words(monkeypatch: pytest.MonkeyPatch) 
     asked = _credits(monkeypatch)
 
     assert spend.balance() is None and spend.balance_text() == ""
-    assert spend.notice("figurants") == "" and spend.balance_line() == ""
+    assert notice("figurants") == "" and balance_line() == ""
     assert asked == []
 
 
@@ -98,9 +100,9 @@ def test_every_step_that_asks_a_model_warns_and_the_others_do_not(
 
     for stage in ("purge", "entities", "figurants", "political"):
         assert spend.paid(stage)
-        assert "платный" in spend.notice(stage)
+        assert "платный" in notice(stage)
         assert "Остаток на OpenRouter: $4.26" in spend.confirm_text(stage)
-    assert not spend.paid("load") and spend.notice("load") == ""
+    assert not spend.paid("load") and notice("load") == ""
     assert spend.confirm_text("load") == "", "a free step is not told the balance"
     assert "около $0.00006 за статью" in spend.spend_text("purge")
     assert "не более $2.00 за запуск" in spend.spend_text("entities")
@@ -110,7 +112,7 @@ def test_the_purge_is_paid_only_while_the_screen_is_the_decision_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _paid(monkeypatch, junk="1")
-    assert not spend.paid("purge") and spend.notice("purge") == ""
+    assert not spend.paid("purge") and notice("purge") == ""
     _paid(monkeypatch, junk="0")
     assert not spend.paid("purge")
     _paid(monkeypatch, junk="jev")
@@ -138,14 +140,14 @@ def test_a_balance_under_the_limit_of_a_run_is_said_in_red(
 ) -> None:
     _paid(monkeypatch)
     _credits(monkeypatch, {"data": {"total_credits": 15, "total_usage": 14.0}})
-    low = spend.notice("figurants")
+    low = notice("figurants")
     assert 'class="warning ai-note"' in low and "Остатка меньше лимита запуска" in low
 
     _credits(monkeypatch)
-    assert 'class="muted ai-note"' in spend.notice("figurants")
+    assert 'class="muted ai-note"' in notice("figurants")
     # The purge costs cents: its «limit» is no reason to alarm.
     _credits(monkeypatch, {"data": {"total_credits": 15, "total_usage": 14.99}})
-    assert 'class="muted ai-note"' in spend.notice("purge")
+    assert 'class="muted ai-note"' in notice("purge")
 
 
 def test_a_free_model_is_named_free_and_any_other_model_is_named_with_its_price(
@@ -156,12 +158,12 @@ def test_a_free_model_is_named_free_and_any_other_model_is_named_with_its_price(
     _paid(monkeypatch)
     _credits(monkeypatch)
     monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "nvidia/nemotron-3.5-super-vl:free")
-    free = spend.notice("entities")
+    free = notice("entities")
     assert "FREE" in free and "Шаг бесплатный" in free and "Остаток" not in free
     assert not spend.paid("entities")
     monkeypatch.setenv("ENTITY_NORMALIZE_MODEL", "qwen/qwen3.8-flash")
     entity_model.forget()
-    paid = spend.notice("political")
+    paid = notice("political")
     assert "qwen/qwen3.8-flash" in paid and "Вход $0.15 / 1 млн токенов" in paid
     assert "Шаг платный" in paid and spend.paid("political")
 

@@ -22,10 +22,10 @@ from web.response_models import (
     LiveRunResponse,
     StopResponse,
 )
-from web.ui import spend
-from web.ui.cycle import PROCESSING_LABELS, chain_question, step_statuses
-from web.ui.management import StepRefused, shown_models, start_step, working_date
-from web.ui.pipeline import (
+from web.views import spend
+from web.views.cycle import PROCESSING_LABELS, chain_question, step_statuses
+from web.views.management import StepRefused, shown_models, start_step, working_date
+from web.views.pipeline import (
     OPERATION,
     STAGES,
     chain_confirmation,
@@ -36,7 +36,7 @@ from web.ui.pipeline import (
     latest_run_id,
     title_of,
 )
-from web.ui.workload import OperatorTask, next_operator_task, operator_tasks, workload
+from web.views.workload import OperatorTask, next_operator_task, operator_tasks, workload
 
 router = APIRouter()
 

@@ -18,7 +18,8 @@ from orchestrator.operations import (
 from web.dependencies import get_db, get_operation_registry
 from web.ui.layout import _page
 from web.ui.management import _progress, _stop_form
-from web.ui.run_cards import RUN_STATUS_BADGES, RUN_STATUS_LABELS, badge, local_time
+from web.ui.run_cards import badge
+from web.views.run_cards import RUN_STATUS_BADGES, RUN_STATUS_LABELS, local_time
 
 router = APIRouter()
 

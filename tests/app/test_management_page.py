@@ -23,7 +23,7 @@ from orchestrator.storage.models import OperatorOperationRunRecord
 from processing.storage.models import JunkScreenHoldRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
-from web.ui import spend
+from web.views import spend
 
 
 @contextmanager
@@ -1405,7 +1405,7 @@ def test_the_log_tail_follows_a_run_that_ended_badly_and_leaves_a_good_one_alone
 
 
 def test_the_log_tail_reads_a_log_without_the_noise() -> None:
-    from web.ui.run_tail import log_tail
+    from web.views.run_tail import log_tail
 
     assert log_tail("") == [] and log_tail("\n  \n") == []
     # A line that is not a log record is shown as it is; a long one is cut.

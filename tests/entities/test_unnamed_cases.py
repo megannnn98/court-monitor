@@ -12,7 +12,7 @@ from results.queries.unnamed_cases import (
     group_cases,
     place_genitive,
 )
-from web.ui.political_rows import unnamed_row
+from web.views.political_rows import unnamed_row
 
 
 def _sentence(

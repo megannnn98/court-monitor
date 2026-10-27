@@ -23,30 +23,26 @@ from results.ask import (
     MARK_CLOSE,
     MARK_OPEN,
     MAX_QUESTION,
-    REFUSED,
     SEARCH,
     ask,
-    asker_from_env,
     daily_budget,
     spent_today,
-    unverified_numbers,
 )
-from results.read import QuestionAnswer, question_answer, recent_answers
+from results.read import QuestionAnswer, question_answer
 from web.dependencies import get_db, session_factory_for
 from web.ui.layout import _page
-
-router = APIRouter()
-
-HISTORY = 20
-EXAMPLES = (
-    "В каких регионах самые суровые наказания за антивоенные высказывания?",
-    "Сколько приговоров за госизмену было в 2026 году и какие сроки давали?",
-    "Какие самые большие сроки давали заочно?",
-    "Что известно о задержаниях на одиночных пикетах?",
+from web.views.ask import (
+    _REFERENCE,
+    _STATS_COLUMNS,
+    EXAMPLES,
+    _number,
+    asked_before,
+    current_asker,
+    results_of,
+    unverified_of,
 )
 
-# «[№ 123]»; a model may drop the sign, so a bare number of an id's length is one too.
-_REFERENCE = re.compile(r"\[(?:№\s*(\d+)|(\d{3,}))\]")
+router = APIRouter()
 
 
 def _answer_html(answer: str) -> str:
@@ -58,23 +54,6 @@ def _answer_html(answer: str) -> str:
 
     linked = _REFERENCE.sub(link, escape(answer))
     return "".join(f"<p>{part}</p>" for part in linked.split("\n") if part.strip())
-
-
-def _number(value: object) -> str:
-    return f"{value:g}".replace(".", ",") if isinstance(value, float) else str(value)
-
-
-_STATS_COLUMNS = (
-    ("name", "Группа"),
-    ("cases", "Дел"),
-    ("imprisoned", "Лишение свободы"),
-    ("mean_years", "Средний срок, лет"),
-    ("median_years", "Медиана, лет"),
-    ("max_years", "Наибольший, лет"),
-    ("suspended", "Условно"),
-    ("fined", "Штраф"),
-    ("in_absentia", "Заочно"),
-)
 
 
 def _stats_html(result: dict[str, Any]) -> str:
@@ -164,28 +143,6 @@ def _result_html(result: dict[str, Any]) -> str:
     return f"<h3>{escape(str(result.get('what', '')))}</h3>{table(result)}"
 
 
-def results_of(record: QuestionAnswer) -> list[dict[str, Any]]:
-    """The counts the answer stands on, as the model's calls returned them."""
-    return [call["result"] for call in record.calls]
-
-
-def unverified_of(record: QuestionAnswer) -> list[str]:
-    """The answer's numbers no count holds; none for a refusal or a failure."""
-    if record.outcome in (REFUSED, FAILED):
-        return []
-    return unverified_numbers(record.answer, record.question, results_of(record))
-
-
-def current_asker() -> Any:
-    """The model to ask, as the environment names it; looked up on every question."""
-    return asker_from_env()
-
-
-def asked_before(db: Session) -> list[QuestionAnswer]:
-    """The latest questions, newest first."""
-    return recent_answers(db, limit=HISTORY)
-
-
 def _shown(record: QuestionAnswer) -> str:
     results = results_of(record)
     unverified = unverified_of(record)
@@ -267,7 +224,7 @@ async def ui_ask_question(
     question = form.get("question", [""])[0]
     # In a thread: the model takes up to twenty seconds, and the pages must not wait for it.
     asked = await run_in_threadpool(
-        ask, session_factory_for(db), asker_from_env(), question, budget_usd=daily_budget()
+        ask, session_factory_for(db), current_asker(), question, budget_usd=daily_budget()
     )
     if asked.id is None:
         # Nothing was asked: the reason is all there is to show.

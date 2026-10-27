@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from orchestrator import read as orchestrator_read
 from orchestrator.operations import STALE_AFTER, OperationRunStatus
-from web.ui.pipeline import STAGES, TITLES, pipeline_current
-from web.ui.workload import Workload, next_operator_task, workload
+from web.views.pipeline import STAGES, TITLES, pipeline_current
+from web.views.workload import Workload, next_operator_task, workload
 
 _NEXT_STEP = {
     "load": "подгрузить статьи",

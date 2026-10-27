@@ -16,7 +16,7 @@ from web.response_models import (
     AskRequest,
     AskResponse,
 )
-from web.ui import ask as ask_page
+from web.views import ask as ask_page
 
 router = APIRouter()
 

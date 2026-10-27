@@ -6,7 +6,7 @@ from __future__ import annotations
 from html import escape
 
 from analysis.operator_base.jurisdiction import CourtHints
-from web.ui.layout import external_url
+from web.views.layout import external_url
 
 
 def courts_html(hints: CourtHints) -> str:

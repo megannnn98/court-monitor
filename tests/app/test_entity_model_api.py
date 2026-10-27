@@ -36,8 +36,8 @@ from processing.storage.models import EntityGroupRecord
 from web import entity_model
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
-from web.ui import spend
-from web.ui.pipeline import step_confirmation
+from web.views import spend
+from web.views.pipeline import step_confirmation
 
 FREE = "nvidia/nemotron-3.5-super-vl:free"
 QWEN = "qwen/qwen3.8-flash"

@@ -33,10 +33,11 @@ from processing import read as identity
 from processing.evidence.publications import person_evidence
 from results.done_marks import Marks, done_marks, is_done
 from results.queries.unnamed_cases import KEY_PREFIX, Case, political_cases
-from web.ui.entities import _articles_by_group, display_name, regions_text
-from web.ui.political_filters import Filters
+from web.views.entities import _articles_by_group, display_name, regions_text
+from web.views.political_filters import Filters
 
 LINKS = 3
+
 # Roundup posts («Главное за день», «Еженедельный дайджест») name many people in one
 # breath and say nothing about any one of them: an operator scanning «Публикации» for
 # what a person is accused of should see a substantive source first, not a digest.
@@ -47,6 +48,7 @@ _DIGEST_MARKERS = (
     "итоги дня",
     "итоги недели",
 )
+
 # An unnamed figurant has no «свежая новость» of the model's: the event of the latest
 # sentence about them stands for it.
 _EVENT_NEWS = {
@@ -58,6 +60,7 @@ _EVENT_NEWS = {
     "sentence": SENTENCE,
     "other": OTHER,
 }
+
 _OLDEST = datetime.min.replace(tzinfo=UTC)
 
 # (title, url, published, source) of a publication.

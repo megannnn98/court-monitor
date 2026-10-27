@@ -8,7 +8,7 @@ from results.ask import KIND_LABELS, REASON_LABELS
 from results.queries.sentence_cases import POLITICAL
 from web.dependencies import get_db
 from web.response_models import OptionResponse, SentenceListResponse, SentenceRowResponse
-from web.ui.sentences import HIDDEN, PAGE_SIZE, read_sentences, term_text
+from web.views.sentences import HIDDEN, PAGE_SIZE, read_sentences, term_text
 
 router = APIRouter()
 

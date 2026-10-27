@@ -14,12 +14,12 @@ from web.response_models import (
     QueueResponse,
     StatusResponse,
 )
-from web.ui import spend
-from web.ui.layout import strip_numbers
-from web.ui.political_rows import open_result_count
-from web.ui.run_cards import MODE_TITLES
-from web.ui.work_cycle import live_next_action
-from web.ui.workload import workload
+from web.views import spend
+from web.views.layout import strip_numbers
+from web.views.political_rows import open_result_count
+from web.views.run_cards import MODE_TITLES
+from web.views.work_cycle import live_next_action
+from web.views.workload import workload
 
 __all__ = ["read_status"]
 

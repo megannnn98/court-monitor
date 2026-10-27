@@ -17,11 +17,11 @@ from web.response_models import (
     WikiPageLinkResponse,
     WikiPageResponse,
 )
-from web.ui.entities import display_name
-from web.ui.management import recent_source_errors
-from web.ui.overview import found_text, latest_news, news_counts, open_unnamed, short_quote
-from web.ui.unnamed import facts_text
-from web.ui.workload import workload
+from web.views.entities import display_name
+from web.views.management import recent_source_errors
+from web.views.overview import found_text, latest_news, news_counts, open_unnamed, short_quote
+from web.views.unnamed import facts_text
+from web.views.workload import workload
 from web.wiki import _wiki_markdown_to_html, _wiki_page, _wiki_pages
 
 router = APIRouter()

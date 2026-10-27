@@ -30,8 +30,8 @@ from processing.storage.models import EntityGroupRecord
 from results.storage.models import EntityDoneMarkRecord
 from web.app import app
 from web.dependencies import get_db
-from web.ui.political import political_xlsx
-from web.ui.political_rows import named_row
+from web.views.political import political_xlsx
+from web.views.political_rows import named_row
 
 
 @contextmanager

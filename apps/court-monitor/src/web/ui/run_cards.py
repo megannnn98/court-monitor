@@ -9,61 +9,40 @@ is its own: the progress read from its log and the counts it printed at the end.
 
 from __future__ import annotations
 
-import json
-import re
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
-from datetime import datetime
 from html import escape
 from typing import Any
 
-from orchestrator.operations import OperationRun, OperationRunStatus
+from orchestrator.operations import OperationRun
 from web.ui import spend
 from web.ui.run_tail import tail_html
-
-RUN_STATUS_LABELS = {
-    OperationRunStatus.PENDING: "В очереди",
-    OperationRunStatus.RUNNING: "Выполняется",
-    OperationRunStatus.SUCCEEDED: "Завершено",
-    OperationRunStatus.FAILED: "Завершено с ошибками",
-    OperationRunStatus.INTERRUPTED: "Прервано",
-}
-# Badge colours of `local-ui.css`: yellow while in progress or partly done, green, red.
-RUN_STATUS_BADGES = {
-    OperationRunStatus.PENDING: "pending",
-    OperationRunStatus.RUNNING: "running",
-    OperationRunStatus.SUCCEEDED: "succeeded",
-    OperationRunStatus.FAILED: "failed",
-    OperationRunStatus.INTERRUPTED: "failed",
-}
+from web.views.run_cards import (
+    _ENTITIES_STAGE,
+    _ENTITIES_STAGES,
+    _FIGURANTS_STAGE,
+    _FIGURANTS_STAGES,
+    _FINAL_PHASES,
+    _FINAL_RF_STAGES,
+    _FINAL_STAGE,
+    _HOLDS_READ,
+    _PREPARING,
+    _PURGE_PROGRESS,
+    _ROSFIN_STAGE,
+    _ROSFIN_STAGES,
+    MODE_TITLES,
+    RUN_STATUS_BADGES,
+    RUN_STATUS_LABELS,
+    _counted,
+    _Labels,
+    _last_stage,
+    _totals,
+    in_progress,
+    local_time,
+)
 
 
 def badge(label: str, css_class: str = "") -> str:
     return f'<span class="badge {css_class}">{escape(label)}</span>'
-
-
-def local_time(moment: datetime) -> str:
-    return moment.astimezone().strftime("%d.%m.%Y %H:%M")
-
-
-MODE_TITLES = {
-    "load": "Загрузка статей",
-    "resolve": "Разрешение персон",
-    "purge": "Очистка от мусора",
-    "entities": "Сборка сущностей",
-    "rosfin": "Сверка с Росфинмониторингом",
-    "figurants": "Поиск фигурантов",
-    "political": "Политические дела и сверка с РФМ",
-    None: "Загрузка и разрешение",
-}
-
-
-_LIVE = (OperationRunStatus.PENDING, OperationRunStatus.RUNNING)
-_PREPARING = "Готовлюсь…"
-
-
-def in_progress(run: OperationRun) -> bool:
-    return run.status in _LIVE
 
 
 def card(
@@ -102,32 +81,6 @@ def progress_box(words: str, done: str = "", total: str = "") -> str:
     return f'<div class="progress-box">{bar}<p><strong>{escape(words)}{counted}</strong></p></div>'
 
 
-def _last_stage(pattern: re.Pattern[str], stderr: str) -> str:
-    """The stage a run logged last (`event=… stage=<stage>`); empty before the first."""
-    stages = pattern.findall(stderr)
-    return stages[-1].strip() if stages else ""
-
-
-def _counted(stage: str, verb: str) -> tuple[str, str] | None:
-    """«asking 3/10» as (done, total); None for a stage that counts nothing."""
-    if not stage.startswith(f"{verb} "):
-        return None
-    done, _, total = stage.removeprefix(f"{verb} ").partition("/")
-    return done, total
-
-
-def _totals(run: OperationRun) -> dict[str, Any]:
-    """The counts a run printed at its end; nothing while it runs or when it printed none."""
-    try:
-        totals = json.loads(run.stdout) if run.stdout else {}
-    except json.JSONDecodeError:
-        return {}
-    return totals if isinstance(totals, dict) else {}
-
-
-_Labels = Sequence[tuple[str, str, str]]
-
-
 def _summary(totals: dict[str, Any], groups: Sequence[tuple[str, _Labels]]) -> str:
     """The counts that are not zero, as badges: (key, label, badge) of each. A line per
     group under its title: what the step found is not read in one row with what it cost."""
@@ -144,12 +97,6 @@ def _summary(totals: dict[str, Any], groups: Sequence[tuple[str, _Labels]]) -> s
     return "".join(lines)
 
 
-_PURGE_PROGRESS = re.compile(
-    r"event=junk_purge_progress articles=(\d+) total=(\d+) persons=(\d+) reviews=(\d+)"
-    r"(?: outdated=(\d+))?(?: held=(\d+))?"
-)
-
-
 def _holds_read(log: str) -> list[str]:
     """The badges of the model's reading, each a link to its list; none before it ran."""
     found = _HOLDS_READ.findall(log)
@@ -162,10 +109,6 @@ def _holds_read(log: str) -> list[str]:
         )
         if count
     ]
-
-
-# What a model read of the held (`processing.junk.hold_reader.read_holds` logs its result).
-_HOLDS_READ = re.compile(r"event=holds_read HoldsRead\(released=(\d+), model_junk=(\d+)")
 
 
 def _purge_card(run: OperationRun) -> str:
@@ -209,14 +152,6 @@ def _purge_card(run: OperationRun) -> str:
     )
 
 
-_ENTITIES_STAGE = re.compile(r"event=entities_collect_stage stage=([^\n]+)")
-_ENTITIES_STAGES = {
-    "reading": "Читаю упоминания…",
-    "grouping": "Склеиваю…",
-    "writing": "Сохраняю…",
-}
-
-
 def _entities_card(run: OperationRun) -> str:
     """An entity rebuild: its stage from the log while it runs, its counts at the end."""
     stage = _last_stage(_ENTITIES_STAGE, run.stderr)
@@ -255,16 +190,6 @@ def _entities_card(run: OperationRun) -> str:
     )
 
 
-_ROSFIN_STAGE = re.compile(r"event=entities_rf_check_stage stage=([^\n]+)")
-_ROSFIN_STAGES = {
-    "downloading": "Скачиваю перечень с fedsfm.ru…",
-    "importing": "Перечень изменился — сохраняю новый снимок…",
-    "matching": "Сверяю сущности с перечнем…",
-    "writing": "Сохраняю…",
-    "merging": "Сливаю спорные пары, где человек в перечне…",
-}
-
-
 def _rosfin_card(run: OperationRun) -> str:
     """A check against the list: its stage while it runs; the snapshot and counts after."""
     stage = _last_stage(_ROSFIN_STAGE, run.stderr)
@@ -300,10 +225,6 @@ def _rosfin_card(run: OperationRun) -> str:
         progress=progress_box(_ROSFIN_STAGES.get(stage, _PREPARING)),
         body="".join(lines),
     )
-
-
-_FIGURANTS_STAGE = re.compile(r"event=entity_figurants_stage stage=([^\n]+)")
-_FIGURANTS_STAGES = {"reading": "Читаю сущности и цитаты…", "writing": "Сохраняю…"}
 
 
 def _figurants_card(run: OperationRun) -> str:
@@ -346,38 +267,6 @@ def _figurants_card(run: OperationRun) -> str:
         progress=progress,
         body=_summary(_totals(run), labels),
     )
-
-
-@dataclass(frozen=True)
-class _Phase:
-    """A phase of the final step. It logs `event=<event> stage=<reading|asking N/M|writing>`."""
-
-    event: str
-    label: str
-    # What the model is doing while the phase asks it; empty for a phase that asks none.
-    asking: str = ""
-
-
-# In order: the list, the verdicts, the roundup posts, the latest news, the unnamed,
-# the sentences.
-_FINAL_PHASES = (
-    _Phase("entities_rf_check_stage", "Сверка с перечнем"),
-    _Phase("entity_politics_stage", "Политичность", "Модель читает дела"),
-    _Phase("article_digest_stage", "Сводки новостей", "Модель отличает сводки от новостей"),
-    _Phase("entity_news_stage", "Свежая новость", "Модель определяет, что нового по делу"),
-    _Phase("unnamed_stage", "Безымянные", "Модель читает предложения о безымянных"),
-    _Phase("sentences_stage", "Приговоры", "Модель выписывает приговоры из публикаций"),
-)
-_FINAL_STAGE = re.compile(
-    r"event=(" + "|".join(phase.event for phase in _FINAL_PHASES) + r") stage=([^\n]+)"
-)
-_FINAL_RF_STAGES = {
-    "downloading": "Скачиваю перечень с fedsfm.ru…",
-    "importing": "Перечень изменился — сохраняю новый снимок…",
-    "matching": "Сверяю сущности с перечнем…",
-    "writing": "Сохраняю сверку с РФМ…",
-    "merging": "Сливаю спорные пары по перечню…",
-}
 
 
 def final_progress(stderr: str) -> str:
