@@ -240,7 +240,7 @@ def test_names_read_surname_first_and_sort_by_surname(
     ],
 )
 def test_a_name_is_shown_surname_first_initials_kept(stored: str, shown: str) -> None:
-    from web.ui.entities import display_name
+    from web.views.entities import display_name
 
     assert display_name(stored) == shown
 

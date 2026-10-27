@@ -43,8 +43,8 @@ from application import group_followers
 from ingestion import read as articles
 from processing import read as identity
 from processing.evidence.publications import person_evidence
-from web.ui.dossier import related_people
-from web.ui.entities import EVENT_LABELS, display_name
+from web.views.dossier import related_people
+from web.views.entities import EVENT_LABELS, display_name
 
 INITIAL_EVENTS = 20
 PERSON_EVENTS = 20

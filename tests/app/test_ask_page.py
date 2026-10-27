@@ -18,7 +18,7 @@ from results.ask import Call, Plan
 from results.storage.models import ChatQuestionRecord
 from web.app import app
 from web.dependencies import get_db
-from web.ui import ask as ask_page
+from web.views import ask as ask_views
 
 
 @contextmanager
@@ -86,7 +86,7 @@ def _seed(session_factory: sessionmaker[Session]) -> int:
 
 
 def _ask(client: TestClient, monkeypatch: pytest.MonkeyPatch, asker: Any, question: str) -> Any:
-    monkeypatch.setattr(ask_page, "asker_from_env", lambda: asker)
+    monkeypatch.setattr(ask_views, "asker_from_env", lambda: asker)
     return client.post("/ui/ask", data={"question": question})
 
 
@@ -252,7 +252,7 @@ def test_the_api_asks_and_reads_the_answer_the_page_does(
     _seed(session_factory)
     plan = Plan(calls=[Call(tool="stats", group_by="region", sort="mean_years")])
     monkeypatch.setattr(
-        ask_page, "asker_from_env", lambda: FakeAsker(plan, "В Москве 7 лет. См. [№ 5].")
+        ask_views, "asker_from_env", lambda: FakeAsker(plan, "В Москве 7 лет. См. [№ 5].")
     )
 
     with _client(session_factory) as client:

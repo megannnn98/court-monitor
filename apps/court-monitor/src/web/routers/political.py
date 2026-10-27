@@ -25,8 +25,8 @@ from web.response_models import (
     PoliticalRowResponse,
     PublicationLinkResponse,
 )
-from web.ui.political import PAGE_SIZE, basis_text, set_done
-from web.ui.political_filters import (
+from web.views.political import PAGE_SIZE, basis_text, set_done
+from web.views.political_filters import (
     KNOWN_FILTERS,
     NEWS_FILTERS,
     PERIODS,
@@ -36,7 +36,7 @@ from web.ui.political_filters import (
     filters,
     in_queue,
 )
-from web.ui.political_rows import ListRow, queue_counts, result_rows, with_details
+from web.views.political_rows import ListRow, queue_counts, result_rows, with_details
 
 router = APIRouter()
 

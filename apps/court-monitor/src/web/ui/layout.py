@@ -1,7 +1,6 @@
 """The operator console's page frame and small HTML helpers."""
 
 import hashlib
-from dataclasses import dataclass
 from html import escape
 from pathlib import Path
 from typing import cast
@@ -11,13 +10,11 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from analysis.read import verdict_count
-from ingestion.read import article_count
-from orchestrator.read import latest_monitoring_status, live_operation
-from processing.read import group_count
+from orchestrator.read import live_operation
 from web.ui import spend
-from web.ui.work_cycle import live_next_action
-from web.ui.workload import Workload, workload
+from web.views.layout import strip_numbers
+from web.views.work_cycle import live_next_action
+from web.views.workload import Workload, workload
 
 router = APIRouter()
 
@@ -48,30 +45,9 @@ def copy_button(text: str) -> str:
     )
 
 
-@dataclass(frozen=True)
-class StripNumbers:
-    """The status strip's own numbers; `/api/v1/status` reads them too."""
-
-    articles: int
-    people: int
-    result: int
-    # The latest monitoring run's status code, or None before the first run.
-    latest_monitoring_status: str | None
-
-
-def strip_numbers(db: Session) -> StripNumbers:
-    status = latest_monitoring_status(db)
-    return StripNumbers(
-        articles=article_count(db),
-        people=group_count(db),
-        result=verdict_count(db, verdict="political"),
-        latest_monitoring_status=None if status is None else str(status),
-    )
-
-
 def _status_counts(db: Session, work: Workload | None = None) -> dict[str, object]:
     # Imported here: at module level it is a cycle, layout → political_rows → entities → layout.
-    from web.ui.political_rows import open_result_count
+    from web.views.political_rows import open_result_count
 
     work = work or workload(db)
     numbers = strip_numbers(db)
@@ -257,7 +233,7 @@ def _tabbar(active: str, counts: dict[str, object]) -> str:
 def _live_strip(db: Session) -> str:
     """Above the bottom bar while a step runs: which one, and the way to its progress —
     on a phone the card of the run is two screens down."""
-    from web.ui.run_cards import MODE_TITLES
+    from web.views.run_cards import MODE_TITLES
 
     operation = live_operation(db)
     if operation is None:
@@ -365,13 +341,6 @@ def pager(path: str, params: dict[str, str], page: int, pages: int) -> str:
     if page < pages:
         parts.append(link(page + 1, "Вперёд", ' rel="next"'))
     return f'<div class="pager" role="navigation" aria-label="Страницы">{" ".join(parts)}</div>'
-
-
-def external_url(url: str | None) -> str | None:
-    """A scraped address fit for a link: http(s) only, never `javascript:` or the like."""
-    if url and url.strip().lower().startswith(("http://", "https://")):
-        return url.strip()
-    return None
 
 
 def _fmt(value: object) -> str:

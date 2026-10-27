@@ -12,29 +12,17 @@ from orchestrator.operations import OperationRegistry
 from web.dependencies import get_db, get_operation_registry
 from web.ui import spend
 from web.ui.layout import _page
-from web.ui.pipeline import (
-    STAGES,
+from web.ui.pipeline import ask, chain_action, chain_note, chain_stopped
+from web.ui.run_tail import tail_html
+from web.views.cycle import PROCESSING_LABELS, chain_question, step_statuses
+from web.views.pipeline import (
     PipelineState,
-    ask,
-    chain_action,
-    chain_confirmation,
-    chain_note,
     chain_span,
-    chain_stopped,
     current_state,
 )
-from web.ui.run_tail import tail_html
-from web.ui.workload import OperatorTask, Workload, next_operator_task, operator_tasks, workload
+from web.views.workload import OperatorTask, Workload, next_operator_task, operator_tasks, workload
 
 router = APIRouter()
-
-PROCESSING_LABELS = {
-    "load": "Публикации загружены",
-    "purge": "Публикации проверены",
-    "entities": "Люди определены",
-    "figurants": "Фигуранты определены",
-    "political": "Проверка политичности завершена",
-}
 
 
 def _attention(task: OperatorTask | None, state: PipelineState) -> str:
@@ -70,28 +58,6 @@ def _next_tasks(work: Workload, current: OperatorTask | None) -> str:
   <h2 id="next-tasks-title">Далее</h2>
   {rows}
 </section>"""
-
-
-def chain_question(state: PipelineState, *, with_model: bool = True) -> str:
-    """What is asked before «Сделать всё» on «Работа»: the entity model and what it costs.
-    Read by the legacy page and `GET /api/v1/cycle` (which sends the model apart)."""
-    return chain_confirmation(state.current, with_model=with_model)
-
-
-def step_statuses(state: PipelineState) -> list[tuple[str, str]]:
-    """(stage, status) of each step of the round: done, running, ready or waiting."""
-    current = STAGES.index(state.current)
-    return [
-        (
-            stage,
-            "done"
-            if index < current
-            else ("running" if state.live is not None else "ready")
-            if index == current
-            else "waiting",
-        )
-        for index, stage in enumerate(STAGES)
-    ]
 
 
 def _pipeline_control(state: PipelineState, work: Workload) -> str:

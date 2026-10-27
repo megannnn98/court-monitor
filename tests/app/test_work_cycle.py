@@ -2,7 +2,7 @@
 
 import pytest
 
-from web.ui.workload import Workload, next_operator_task
+from web.views.workload import Workload, next_operator_task
 
 
 @pytest.mark.parametrize(

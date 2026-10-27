@@ -12,7 +12,7 @@ import pytest
 
 from processing import read as identity
 from processing.read import Group
-from web.ui import dossier, publications
+from web.views import dossier, publications
 
 
 def _group(group_id: int, name: str) -> Group:

@@ -28,65 +28,29 @@ from __future__ import annotations
 
 import csv
 import io
-import logging
 from html import escape
 from urllib.parse import parse_qs, quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from processing.roles import exclusion_list
-from processing.roles.roles import KIND_LABELS
 from web.dependencies import get_db
 from web.ui.layout import _page
-
-logger = logging.getLogger("web.ui.airtable")
-
-router = APIRouter()
-
-PAGE_SIZE = 100
-REFERENCE_URL = "/ui/airtable/officials"
-# The categories a row may carry. They are the roles the pipeline already knows, so
-# saying "судья" here and "judge" there cannot drift apart into two vocabularies.
-CATEGORIES = ("judge", "prosecutor", "police", "official", "lawyer", "witness", "other")
-
-
-def category_label(value: str) -> str:
-    return KIND_LABELS.get(value, "прочее") if value != "other" else "прочее"
-
-
-# What the list is for, said on the page itself rather than only in the code.
-_INTRO = (
-    "Люди, которых нельзя делать фигурантом: судьи, прокуроры, следователи, защитники, "
-    "свидетели. Человек, которого система сама признала должностным, помечается на его "
-    "карточке в «Людях»; здесь — сам список, из которого берётся ответ. "
-    "Снимается галочкой, а не удалением: решение остаётся в базе."
+from web.views.officials_list import (
+    _INTRO,
+    CATEGORIES,
+    REFERENCE_URL,
+    apply_add,
+    apply_add_suggested,
+    apply_deactivate,
+    category_label,
+    official_suggestions,
+    officials_listing,
 )
 
-
-def officials_listing(db: Session) -> tuple[list[exclusion_list.ListedOfficial], int]:
-    """The rows of the list, with the name each one has actually landed on.
-
-    A row that matches no entity yet is shown too, but with a blank name and a mark
-    saying so: it is in the list, and the operator should know it does not yet do
-    anything.
-    """
-    return exclusion_list.listing(db, limit=PAGE_SIZE)
-
-
-def official_suggestions(db: Session) -> list[tuple[str, str, str, str]]:
-    """The people the model calls officials and the list does not name: (key, name, kind,
-    why the model thinks so)."""
-    return [
-        (item.key, item.name, item.kind, item.reason)
-        for item in exclusion_list.suggestions(db, limit=PAGE_SIZE)
-    ]
-
-
-def official_suggestion_items(db: Session) -> list[exclusion_list.Suggestion]:
-    """The same suggestions with the names they may be a duplicate of."""
-    return exclusion_list.suggestions(db, limit=PAGE_SIZE)
+router = APIRouter()
 
 
 def _suggestions_html(items: list[tuple[str, str, str, str]]) -> str:
@@ -178,35 +142,6 @@ def officials_csv(db: Session = Depends(get_db)) -> Response:  # noqa: B008
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="dolzhnostnye-lica.csv"'},
     )
-
-
-def apply_add(db: Session, full_name: str, category: str, reason: str) -> str:
-    """Add a person to the list; "added", or "already" for a name it holds. Commits."""
-    if category not in CATEGORIES:
-        category = "other"
-    try:
-        status = exclusion_list.add(db, full_name, category, reason)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="ФИО не указано") from exc
-    db.commit()
-    return status
-
-
-def apply_add_suggested(db: Session, key: str) -> str:
-    """Accept the model's suggestion; "added" or "already". 404 for a key that is no
-    suggestion, so the button cannot put an arbitrary name on the list. Commits."""
-    status = exclusion_list.add_suggested(db, key)
-    if status is None:
-        raise HTTPException(status_code=404, detail="Такого предложения нет")
-    db.commit()
-    return status
-
-
-def apply_deactivate(db: Session, external_id: str) -> None:
-    """Out of force, the row kept; commits."""
-    if not exclusion_list.deactivate(db, external_id):
-        raise HTTPException(status_code=404, detail="Человека нет в списке")
-    db.commit()
 
 
 @router.post("/ui/airtable/officials/add", response_model=None)

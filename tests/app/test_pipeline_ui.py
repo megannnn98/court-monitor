@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from web.ui.entities import _collect_bar
-from web.ui.pipeline import PipelineState, step_confirmation, stepper
+from web.ui.pipeline import stepper
+from web.views.pipeline import PipelineState, step_confirmation
 
 
 def test_deepseek_confirmation_is_empty_without_paid_deepseek(

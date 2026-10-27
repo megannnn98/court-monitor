@@ -21,7 +21,7 @@ from web.response_models import (
     RemovalRequest,
     RemovalResponse,
 )
-from web.ui.entities import (
+from web.views.entities import (
     EVENT_LABELS,
     PAGE_SIZE,
     ROLE_FILTERS,

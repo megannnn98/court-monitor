@@ -17,7 +17,7 @@ from web.response_models import (
     CourtHintResponse,
     OptionResponse,
 )
-from web.ui.base_unnamed import (
+from web.views.base_unnamed import (
     _STATUSES,
     PAGE_SIZE,
     apply_decide,
@@ -25,7 +25,7 @@ from web.ui.base_unnamed import (
     case_courts,
     facts_text,
 )
-from web.ui.layout import external_url
+from web.views.layout import external_url
 
 router = APIRouter()
 

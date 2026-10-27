@@ -11,9 +11,10 @@ from web.candidate_rows import surname_first
 from web.dependencies import get_db
 from web.routers.articles import _article_response
 from web.routers.persons import get_person_detail
-from web.ui.entities import EVENT_LABELS, display_name
-from web.ui.layout import _fmt, _page, external_url
-from web.ui.publications import people_and_events
+from web.ui.layout import _fmt, _page
+from web.views.entities import EVENT_LABELS, display_name
+from web.views.layout import external_url
+from web.views.publications import people_and_events
 
 router = APIRouter()
 

@@ -32,7 +32,7 @@ from web.response_models import (
     RfEntryResponse,
     TimelineItemResponse,
 )
-from web.ui.dossier import (
+from web.views.dossier import (
     ORG_ROLES,
     TIMELINE_LIMIT,
     VERDICT_METHODS,
@@ -45,7 +45,7 @@ from web.ui.dossier import (
     search,
     warnings,
 )
-from web.ui.entities import (
+from web.views.entities import (
     EVENT_LABELS,
     NAME_SOURCES,
     ROLE_METHODS,

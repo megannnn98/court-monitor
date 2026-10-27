@@ -10,40 +10,35 @@ same rows go to Excel.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 from html import escape
 from urllib.parse import parse_qs, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
 from analysis.news.case_news import KIND_LABELS, NEW_CASE, ONGOING, SENTENCE, UNKNOWN
-from analysis.operator_base.known_base import COUNTED, KnownMatch
+from analysis.operator_base.known_base import COUNTED
 from analysis.persecution.classifier import POLITICAL_ARTICLES
 from analysis.rosfinmonitoring.inclusion_dates import ATTRIBUTION as INCLUSION_ATTRIBUTION
 from analysis.rosfinmonitoring.rf_articles import AWAITED
 from analysis.rosfinmonitoring.rf_check import FULL
 from analysis.rosfinmonitoring.rf_entry import (
-    INCLUSION_NOTES,
     entry_included_text,
-    rf_word,
 )
-from results.done_marks import mark_done
 from web.dependencies import get_db
 from web.exports import (
     XLSX,
-    excel_day,
     is_web_link,
-    workbook_bytes,
-    write_notes,
-    write_sheet,
 )
-from web.ui.entities import _date
-from web.ui.funnel import funnel, funnel_line
+from web.ui.funnel import funnel_line
 from web.ui.layout import _page, copy_button, pager
-from web.ui.political_filters import (
+from web.ui.political_filters import date_field
+from web.views.entities import _date
+from web.views.funnel import funnel
+from web.views.political import PAGE_SIZE, basis_text, export_name, political_xlsx, set_done
+from web.views.political_filters import (
     FILTER_NAMES,
     FILTERS_COOKIE,
     KNOWN_FILTERS,
@@ -51,45 +46,12 @@ from web.ui.political_filters import (
     PERIODS,
     RFM_FILTERS,
     WHO_FILTERS,
-    Filters,
-    date_field,
     filters,
     remembered,
 )
-from web.ui.political_rows import LINKS, ListRow, latest_news, result_rows, with_details
+from web.views.political_rows import ListRow, result_rows, with_details
 
 router = APIRouter()
-
-PAGE_SIZE = 100
-
-
-def _article_text(articles: list[tuple[str, bool]]) -> str:
-    return ", ".join(article for article, _ in articles)
-
-
-# Who said so. A person who decides a verdict by hand is not the model, and telling the
-# operator their own decision came from the model costs them the reason to trust it.
-_BASIS_LABELS = {
-    "article": "статья УК",
-    "manual": "решено вручную",
-    "memorial": "правило: реестр «Мемориала»",
-    "base": "база оператора",
-    "model": "модель",
-}
-
-
-# What `decide_politics` writes as the reason. The label already says this, so printing
-# it after a colon reads as «решено вручную: решено оператором вручную».
-_MANUAL_REASON = "решено оператором вручную"
-
-
-def basis_text(row: ListRow) -> str:
-    """Who decided the verdict, and why — the two never say the same thing twice."""
-    label = _BASIS_LABELS.get(row.basis.method, "модель")
-    reason = row.basis.reason
-    if reason in ("", _MANUAL_REASON):
-        return label
-    return f"{label}: {reason}"
 
 
 def _news_mark(row: ListRow) -> str:
@@ -357,90 +319,6 @@ document.getElementById("political-filters").addEventListener("change", (event) 
     return response
 
 
-def known_answer_text(match: KnownMatch | None, *, loaded: bool) -> str | None:
-    """The answer of the operator's base as a cell: what, and which records."""
-    if not loaded:
-        return None
-    if match is None:
-        return "нет в базе"
-    names = "; ".join(match.names)
-    return f"{match.label} ({names})" if match.level in COUNTED else f"{match.label}: {names}"
-
-
-def _known_text(row: ListRow, *, loaded: bool) -> str | None:
-    return known_answer_text(row.known, loaded=loaded)
-
-
-def political_xlsx(rows: list[ListRow], *, known_loaded: bool = False) -> bytes:
-    workbook = Workbook()
-    sheet = workbook.active
-    assert sheet is not None
-    sheet.title = "Результат"
-    headers = [
-        "№",
-        "Фамилия Имя",
-        "Регион",
-        "Статьи УК",
-        "Почему политическое",
-        "Мемориал",
-        "Первая новость",
-        "Последняя новость",
-        "Перечень РФМ",
-        *(f"Источник {number}" for number in range(1, LINKS + 1)),
-        "Свежая новость",
-        "В базе Airtable",
-        # Last: the files she already works from keep their columns where they were.
-        "Статья перечня",
-    ]
-    first_source = headers.index("Источник 1") + 1
-    sources = [
-        [(title, url, source) for title, url, _, source in row.links if is_web_link(url)][:LINKS]
-        for row in rows
-    ]
-    write_sheet(
-        sheet,
-        headers,
-        [
-            [
-                position,
-                row.shown_name,
-                row.regions or None,
-                _article_text(row.articles) or None,
-                basis_text(row),
-                row.memorial,
-                excel_day(row.first_published),
-                excel_day(row.last_published),
-                rf_word(row.rf_level, row.rf_entry, row.rf_inclusion_date, row.rf_inclusion_source)
-                or None,
-                *(f"{source}: {title[:80]}" for title, _, source in found),
-                *(None for _ in range(LINKS - len(found))),
-                KIND_LABELS.get(row.news_kind, row.news_kind) if row.news_kind else None,
-                _known_text(row, loaded=known_loaded),
-                row.listing.text if row.listing else None,
-            ]
-            for position, (row, found) in enumerate(zip(rows, sources, strict=True), start=1)
-        ],
-    )
-    for line, found in enumerate(sources, start=2):
-        for column, (_, url, _) in enumerate(found, start=first_source):
-            sheet.cell(row=line, column=column).hyperlink = url
-    write_notes(workbook, "Источник дат", INCLUSION_NOTES)
-    return workbook_bytes(workbook)
-
-
-def export_name(chosen: Filters, rows: list[ListRow], today: date) -> str:
-    """`result_<from>_<to>.xlsx`: the dates chosen, else the period's start, else the
-    earliest latest news of the rows; up to the date chosen, else today."""
-    start = chosen.date_from
-    if start is None and chosen.months:
-        start = today - timedelta(days=30 * chosen.months)
-    if start is None:
-        dates = [row.last_published for row in rows if row.last_published is not None]
-        start = min(dates).date() if dates else today
-    end = chosen.date_to or today
-    return f"result_{start.isoformat()}_{end.isoformat()}.xlsx"
-
-
 @router.get("/ui/political/export.xlsx")
 def ui_political_export(
     months: int = Query(default=0),
@@ -462,17 +340,6 @@ def ui_political_export(
         media_type=XLSX,
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
-
-
-def set_done(db: Session, key: str, *, done: bool) -> None:
-    """Tick or untick «обработано» and commit; read by the legacy form and
-    `POST /api/v1/political/done`. LookupError for nobody by this key.
-
-    A tick remembers the latest news the operator has seen: a later one brings the person
-    back to the list."""
-    seen = latest_news(db, key)
-    mark_done(db, key, done=done, news_at=seen)
-    db.commit()
 
 
 @router.post("/ui/political/done")

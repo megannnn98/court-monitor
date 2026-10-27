@@ -24,8 +24,8 @@ from web.response_models import (
     RunStartedResponse,
 )
 from web.routers.airtable import sync_airtable
-from web.ui.airtable import airtable_overview, official_summary
-from web.ui.officials_list import (
+from web.views.airtable import airtable_overview, official_summary
+from web.views.officials_list import (
     CATEGORIES,
     apply_add,
     apply_add_suggested,
@@ -76,7 +76,7 @@ def refresh_rosfin(
 ) -> RunStartedResponse:
     """Download the published list, a new snapshot only if it changed, and check every
     person against it again: the `check-entities-rosfin` run, in the background."""
-    from web.ui.management import _OPERATION
+    from web.views.management import _OPERATION
 
     try:
         run = registry.start(_OPERATION, OperationParameters(mode="rosfin"))

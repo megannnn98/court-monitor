@@ -33,8 +33,8 @@ from results.done_marks import done_marks, is_done
 from results.queries.unnamed_cases import Case, all_cases
 from web.dependencies import get_db
 from web.exports import XLSX, excel_day, is_web_link, workbook_bytes, write_notes, write_sheet
-from web.ui.entities import article_order, display_name, regions_text, role_label
-from web.ui.political import known_answer_text
+from web.views.entities import article_order, display_name, regions_text, role_label
+from web.views.political import known_answer_text
 
 router = APIRouter()
 

@@ -27,7 +27,7 @@ from processing.identity.collector import EntityCollector
 from processing.storage.models import EntityMentionRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
-from web.ui.workload import workload
+from web.views.workload import workload
 
 QUOTE = "В Тюмени задержан 17-летний житель города по делу о теракте <b>на железной дороге</b>."
 
@@ -289,7 +289,7 @@ def test_the_overview_shows_the_open_unnamed_with_their_candidates(
 
 def test_the_overview_counts_the_candidates_worth_looking_at() -> None:
     from analysis.unnamed.matching import Candidates
-    from web.ui.overview import _found
+    from web.views.overview import _found
 
     assert _found(Candidates([], 545, None, likely=12)) == "вероятных в перечне: 12"
     # Hundreds of that age and sex, nothing else told: their number says nothing.

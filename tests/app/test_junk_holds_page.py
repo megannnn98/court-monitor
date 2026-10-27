@@ -18,9 +18,9 @@ from processing.junk.screen import reason
 from processing.storage.models import JunkScreenHoldRecord
 from web.app import app
 from web.dependencies import get_db
-from web.ui.junk_holds import PAGE_SIZE, _pages, same_news
 from web.ui.run_cards import _holds_read
-from web.ui.workload import workload
+from web.views.junk_holds import PAGE_SIZE, _pages, same_news
+from web.views.workload import workload
 
 
 @contextmanager

@@ -23,9 +23,9 @@ from web.response_models import (
     VerdictDecisionRequest,
 )
 from web.routers.entities import rf_label
-from web.ui.disputes import KIND_HINTS, KINDS, PAGE_SIZE, PairPage, read_pairs, settle_pair
-from web.ui.entities import display_name, role_label
-from web.ui.queue import (
+from web.views.disputes import KIND_HINTS, KINDS, PAGE_SIZE, PairPage, read_pairs, settle_pair
+from web.views.entities import display_name, role_label
+from web.views.queue import (
     POLITICS_EXPLANATION,
     POLITICS_TITLE,
     ROLE_CHOICES,

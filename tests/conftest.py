@@ -124,7 +124,7 @@ def _no_operator_table_link(monkeypatch: pytest.MonkeyPatch) -> None:
 def _no_openrouter_balance_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """A page that shows the balance must not ask OpenRouter from a test: a key that a test
     sets is a fake one, and a developer's own key must not be spent on the network."""
-    from web.ui import spend
+    from web.views import spend
 
     monkeypatch.setattr(spend, "_request", lambda _key: None)
     spend.reset_cache()
@@ -141,7 +141,11 @@ def _no_openrouter_catalog_or_stored_choice(monkeypatch: pytest.MonkeyPatch) -> 
 
     fake = model_choice.CatalogCache(request=lambda: CATALOG_PAYLOAD)
     monkeypatch.setattr(model_choice, "CATALOG", fake)
-    for module in ("web.ui.spend", "web.routers.entity_model", "processing.identity.model_probe"):
+    for module in (
+        "web.views.spend",
+        "web.routers.entity_model",
+        "processing.identity.model_probe",
+    ):
         monkeypatch.setattr(f"{module}.CATALOG", fake)
     monkeypatch.setattr(entity_model, "read_stored", lambda _kind="extraction": None)
     entity_model.forget()

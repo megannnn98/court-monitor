@@ -32,8 +32,8 @@ from analysis.storage.models import (
 from processing.storage.models import EntityGroupRecord
 from web.app import app
 from web.dependencies import get_db
-from web.ui.political import political_xlsx
-from web.ui.political_rows import named_row
+from web.views.political import political_xlsx
+from web.views.political_rows import named_row
 
 INCLUDED = datetime(2024, 3, 14, tzinfo=UTC)
 
