@@ -182,17 +182,14 @@ def test_the_dossier_tells_the_kept_name_and_whether_the_person_is_an_official(
 
     with _client(session_factory) as client:
         before = client.get(f"/api/v1/investigations/{MOOR}").json()
-        marked = client.post(
-            f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
-        )
+        marked = client.post("/api/v1/entities/official", json={"key": MOOR, "official": True})
         official = client.get(f"/api/v1/investigations/{MOOR}").json()
-        renamed = client.post(
-            f"/ui/entities/{MOOR}/name", data={"name": "Александр Моор"}, follow_redirects=False
-        )
+        renamed = client.post("/api/v1/entities/name", json={"key": MOOR, "name": "Александр Моор"})
         after = client.get(f"/api/v1/investigations/{MOOR}").json()
 
     # Kept given name first, shown surname first.
     assert (before["name"], before["name_as_kept"]) == ("Моора Александр", "Александр Моора")
     assert (before["official"], official["official"]) == (False, True)
-    assert (marked.status_code, renamed.status_code) == (303, 303)
+    assert marked.json() == {"key": MOOR, "official": True}
+    assert renamed.json() == {"key": MOOR, "name": "Александр Моор"}
     assert (after["name"], after["name_as_kept"]) == ("Моор Александр", "Александр Моор")

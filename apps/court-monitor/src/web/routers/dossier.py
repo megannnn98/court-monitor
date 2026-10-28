@@ -34,6 +34,7 @@ from web.response_models import (
 )
 from web.views.dossier import (
     ORG_ROLES,
+    RELATED_LIMIT,
     TIMELINE_LIMIT,
     VERDICT_METHODS,
     Dossier,
@@ -219,6 +220,7 @@ def _dossier(dossier: Dossier) -> DossierResponse:
             RelatedPersonResponse(key=key, name=display_name(name), shared=shared)
             for key, name, shared in dossier.related
         ],
+        related_limit=RELATED_LIMIT,
         graph_url=f"/api/investigations/{quote(entity.key, safe='')}/graph",
     )
 

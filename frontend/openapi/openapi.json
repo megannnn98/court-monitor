@@ -1136,6 +1136,84 @@
         }
       }
     },
+    "/api/v1/entities/name": {
+      "post": {
+        "summary": "Correct Name",
+        "description": "A person's correction of the name, applied at once and kept for every rebuild.",
+        "operationId": "correct_name_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NameCorrectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NameCorrectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities/official": {
+      "post": {
+        "summary": "Mark Official",
+        "description": "A person's word: this entity is (or is not) an official; applied at once.",
+        "operationId": "mark_official_v1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficialMarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialMarkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/publications": {
       "get": {
         "summary": "List Publications",
@@ -1788,6 +1866,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review/pairs/reset": {
+      "post": {
+        "summary": "Reset Pair Decisions",
+        "description": "Forget every decision on a pair: the operator starts the pairs over. Irreversible.",
+        "operationId": "reset_pair_decisions_v1",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairResetResponse"
                 }
               }
             }
@@ -4988,6 +5085,10 @@
             "type": "array",
             "title": "Related"
           },
+          "related_limit": {
+            "type": "integer",
+            "title": "Related Limit"
+          },
           "graph_url": {
             "type": "string",
             "title": "Graph Url"
@@ -5035,6 +5136,7 @@
           "timeline_limit",
           "publications",
           "related",
+          "related_limit",
           "graph_url"
         ],
         "title": "DossierResponse",
@@ -7756,6 +7858,45 @@
         ],
         "title": "MonitoringTrigger"
       },
+      "NameCorrectionRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "NameCorrectionRequest",
+        "description": "A person's correction of an entity's name, kept for every rebuild."
+      },
+      "NameCorrectionResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "NameCorrectionResponse"
+      },
       "NameFormResponse": {
         "properties": {
           "form": {
@@ -7826,6 +7967,44 @@
           "external_id"
         ],
         "title": "OfficialDeactivateRequest"
+      },
+      "OfficialMarkRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Key"
+          },
+          "official": {
+            "type": "boolean",
+            "title": "Official"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "official"
+        ],
+        "title": "OfficialMarkRequest",
+        "description": "A person's word: the entity is (or is not) an official."
+      },
+      "OfficialMarkResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "official": {
+            "type": "boolean",
+            "title": "Official"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "official"
+        ],
+        "title": "OfficialMarkResponse"
       },
       "OfficialRowResponse": {
         "properties": {
@@ -8379,6 +8558,20 @@
         ],
         "title": "PairListResponse",
         "description": "«Пары»: two entities that may be one person, for the operator to decide."
+      },
+      "PairResetResponse": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "PairResetResponse",
+        "description": "Every decision on a pair forgotten: how many went."
       },
       "PairResponse": {
         "properties": {

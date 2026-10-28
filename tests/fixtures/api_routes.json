@@ -35,16 +35,12 @@
  "GET /ui/wiki/export.pdf",
  "GET /ui/wiki/{slug}",
  "POST /person-resolution/reviews/{decision_id}/decision",
- "POST /ui/entities/{key}/name",
- "POST /ui/entities/{key}/official",
  "POST /ui/management/entities",
  "POST /ui/management/figurants",
  "POST /ui/management/political",
  "POST /ui/management/purge",
  "POST /ui/management/run",
  "POST /ui/management/runs/{run_id}/stop",
- "POST /ui/pairs/reset-decisions",
- "POST /ui/queue/reset-decisions",
  "POST /ui/sentences/hide",
  "POST /ui/sentences/show"
 ]

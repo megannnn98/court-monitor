@@ -1,14 +1,17 @@
+import { QueryClient } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getDossierV1, setRemovalV1 } from "@/api/generated";
+import { correctNameV1, getDossierV1, markOfficialV1, setRemovalV1 } from "@/api/generated";
 import { dossierPath } from "@/lib/navigation";
 import { DossierPage } from "@/pages/DossierPage";
 import { failed, ok, renderPage } from "@/test/render";
 
-vi.mock("@/api/generated", () => ({ getDossierV1: vi.fn(), setRemovalV1: vi.fn() }));
+vi.mock("@/api/generated", () => ({ getDossierV1: vi.fn(), setRemovalV1: vi.fn(), correctNameV1: vi.fn(), markOfficialV1: vi.fn() }));
 const dossier = vi.mocked(getDossierV1);
 const removal = vi.mocked(setRemovalV1);
+const rename = vi.mocked(correctNameV1);
+const mark = vi.mocked(markOfficialV1);
 
 const QUOTE = { article_id: 77, title: "Арест Моора", source: "ОВД-Инфо", published_at: "2026-09-01T09:00:00Z", quote: "Суд арестовал Александра Моора.", start: 14, end: 30, text_start: 100, text_end: 116 };
 const DOSSIER = {
@@ -73,6 +76,7 @@ const DOSSIER = {
     }
   ],
   related: [{ key: "иван иванов", name: "Иванов Иван", shared: 1 }],
+  related_limit: 30,
   graph_url: "/api/investigations/x/graph"
 };
 
@@ -152,19 +156,20 @@ it("links a publication's source only when it is a web address", async () => {
   expect(container.innerHTML).not.toContain("javascript:");
 });
 
-it("says a full list of people is cut, and a shorter one is not", async () => {
+it("says a list of people as long as the API's cut is cut, and a shorter one is not", async () => {
   const people = (count: number) => Array.from({ length: count }, (_, i) => ({ key: `p${i}`, name: `Человек ${i}`, shared: 1 }));
-  dossier.mockReturnValue(ok({ ...DOSSIER, related: people(30) }) as never);
+  // The cut is the API's own, not a number of the page.
+  dossier.mockReturnValue(ok({ ...DOSSIER, related: people(5), related_limit: 5 }) as never);
 
   const full = renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/x" });
 
-  expect(await screen.findByText("Показаны первые 30 человек.")).toBeTruthy();
+  expect(await screen.findByText("Показаны первые 5 человек.")).toBeTruthy();
   full.unmount();
 
-  dossier.mockReturnValue(ok({ ...DOSSIER, related: people(29) }) as never);
+  dossier.mockReturnValue(ok({ ...DOSSIER, related: people(4), related_limit: 5 }) as never);
   renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/y" });
 
-  expect(await screen.findByText("Человек 28")).toBeTruthy();
+  expect(await screen.findByText("Человек 3")).toBeTruthy();
   expect(screen.queryByText(/Показаны первые/)).toBeNull();
 });
 
@@ -178,33 +183,44 @@ it("shows the API's own error", async () => {
 
 it("corrects the name and marks an official on the page itself, and says a refusal", async () => {
   dossier.mockReturnValue(ok(DOSSIER) as never);
-  const sent = vi.fn((_address: string, _init?: RequestInit) => Promise.resolve(new Response("", { status: 200 })));
-  vi.stubGlobal("fetch", sent);
-  try {
-    renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/%D0%BC%D0%BE%D0%BE%D1%80" });
+  rename.mockReturnValue(ok({ key: DOSSIER.key, name: "Александр Иванович Моор" }) as never);
+  mark.mockReturnValue(failed(404, "Человек не найден") as never);
 
-    // The name in the order it is kept in, not as the heading shows it.
-    const field = (await screen.findByLabelText("Имя [Отчество] Фамилия")) as HTMLInputElement;
-    expect(field.value).toBe("Александр Моор");
-    // No way out to «the old interface»: the decisions are here.
-    expect(screen.queryByText(/старом интерфейсе/)).toBeNull();
-    fireEvent.change(field, { target: { value: "Александр Иванович Моор" } });
-    fireEvent.click(screen.getByRole("button", { name: "Исправить имя" }));
+  renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/%D0%BC%D0%BE%D0%BE%D1%80" });
 
-    await waitFor(() => expect(sent).toHaveBeenCalledTimes(1));
-    expect(sent.mock.calls[0][0]).toBe(`/ui/entities/${encodeURIComponent(DOSSIER.key)}/name`);
-    expect(String(sent.mock.calls[0][1]?.body)).toBe("name=%D0%90%D0%BB%D0%B5%D0%BA%D1%81%D0%B0%D0%BD%D0%B4%D1%80+%D0%98%D0%B2%D0%B0%D0%BD%D0%BE%D0%B2%D0%B8%D1%87+%D0%9C%D0%BE%D0%BE%D1%80");
-    // The dossier is read again after the word.
-    await waitFor(() => expect(dossier.mock.calls.length).toBeGreaterThan(1));
+  // The name in the order it is kept in, not as the heading shows it.
+  const field = (await screen.findByLabelText("Имя [Отчество] Фамилия")) as HTMLInputElement;
+  expect(field.value).toBe("Александр Моор");
+  // No way out to «the old interface»: the decisions are here.
+  expect(screen.queryByText(/старом интерфейсе/)).toBeNull();
+  fireEvent.change(field, { target: { value: "Александр Иванович Моор" } });
+  fireEvent.click(screen.getByRole("button", { name: "Исправить имя" }));
 
-    sent.mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Сущность не найдена" }), { status: 404 }));
-    fireEvent.click(screen.getByRole("button", { name: "Это должностное лицо" }));
+  await waitFor(() => expect(rename).toHaveBeenCalledWith({ body: { key: DOSSIER.key, name: "Александр Иванович Моор" } }));
+  // The dossier is read again after the word.
+  await waitFor(() => expect(dossier.mock.calls.length).toBeGreaterThan(1));
 
-    expect((await screen.findByRole("alert")).textContent).toBe("Сущность не найдена");
-    expect(sent.mock.calls[1][0]).toBe(`/ui/entities/${encodeURIComponent(DOSSIER.key)}/official`);
-    expect(String(sent.mock.calls[1][1]?.body)).toBe("official=yes");
-  } finally {
-    vi.unstubAllGlobals();
+  fireEvent.click(screen.getByRole("button", { name: "Это должностное лицо" }));
+
+  expect((await screen.findByRole("alert")).textContent).toBe("Человек не найден");
+  expect(mark).toHaveBeenCalledWith({ body: { key: DOSSIER.key, official: true } });
+});
+
+it("reads again every list the person is in after a word on the name or the mark", async () => {
+  dossier.mockReturnValue(ok(DOSSIER) as never);
+  mark.mockReturnValue(ok({ key: DOSSIER.key, official: true }) as never);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+  // The lists were open a moment ago: in the cache, fresh for 30 s.
+  const lists = [["entities", {}], ["political", {}], ["review", "pairs", {}]];
+  for (const key of lists) {
+    client.setQueryData(key, { items: [] });
+  }
+
+  renderPage(<DossierPage />, { path: "/investigations/:personKey", url: "/investigations/x", client });
+  fireEvent.click(await screen.findByRole("button", { name: "Это должностное лицо" }));
+
+  for (const key of lists) {
+    await waitFor(() => expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true));
   }
 });
 

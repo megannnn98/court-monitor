@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import { decidePairV1, listPairsV1, type PairResponse, type PairSideResponse } from "@/api/generated";
+import { decidePairV1, listPairsV1, resetPairDecisionsV1, type PairResponse, type PairSideResponse } from "@/api/generated";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Pager } from "@/components/Pager";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUrlState } from "@/hooks/useUrlState";
-import { ApiError, unwrap } from "@/lib/api";
+import { unwrap } from "@/lib/api";
 import { readAgainAfterDecision } from "@/lib/decisions";
 import { formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
@@ -68,18 +68,12 @@ function Pair({ pair }: { pair: PairResponse }) {
 }
 
 /** «Сбросить все решения по парам», as on the legacy page: the operator starts the pairs
- * over. Sent to the legacy route, which answers with how many decisions it forgot. */
+ * over; the API answers with how many decisions it forgot. */
 function Reset({ decided }: { decided: Record<string, number> }) {
   const client = useQueryClient();
   const total = Object.values(decided).reduce((sum, count) => sum + count, 0);
   const reset = useMutation({
-    mutationFn: async () => {
-      const answer = await fetch("/ui/pairs/reset-decisions", { method: "POST" });
-      if (!answer.ok) {
-        throw new ApiError(`Сервер ответил ${answer.status}`, answer.status);
-      }
-      return new URL(answer.url, window.location.origin).searchParams.get("reset") ?? String(total);
-    },
+    mutationFn: async () => (await unwrap(resetPairDecisionsV1())).deleted,
     onSuccess: async () => {
       await readAgainAfterDecision(client, ["review", "pairs"]);
     }
@@ -106,7 +100,7 @@ function Reset({ decided }: { decided: Record<string, number> }) {
           Сохранено решений: {total} (вручную: {decided.manual ?? 0}, по перечню: {decided.rf ?? 0}, по региону: {decided.region ?? 0}).
         </span>
       ) : null}
-      {reset.isSuccess ? <span role="status">Решения по парам сброшены: {reset.data}.</span> : null}
+      {reset.isSuccess ? <span role="status">Решения по парам сброшены: {formatNumber(reset.data)}.</span> : null}
       {reset.isError ? <span className="text-destructive">{reset.error.message}</span> : null}
     </div>
   );

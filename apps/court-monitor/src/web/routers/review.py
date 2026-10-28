@@ -1,11 +1,13 @@
 """The review stations for the React console: unclear roles, unclear politics and the
 pairs that may be one person, with the operator's decisions. The decisions are actions,
-refused from other origins (`web.csrf`, ADR 0022). Resetting every pair decision is
-irreversible and stays on the legacy page."""
+refused from other origins (`web.csrf`, ADR 0022)."""
+
+import logging
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from application import build_identity_commands
 from processing.read import Group
 from web.dependencies import get_db
 from web.response_models import (
@@ -15,6 +17,7 @@ from web.response_models import (
     OptionResponse,
     PairDecisionRequest,
     PairListResponse,
+    PairResetResponse,
     PairResponse,
     PairSideResponse,
     ReviewItemResponse,
@@ -37,6 +40,9 @@ from web.views.queue import (
     unclear_roles,
     unclear_verdicts,
 )
+
+# The same logger the pair decisions write to (`web.views.queue`).
+logger = logging.getLogger("entities")
 
 router = APIRouter()
 
@@ -160,3 +166,12 @@ def decide_pair(
     """«same»: one person, merged now and at every rebuild; «different»: off the list."""
     settle_pair(db, body.key_a, body.key_b, body.decision)
     return DecisionResponse(key=f"{body.key_a}|{body.key_b}", decision=body.decision)
+
+
+@router.post("/review/pairs/reset", response_model=PairResetResponse)
+def reset_pair_decisions(db: Session = Depends(get_db)) -> PairResetResponse:  # noqa: B008
+    """Forget every decision on a pair: the operator starts the pairs over. Irreversible."""
+    deleted = build_identity_commands().reset_decisions(db)
+    db.commit()
+    logger.info("event=pair_decisions_reset deleted=%d", deleted)
+    return PairResetResponse(deleted=deleted)

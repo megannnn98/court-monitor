@@ -22,6 +22,10 @@ from .entities_publications import EntityListResponse as EntityListResponse
 from .entities_publications import EntityRowResponse as EntityRowResponse
 from .entities_publications import EvidenceSpanResponse as EvidenceSpanResponse
 from .entities_publications import LatestRosfinMatchResponse as LatestRosfinMatchResponse
+from .entities_publications import NameCorrectionRequest as NameCorrectionRequest
+from .entities_publications import NameCorrectionResponse as NameCorrectionResponse
+from .entities_publications import OfficialMarkRequest as OfficialMarkRequest
+from .entities_publications import OfficialMarkResponse as OfficialMarkResponse
 from .entities_publications import (
     PersecutionClassificationResponse as PersecutionClassificationResponse,
 )
@@ -90,6 +94,7 @@ from .political import PublicationLinkResponse as PublicationLinkResponse
 from .reviews import DecisionResponse as DecisionResponse
 from .reviews import PairDecisionRequest as PairDecisionRequest
 from .reviews import PairListResponse as PairListResponse
+from .reviews import PairResetResponse as PairResetResponse
 from .reviews import PairResponse as PairResponse
 from .reviews import PairSideResponse as PairSideResponse
 from .reviews import ReviewItemResponse as ReviewItemResponse
