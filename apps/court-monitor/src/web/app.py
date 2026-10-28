@@ -50,12 +50,10 @@ from web.routers import (
 )
 from web.spa import react_console
 from web.ui import candidates as ui_candidates
-from web.ui import entities as ui_entities
 from web.ui import logs as ui_logs
 from web.ui import management as ui_management
 from web.ui import officials as ui_officials
 from web.ui import officials_list as ui_officials_list
-from web.ui import pairs_reset as ui_pairs_reset
 from web.ui import people_export as ui_people_export
 from web.ui import political_export as ui_political_export
 from web.ui import rfm_list as ui_rfm_list
@@ -122,10 +120,8 @@ for module in (
     reviews,
     ui_wiki,
     ui_candidates,
-    ui_pairs_reset,
     ui_management,
     ui_logs,
-    ui_entities,
     ui_people_export,
     ui_sentences,
     ui_political_export,

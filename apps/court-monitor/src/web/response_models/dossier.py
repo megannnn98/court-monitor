@@ -132,4 +132,6 @@ class DossierResponse(BaseModel):
     timeline_limit: int
     publications: list[EvidenceResponse]
     related: list[RelatedPersonResponse]
+    # The cut of `related`: a list this long may hold more people.
+    related_limit: int
     graph_url: str

@@ -180,9 +180,12 @@ def test_openapi_lists_versioned_reads_and_only_the_known_actions(client: TestCl
     assert actions == {
         ("post", "/api/v1/political/done"),
         ("post", "/api/v1/entities/removal"),
+        ("post", "/api/v1/entities/name"),
+        ("post", "/api/v1/entities/official"),
         ("post", "/api/v1/review/roles/decide"),
         ("post", "/api/v1/review/politics/decide"),
         ("post", "/api/v1/review/pairs/decide"),
+        ("post", "/api/v1/review/pairs/reset"),
         ("post", "/api/v1/cycle/start"),
         ("post", "/api/v1/cycle/runs/{run_id}/stop"),
         ("post", "/api/v1/unnamed/keep"),

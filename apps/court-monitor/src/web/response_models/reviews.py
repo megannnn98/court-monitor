@@ -85,6 +85,12 @@ class PairListResponse(BaseModel):
     decided: dict[str, int]
 
 
+class PairResetResponse(BaseModel):
+    """Every decision on a pair forgotten: how many went."""
+
+    deleted: int
+
+
 class PairDecisionRequest(BaseModel):
     key_a: str
     key_b: str

@@ -171,6 +171,31 @@ class RemovalListResponse(BaseModel):
     items: list[RemovalResponse]
 
 
+class NameCorrectionRequest(BaseModel):
+    """A person's correction of an entity's name, kept for every rebuild."""
+
+    key: str = Field(max_length=255)
+    name: str = Field(max_length=200)
+
+
+class NameCorrectionResponse(BaseModel):
+    key: str
+    # The name as kept, cleaned.
+    name: str
+
+
+class OfficialMarkRequest(BaseModel):
+    """A person's word: the entity is (or is not) an official."""
+
+    key: str = Field(max_length=255)
+    official: bool
+
+
+class OfficialMarkResponse(BaseModel):
+    key: str
+    official: bool
+
+
 class PublicationRowResponse(BaseModel):
     id: int
     title: str

@@ -2,7 +2,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { getDossierV1, setRemovalV1, type DossierResponse, type QuoteResponse } from "@/api/generated";
+import { correctNameV1, getDossierV1, markOfficialV1, setRemovalV1, type DossierResponse, type QuoteResponse } from "@/api/generated";
 import { EventGraph } from "@/components/EventGraph";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { QueryState } from "@/components/QueryState";
@@ -12,13 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError, unwrap } from "@/lib/api";
+import { unwrap } from "@/lib/api";
 import { readAgainAfterDecision } from "@/lib/decisions";
 import { DASH, externalUrl, formatDate, formatNumber } from "@/lib/format";
 import { dossierPath } from "@/lib/navigation";
-
-/** The API's cut of the people list (`web.views.dossier.RELATED_LIMIT`): a full list is cut. */
-const RELATED_LIMIT = 30;
 
 /** The excerpt with the mention marked, as the legacy dossier writes it. */
 function Excerpt({ quote, start, end }: Pick<QuoteResponse, "quote" | "start" | "end">) {
@@ -60,24 +57,23 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
 }
 
 /** «Исправить имя и ручные решения» of the legacy dossier: a person's correction of the
- * name and the word «это должностное лицо», both kept and applied at every rebuild. Sent
- * to the legacy routes; the dossier is read again. */
+ * name and the word «это должностное лицо», both kept and applied at every rebuild; the
+ * dossier is read again. */
 function Manual({ person }: { person: DossierResponse }) {
   const client = useQueryClient();
   const [name, setName] = useState(person.name_as_kept);
   const send = useMutation({
-    mutationFn: async ({ action, fields }: { action: "name" | "official"; fields: Record<string, string> }) => {
-      const answer = await fetch(`/ui/entities/${encodeURIComponent(person.key)}/${action}`, {
-        method: "POST",
-        body: new URLSearchParams(fields)
-      });
-      if (!answer.ok) {
-        const detail = ((await answer.json().catch(() => null)) as { detail?: unknown } | null)?.detail;
-        throw new ApiError(typeof detail === "string" ? detail : `Сервер ответил ${answer.status}`, answer.status);
+    mutationFn: async (change: { name: string } | { official: boolean }) => {
+      if ("name" in change) {
+        await unwrap(correctNameV1({ body: { key: person.key, name: change.name } }));
+      } else {
+        await unwrap(markOfficialV1({ body: { key: person.key, official: change.official } }));
       }
     },
+    // A name or the official's mark changes every list the person is in: an official
+    // leaves «Результат», a new name is a new pair.
     onSuccess: async () => {
-      await readAgainAfterDecision(client, ["investigations"], ["entities"]);
+      await readAgainAfterDecision(client, ["investigations"], ["entities"], ["political"], ["review", "pairs"]);
     }
   });
   const navigate = useNavigate();
@@ -92,7 +88,7 @@ function Manual({ person }: { person: DossierResponse }) {
 
   function rename(event: FormEvent) {
     event.preventDefault();
-    send.mutate({ action: "name", fields: { name } });
+    send.mutate({ name });
   }
 
   return (
@@ -111,7 +107,7 @@ function Manual({ person }: { person: DossierResponse }) {
         <Button
           variant="outline"
           disabled={send.isPending}
-          onClick={() => send.mutate({ action: "official", fields: { official: person.official ? "no" : "yes" } })}
+          onClick={() => send.mutate({ official: !person.official })}
         >
           {person.official ? "Не должностное лицо" : "Это должностное лицо"}
         </Button>
@@ -467,8 +463,8 @@ export function DossierPage() {
                   ))}
                 </TableBody>
               </Table>
-              {person.related.length >= RELATED_LIMIT ? (
-                <p className="mt-2 text-sm text-muted-foreground">Показаны первые {RELATED_LIMIT} человек.</p>
+              {person.related.length >= person.related_limit ? (
+                <p className="mt-2 text-sm text-muted-foreground">Показаны первые {person.related_limit} человек.</p>
               ) : null}
             </Section>
           ) : null}

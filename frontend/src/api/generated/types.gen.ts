@@ -1131,6 +1131,10 @@ export type DossierResponse = {
      */
     related: Array<RelatedPersonResponse>;
     /**
+     * Related Limit
+     */
+    related_limit: number;
+    /**
      * Graph Url
      */
     graph_url: string;
@@ -2675,6 +2679,36 @@ export type MonitoringStatusView = {
 export type MonitoringTrigger = 'schedule' | 'manual' | 'backfill' | 'derived';
 
 /**
+ * NameCorrectionRequest
+ *
+ * A person's correction of an entity's name, kept for every rebuild.
+ */
+export type NameCorrectionRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * NameCorrectionResponse
+ */
+export type NameCorrectionResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * NameFormResponse
  */
 export type NameFormResponse = {
@@ -2724,6 +2758,36 @@ export type OfficialDeactivateRequest = {
      * External Id
      */
     external_id: string;
+};
+
+/**
+ * OfficialMarkRequest
+ *
+ * A person's word: the entity is (or is not) an official.
+ */
+export type OfficialMarkRequest = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Official
+     */
+    official: boolean;
+};
+
+/**
+ * OfficialMarkResponse
+ */
+export type OfficialMarkResponse = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Official
+     */
+    official: boolean;
 };
 
 /**
@@ -3092,6 +3156,18 @@ export type PairListResponse = {
     decided: {
         [key: string]: number;
     };
+};
+
+/**
+ * PairResetResponse
+ *
+ * Every decision on a pair forgotten: how many went.
+ */
+export type PairResetResponse = {
+    /**
+     * Deleted
+     */
+    deleted: number;
 };
 
 /**
@@ -6038,6 +6114,56 @@ export type SetRemovalV1Responses = {
 
 export type SetRemovalV1Response = SetRemovalV1Responses[keyof SetRemovalV1Responses];
 
+export type CorrectNameV1Data = {
+    body: NameCorrectionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entities/name';
+};
+
+export type CorrectNameV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CorrectNameV1Error = CorrectNameV1Errors[keyof CorrectNameV1Errors];
+
+export type CorrectNameV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: NameCorrectionResponse;
+};
+
+export type CorrectNameV1Response = CorrectNameV1Responses[keyof CorrectNameV1Responses];
+
+export type MarkOfficialV1Data = {
+    body: OfficialMarkRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/entities/official';
+};
+
+export type MarkOfficialV1Errors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type MarkOfficialV1Error = MarkOfficialV1Errors[keyof MarkOfficialV1Errors];
+
+export type MarkOfficialV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: OfficialMarkResponse;
+};
+
+export type MarkOfficialV1Response = MarkOfficialV1Responses[keyof MarkOfficialV1Responses];
+
 export type ListPublicationsV1Data = {
     body?: never;
     path?: never;
@@ -6443,6 +6569,22 @@ export type DecidePairV1Responses = {
 };
 
 export type DecidePairV1Response = DecidePairV1Responses[keyof DecidePairV1Responses];
+
+export type ResetPairDecisionsV1Data = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review/pairs/reset';
+};
+
+export type ResetPairDecisionsV1Responses = {
+    /**
+     * Successful Response
+     */
+    200: PairResetResponse;
+};
+
+export type ResetPairDecisionsV1Response = ResetPairDecisionsV1Responses[keyof ResetPairDecisionsV1Responses];
 
 export type GetCycleV1Data = {
     body?: never;

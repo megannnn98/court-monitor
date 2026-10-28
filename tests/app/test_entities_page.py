@@ -24,7 +24,8 @@ from processing.storage.models import EntityMentionRecord
 from web.app import app
 from web.dependencies import OPERATION_COMMAND_LINE, get_db, get_operation_registry
 
-MOOR = quote("александр моор")
+KEY = "александр моор"
+MOOR = quote(KEY)
 
 
 @contextmanager
@@ -477,23 +478,16 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
     with _client(session_factory, registry) as client:
         card = _dossier(client, "александр моор")
         listed = [row["name"] for row in client.get("/api/v1/political").json()["items"]]
-        marked = client.post(
-            f"/ui/entities/{MOOR}/official", data={"official": "yes"}, follow_redirects=False
-        )
+        marked = client.post("/api/v1/entities/official", json={"key": KEY, "official": True})
         card_after_mark = _dossier(client, "александр моор")
         official_after_mark = _mark_of(session_factory)
-        unmarked = client.post(
-            f"/ui/entities/{MOOR}/official",
-            data={"official": "no", "back": "officials"},
-            follow_redirects=False,
-        )
+        unmarked = client.post("/api/v1/entities/official", json={"key": KEY, "official": False})
         card_after_unmark = _dossier(client, "александр моор")
         official_after_unmark = _mark_of(session_factory)
-        missing = client.post("/ui/entities/никто/official", data={"official": "yes"})
+        missing = client.post("/api/v1/entities/official", json={"key": "никто", "official": True})
 
     assert card["official"] is False
-    assert marked.status_code == 303
-    assert marked.headers["location"] == f"/ui/investigations/{MOOR}"
+    assert marked.json() == {"key": KEY, "official": True}
     # The card now says he is an official, and why.
     assert card_after_mark["official"] is True
     assert card_after_mark["role_label"] == "упомянут: чиновник"
@@ -505,10 +499,10 @@ def test_an_official_is_marked_on_the_card_and_unmarked_there(
         assert session.scalar(text("SELECT count(*) FROM entity_group_politics")) == 0
     # Taking it back puts the card as it was, and the mark is cleared: the row stays,
     # it no longer says he is an official.
-    assert unmarked.status_code == 303
+    assert unmarked.json() == {"key": KEY, "official": False}
     assert official_after_unmark is False
     assert card_after_unmark["official"] is False
-    assert missing.status_code == 404
+    assert missing.status_code == 404 and missing.json() == {"detail": "Человек не найден"}
 
 
 def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session]) -> None:
@@ -519,17 +513,15 @@ def test_a_name_is_corrected_on_the_card(session_factory: sessionmaker[Session])
 
     with _client(session_factory, registry) as client:
         corrected = client.post(
-            f"/ui/entities/{MOOR}/name",
-            data={"name": "Моор Александр Викторович"},
-            follow_redirects=False,
+            "/api/v1/entities/name", json={"key": KEY, "name": "Моор Александр Викторович"}
         )
         after = _dossier(client, "александр моор")
         listed = _row(_people(client, role="all"), "Моор Александр Викторович")
-        empty = client.post(f"/ui/entities/{MOOR}/name", data={"name": "   "})
-        missing = client.post("/ui/entities/никто/name", data={"name": "Кто-то"})
+        empty = client.post("/api/v1/entities/name", json={"key": KEY, "name": "   "})
+        missing = client.post("/api/v1/entities/name", json={"key": "никто", "name": "Кто-то"})
 
-    assert corrected.status_code == 303
-    assert corrected.headers["location"] == f"/ui/investigations/{MOOR}"
+    # The name as kept: given name first.
+    assert corrected.json() == {"key": KEY, "name": "Александр Викторович Моор"}
     # Written surname first, kept given name first, shown surname first.
     assert after["name"] == "Моор Александр Викторович"
     assert after["name_as_kept"] == "Александр Викторович Моор"
@@ -547,7 +539,7 @@ def test_a_corrected_name_that_is_another_entity_s_merges_them(
     )
 
     with _client(session_factory, registry) as client:
-        client.post(f"/ui/entities/{MOOR}/name", data={"name": "Иван Иванов"})
+        client.post("/api/v1/entities/name", json={"key": KEY, "name": "Иван Иванов"})
         listed = _people(client, role="all")
 
     assert listed["total"] == 1 and _names(listed) == ["Иванов Иван"]

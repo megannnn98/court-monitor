@@ -1,13 +1,14 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { decidePairV1, listPairsV1 } from "@/api/generated";
+import { decidePairV1, listPairsV1, resetPairDecisionsV1 } from "@/api/generated";
 import { PairsPage } from "@/pages/PairsPage";
 import { failed, ok, renderPage } from "@/test/render";
 
-vi.mock("@/api/generated", () => ({ listPairsV1: vi.fn(), decidePairV1: vi.fn() }));
+vi.mock("@/api/generated", () => ({ listPairsV1: vi.fn(), decidePairV1: vi.fn(), resetPairDecisionsV1: vi.fn() }));
 const list = vi.mocked(listPairsV1);
 const decide = vi.mocked(decidePairV1);
+const reset = vi.mocked(resetPairDecisionsV1);
 
 function side(key: string, name: string) {
   return { key, name, role_label: null, rf_label: null, variants: [{ form: name, count: 2 }], mention_count: 2, article_count: 2, regions: [], articles: [] };
@@ -68,25 +69,20 @@ it("says when no pair is open and shows the API's error", async () => {
 
 it("resets every decision after asking, and says how many it forgot", async () => {
   list.mockReturnValue(ok({ ...PAGE, decided: { manual: 3, rf: 2 } }) as never);
-  const sent = vi.fn(() => {
-    const answer = new Response("", { status: 200 });
-    Object.defineProperty(answer, "url", { value: "http://localhost/review/pairs?reset=5" });
-    return Promise.resolve(answer);
-  });
-  vi.stubGlobal("fetch", sent);
+  // The count is the API's: a decision taken meanwhile is forgotten too.
+  reset.mockReturnValue(ok({ deleted: 6 }) as never);
   renderPage(<PairsPage />);
 
   expect(await screen.findByText("Сохранено решений: 5 (вручную: 3, по перечню: 2, по региону: 0).")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Сбросить все решения по парам" }));
   // Nothing is sent before the operator says so.
-  expect(sent).not.toHaveBeenCalled();
+  expect(reset).not.toHaveBeenCalled();
   expect(screen.getByText(/Удалить все решения по спорным парам \(5, из них вручную 3\)/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Сбросить" }));
 
-  expect(await screen.findByText("Решения по парам сброшены: 5.")).toBeTruthy();
-  expect(sent).toHaveBeenCalledWith("/ui/pairs/reset-decisions", { method: "POST" });
+  expect(await screen.findByText("Решения по парам сброшены: 6.")).toBeTruthy();
+  expect(reset).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(1));
-  vi.unstubAllGlobals();
 });
 
 it("offers no reset when no decision is kept", async () => {

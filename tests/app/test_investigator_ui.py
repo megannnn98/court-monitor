@@ -606,11 +606,11 @@ def test_every_pair_decision_can_be_reset(session_factory: sessionmaker[Session]
 
     with _client(session_factory) as client:
         before = _pair_list(client)
-        reset = client.post("/ui/pairs/reset-decisions", follow_redirects=False)
+        reset = client.post("/api/v1/review/pairs/reset")
         after = _pair_list(client)
 
     assert before["total"] == 0 and sum(before["decided"].values()) == 2
-    assert reset.status_code == 303 and reset.headers["location"] == "/ui/pairs?reset=2"
+    assert reset.json() == {"deleted": 2}
     # Both pairs are disputed again; nothing is left to reset.
     assert after["total"] == 2 and sum(after["decided"].values()) == 0
     with session_factory() as session:

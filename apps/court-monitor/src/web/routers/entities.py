@@ -1,5 +1,6 @@
 """«Все люди» for the React console: the legacy list's rows, filters and counts, and a
-person's removals of entities that are nobody."""
+person's words on an entity: a corrected name, the official mark, the removal of one that
+is nobody."""
 
 from urllib.parse import quote
 
@@ -7,15 +8,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from analysis.rosfinmonitoring.rf_check import FULL
-from application import build_identity_commands
+from application import build_identity_commands, group_followers
 from processing.identity.service import MANUAL
 from processing.read import Group
+from processing.roles.commands import mark_official_of
 from web.dependencies import get_db
 from web.response_models import (
     EntityArticleResponse,
     EntityListResponse,
     EntityRowResponse,
     EventCountResponse,
+    NameCorrectionRequest,
+    NameCorrectionResponse,
+    OfficialMarkRequest,
+    OfficialMarkResponse,
     OptionResponse,
     RemovalListResponse,
     RemovalRequest,
@@ -154,3 +160,31 @@ def set_removal(
         name = kept
     db.commit()
     return RemovalResponse(key=body.key, name=display_name(name), removed=body.removed)
+
+
+@router.post("/entities/name", response_model=NameCorrectionResponse)
+def correct_name(
+    body: NameCorrectionRequest,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> NameCorrectionResponse:
+    """A person's correction of the name, applied at once and kept for every rebuild."""
+    try:
+        name = build_identity_commands().correct_name(db, body.key, body.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Пустое имя") from exc
+    if name is None:
+        raise HTTPException(status_code=404, detail="Человек не найден")
+    db.commit()
+    return NameCorrectionResponse(key=body.key, name=name)
+
+
+@router.post("/entities/official", response_model=OfficialMarkResponse)
+def mark_official(
+    body: OfficialMarkRequest,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> OfficialMarkResponse:
+    """A person's word: this entity is (or is not) an official; applied at once."""
+    if not mark_official_of(db, body.key, body.official, downstream=group_followers()):
+        raise HTTPException(status_code=404, detail="Человек не найден")
+    db.commit()
+    return OfficialMarkResponse(key=body.key, official=body.official)
